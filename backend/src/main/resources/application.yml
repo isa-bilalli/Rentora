@@ -10,3 +10,7 @@ spring:
 
   flyway:
     enabled: true
+
+jwt:
+  secret: R5BZsD12xsuHNypY2K/FysErfd5O7GLdr+MetXj1C84=
+  expiration: 900000

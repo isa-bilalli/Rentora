@@ -29,7 +29,7 @@ public class UserService {
                 request.email(),
                 passwordHash
         );
-
+        toResponse(user);
         return userRepository.save(user);
     }
 
