@@ -1,7 +1,7 @@
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/rentora
-    username: postgres
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
 
   jpa:
@@ -12,5 +12,5 @@ spring:
     enabled: true
 
 jwt:
-  secret: R5BZsD12xsuHNypY2K/FysErfd5O7GLdr+MetXj1C84=
-  expiration: 900000
+  secret: ${JWT_SECRET}
+  expiration: ${JWT_EXPIRATION}
