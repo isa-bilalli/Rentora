@@ -49,6 +49,14 @@ public class SpaceService {
         return property;
     }
 
+    private Space validateSpace(Long spaceId, Long propertyId){
+        Space space = spaceRepository.findById(spaceId).orElseThrow(()-> new IllegalArgumentException("Space not found"));
+        if(!space.getPropertyId().equals(propertyId)){
+            throw new AccessDeniedException("Space does not belong to this property");
+        }
+        return space;
+    }
+
     public SpaceResponse createSpace(Long organizationId, Long propertyId, CreateSpaceRequest request){
         Property property = getAuthorizedProperty(organizationId, propertyId);
         Space space = new Space(property.getId(), request.name(), request.type(), request.floor(), request.area(), SpaceStatus.VACANT);
@@ -63,34 +71,22 @@ public class SpaceService {
 
     public SpaceResponse getSpaceById(Long organizationId, Long propertyId, Long spaceId){
         getAuthorizedProperty(organizationId, propertyId);
-        Space space = spaceRepository.findById(spaceId).orElseThrow(()-> new IllegalArgumentException("Space not found"));
-        if(!space.getPropertyId().equals(propertyId)){
-            throw new AccessDeniedException("Space does not belong to this property");
-        }
+        Space space = validateSpace(spaceId, propertyId);
         return SpaceResponse.from(space);
     }
 
     public SpaceResponse updateSpace(Long organizationId, Long propertyId, Long spaceId , UpdateSpaceRequest request){
         getAuthorizedProperty(organizationId, propertyId);
-        Space space = spaceRepository.findById(spaceId).orElseThrow(()-> new IllegalArgumentException("Space not found"));
-        if(!space.getPropertyId().equals(propertyId)){
-            throw new AccessDeniedException("Space does not belong to this property");
-        }
+        Space space = validateSpace(spaceId, propertyId);
 
         space.update(request.name(), request.type(), request.floor(), request.area());
-
         Space updatedSpace = spaceRepository.save(space);
         return SpaceResponse.from(updatedSpace);
     }
 
     public void deleteSpace(Long organizationId, Long propertyId, Long spaceId){
         getAuthorizedProperty(organizationId, propertyId);
-        Space space = spaceRepository.findById(spaceId).orElseThrow(()-> new IllegalArgumentException("Space not found"));
-        if (!space.getPropertyId().equals(propertyId)) {
-            throw new AccessDeniedException(
-                "Space does not belong to this property"
-            );
-        }
+        Space space = validateSpace(spaceId, propertyId);
 
         spaceRepository.delete(space);
     }
