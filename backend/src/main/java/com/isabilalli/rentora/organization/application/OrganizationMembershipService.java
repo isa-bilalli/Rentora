@@ -32,4 +32,8 @@ public class OrganizationMembershipService {
 
         return membershipRepository.save(membership);
     }
+    
+    public boolean isMember(Long userId, Long organizationId){
+        return membershipRepository.existsByUser_IdAndOrganization_Id(userId, organizationId);
+    }
 }

@@ -40,10 +40,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         try {
             Long userId = jwtService.extractUserId(token);
+            String email = jwtService.extractEmail(token);
+
+            AuthenticatedUser authenticatedUser =
+                    new AuthenticatedUser(
+                            userId,
+                            email
+                    );
 
             UsernamePasswordAuthenticationToken authentication =
                     new UsernamePasswordAuthenticationToken(
-                            userId,
+                            authenticatedUser,
                             null,
                             Collections.emptyList()
                     );
@@ -53,7 +60,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     .setAuthentication(authentication);
 
         } catch (Exception exception) {
-            throw new IOException(exception);
+            SecurityContextHolder.clearContext();
         }
 
         filterChain.doFilter(request, response);
