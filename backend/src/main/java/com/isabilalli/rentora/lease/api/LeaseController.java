@@ -2,6 +2,7 @@ package com.isabilalli.rentora.lease.api;
 
 import com.isabilalli.rentora.lease.api.dto.CreateLeaseRequest;
 import com.isabilalli.rentora.lease.api.dto.LeaseResponse;
+import com.isabilalli.rentora.lease.api.dto.RenewLeaseRequest;
 import com.isabilalli.rentora.lease.api.dto.UpdateLeaseRequest;
 import com.isabilalli.rentora.lease.application.LeaseService;
 import jakarta.validation.Valid;
@@ -55,5 +56,9 @@ public class LeaseController {
         return ResponseEntity.ok(leaseService.cancelLease(organizationId, leaseId));
     }
     
+    @PostMapping("/{leaseId}/renew")
+    public ResponseEntity<LeaseResponse> renewLease(@PathVariable Long organizationId, @PathVariable Long leaseId, @Valid @RequestBody RenewLeaseRequest request) {
+        return ResponseEntity.ok(leaseService.renewLease(organizationId, leaseId, request));
+    }
     
 }

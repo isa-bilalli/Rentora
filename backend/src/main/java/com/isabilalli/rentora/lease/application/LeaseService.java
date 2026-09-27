@@ -11,6 +11,7 @@ import com.isabilalli.rentora.auth.application.CurrentUserService;
 import com.isabilalli.rentora.auth.infrastructure.security.AuthenticatedUser;
 import com.isabilalli.rentora.lease.api.dto.CreateLeaseRequest;
 import com.isabilalli.rentora.lease.api.dto.LeaseResponse;
+import com.isabilalli.rentora.lease.api.dto.RenewLeaseRequest;
 import com.isabilalli.rentora.lease.api.dto.UpdateLeaseRequest;
 import com.isabilalli.rentora.lease.infrastructure.LeaseRepository;
 import com.isabilalli.rentora.organization.application.OrganizationAccessService;
@@ -147,5 +148,37 @@ public class LeaseService {
         } else {
             spaceAccess.markOccupied(spaceId);
         }
+    }
+
+    @Transactional
+    public void expireLease(Long leaseId){
+        Lease lease = leaseRepository.findById(leaseId).orElseThrow(()-> new IllegalArgumentException("Lease not found"));
+        if(lease.getStatus() != LeaseStatus.ACTIVE){
+            return;
+        }
+
+        lease.end();
+        leaseRepository.save(lease);
+        syncSpaceStatus(lease.getSpaceId(), lease.getId());
+    }
+
+    @Transactional 
+    public LeaseResponse renewLease(Long organizationId, Long leaseId, RenewLeaseRequest request){
+        Lease previousLease = leaseValidation(leaseId, organizationId);
+
+        if (previousLease.getStatus() == LeaseStatus.CANCELLED) {
+            throw new BadRequestException("Cancelled leases cannot be renewed");
+        }
+
+        if (!request.endDate().isAfter(request.startDate())) {
+            throw new BadRequestException("End date must be after start date");
+        }
+
+        if (!request.startDate().isAfter(previousLease.getEndDate())) {
+            throw new BadRequestException("Renewal must start after the previous lease ends");
+        }
+
+        CreateLeaseRequest createRequest = new CreateLeaseRequest(previousLease.getTenantId(), previousLease.getSpaceId(), previousLease.getStartDate(), previousLease.getEndDate(), previousLease.getMonthlyRentCents(), previousLease.getSecurityDepositCents());
+        return createLease(organizationId, createRequest);
     }
 }
