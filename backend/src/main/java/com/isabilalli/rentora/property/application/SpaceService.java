@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import com.isabilalli.rentora.auth.application.CurrentUserService;
 import com.isabilalli.rentora.auth.infrastructure.security.AuthenticatedUser;
 import com.isabilalli.rentora.organization.application.OrganizationAccessService;
+import com.isabilalli.rentora.property.api.SpaceAccess;
 import com.isabilalli.rentora.property.api.dto.CreateSpaceRequest;
 import com.isabilalli.rentora.property.api.dto.SpaceResponse;
 import com.isabilalli.rentora.property.api.dto.UpdateSpaceRequest;
@@ -18,9 +19,10 @@ import com.isabilalli.rentora.property.domain.Space;
 import com.isabilalli.rentora.property.infrastructure.PropertyRepository;
 import com.isabilalli.rentora.property.infrastructure.SpaceRepository;
 import com.isabilalli.rentora.property.domain.SpaceStatus;
+import com.isabilalli.rentora.shared.api.BadRequestException;
 
 @Service 
-public class SpaceService {
+public class SpaceService implements SpaceAccess{
     private final SpaceRepository spaceRepository;
     private final PropertyRepository propertyRepository;
     private final CurrentUserService currentUserService;
@@ -89,5 +91,56 @@ public class SpaceService {
         Space space = validateSpace(spaceId, propertyId);
 
         spaceRepository.delete(space);
+    }
+
+    @Override 
+    public void requireBelongsToOrganization(Long spaceId, Long organizationId){
+        Space space = spaceRepository.findById(organizationId).orElseThrow(()-> new IllegalArgumentException("Space not found"));
+        Property property = propertyRepository.findById(space.getPropertyId()).orElseThrow(()-> new IllegalArgumentException("Property not found"));
+        if(!property.getOrganizationId().equals(organizationId)){
+            throw new AccessDeniedException("Space does not belong to this organization");
+        }
+    }
+
+    @Override 
+    public void markVacant(Long spaceId){
+        Space space = spaceRepository.findById(spaceId).orElseThrow(()-> new IllegalArgumentException("Space not found"));
+        space.markVacant();
+        spaceRepository.save(space);
+    }
+
+    @Override
+    public void markReserved(Long spaceId) {
+        Space space = spaceRepository.findById(spaceId).orElseThrow(() -> new IllegalArgumentException("Space not found"));
+        space.markReserved();
+        spaceRepository.save(space);
+    }
+
+    @Override
+    public void markOccupied(Long spaceId) {
+        Space space = spaceRepository.findById(spaceId).orElseThrow(() -> new IllegalArgumentException("Space not found"));
+        space.markOccupied();
+        spaceRepository.save(space);
+    }
+
+    @Override 
+    public void markMaintenance(Long spaceId){
+        Space space = spaceRepository.findById(spaceId).orElseThrow(() -> new IllegalArgumentException("Space not found"));
+        space.markMaintenance();
+        spaceRepository.save(space);
+    }
+
+    @Override 
+    public void prepareForFutureLease(Long spaceId){
+        Space space = spaceRepository.findById(spaceId).orElseThrow(() -> new IllegalArgumentException("Space not found"));
+        switch (space.getStatus()) {
+            case VACANT -> space.markReserved();
+            case RESERVED, OCCUPIED -> {
+            // Already reserved or currently occupied by another lease.
+            }
+            case MAINTENANCE -> throw new BadRequestException("Space is under maintenance");
+        }
+
+        spaceRepository.save(space);
     }
 }

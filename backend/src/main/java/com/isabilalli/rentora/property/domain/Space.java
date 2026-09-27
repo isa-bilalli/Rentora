@@ -1,5 +1,7 @@
 package com.isabilalli.rentora.property.domain;
 
+import com.isabilalli.rentora.shared.api.BadRequestException;
+
 import jakarta.persistence.*;
 
 import java.math.BigDecimal;
@@ -107,6 +109,38 @@ public class Space {
         if (area != null) {
             this.area = area;
         }
+        this.updatedAt = OffsetDateTime.now();
+    }
+
+    public void markReserved() {
+        if (this.status != SpaceStatus.VACANT && this.status != SpaceStatus.OCCUPIED) {
+            throw new BadRequestException("Space cannot be reserved in its current state");
+        }
+        this.status = SpaceStatus.RESERVED;
+        this.updatedAt = OffsetDateTime.now();
+    }
+
+    public void markOccupied() {
+        if (this.status != SpaceStatus.VACANT && this.status != SpaceStatus.RESERVED) {
+            throw new BadRequestException("Space is not available for occupancy");
+        }
+        this.status = SpaceStatus.OCCUPIED;
+        this.updatedAt = OffsetDateTime.now();
+    }
+
+    public void markMaintenance() {
+        if (this.status != SpaceStatus.VACANT) {
+            throw new BadRequestException("Only vacant spaces can be put into maintenance");
+        }
+        this.status = SpaceStatus.MAINTENANCE;
+        this.updatedAt = OffsetDateTime.now();
+    }
+
+    public void markVacant() {
+        if (this.status != SpaceStatus.OCCUPIED && this.status != SpaceStatus.RESERVED && this.status != SpaceStatus.MAINTENANCE) {
+            throw new BadRequestException("Space is already vacant");
+        }
+        this.status = SpaceStatus.VACANT;
         this.updatedAt = OffsetDateTime.now();
     }
 }

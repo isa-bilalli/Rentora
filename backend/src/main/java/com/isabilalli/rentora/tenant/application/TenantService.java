@@ -9,6 +9,7 @@ import com.isabilalli.rentora.tenant.api.dto.UpdateTenantRequest;
 import com.isabilalli.rentora.tenant.domain.Tenant;
 import com.isabilalli.rentora.tenant.domain.TenantType;
 import com.isabilalli.rentora.tenant.infrastructure.TenantRepository;
+import com.isabilalli.rentora.tenant.api.TenantAccess;
 
 
 import java.util.List;
@@ -17,7 +18,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
 @Service
-public class TenantService {
+public class TenantService implements TenantAccess{
     private final TenantRepository tenantRepository;
     private final CurrentUserService currentUserService;
     private final OrganizationAccessService organizationAccessService;
@@ -102,5 +103,14 @@ public class TenantService {
         }
 
         tenantRepository.delete(tenant);
+    }
+
+    //METHOD FOR VERIFIYNG TENANTS, IMPLEMENTED FOR INTERFACE
+    @Override 
+    public void requireBelongsToOrganization(Long tenantId, Long organizationId){
+        Tenant tenant = tenantRepository.findById(tenantId).orElseThrow(()-> new IllegalArgumentException("Tenant not found"));
+        if(!tenant.getOrganizationId().equals(organizationId)){
+            throw new AccessDeniedException("Tenant does not belong to this organization");
+        }
     }
 }
