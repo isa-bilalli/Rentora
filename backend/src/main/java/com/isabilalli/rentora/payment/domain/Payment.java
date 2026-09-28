@@ -119,4 +119,12 @@ public class Payment {
         this.recordedByUserId=recordedByUserId;
         this.updatedAt=OffsetDateTime.now();
     }
+
+    public void voidPayment(){
+        if(status != PaymentStatus.PENDING){
+            throw new BadRequestException("Only pending payments can be voided");
+        }
+        this.status=PaymentStatus.VOIDED;
+        this.updatedAt=OffsetDateTime.now();
+    }
 }

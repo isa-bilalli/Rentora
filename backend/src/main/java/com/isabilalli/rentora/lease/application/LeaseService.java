@@ -4,15 +4,18 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
 import com.isabilalli.rentora.auth.application.CurrentUserService;
 import com.isabilalli.rentora.auth.infrastructure.security.AuthenticatedUser;
+import com.isabilalli.rentora.lease.api.LeaseAccess;
 import com.isabilalli.rentora.lease.api.dto.CreateLeaseRequest;
 import com.isabilalli.rentora.lease.api.dto.LeaseResponse;
 import com.isabilalli.rentora.lease.api.dto.RenewLeaseRequest;
 import com.isabilalli.rentora.lease.api.dto.UpdateLeaseRequest;
+import com.isabilalli.rentora.lease.api.event.LeaseCreatedEvent;
 import com.isabilalli.rentora.lease.infrastructure.LeaseRepository;
 import com.isabilalli.rentora.organization.application.OrganizationAccessService;
 import com.isabilalli.rentora.payment.api.PaymentAccess;
@@ -26,21 +29,23 @@ import com.isabilalli.rentora.lease.domain.Lease;
 import com.isabilalli.rentora.lease.domain.LeaseStatus;
 
 @Service 
-public class LeaseService {
+public class LeaseService implements LeaseAccess {
     private final LeaseRepository leaseRepository;
     private final TenantAccess tenantAccess;
     private final SpaceAccess spaceAccess;
     private final PaymentAccess paymentAccess;
     private final CurrentUserService currentUserService;
     private final OrganizationAccessService organizationAccessService;
+    private final ApplicationEventPublisher eventPublisher;
 
-    public LeaseService(LeaseRepository leaseRepository, TenantAccess tenantAccess, SpaceAccess spaceAccess, PaymentAccess paymentAccess, CurrentUserService currentUserService, OrganizationAccessService organizationAccessService){
+    public LeaseService(LeaseRepository leaseRepository, TenantAccess tenantAccess, SpaceAccess spaceAccess, PaymentAccess paymentAccess, CurrentUserService currentUserService, OrganizationAccessService organizationAccessService, ApplicationEventPublisher eventPublisher){
         this.leaseRepository=leaseRepository;
         this.tenantAccess=tenantAccess;
         this.spaceAccess=spaceAccess;
         this.paymentAccess=paymentAccess;
         this.currentUserService=currentUserService;
         this.organizationAccessService=organizationAccessService;
+        this.eventPublisher=eventPublisher;
     }
 
     private void organizationAuthorization(Long organizationId){
@@ -71,6 +76,7 @@ public class LeaseService {
 
         Lease lease = new Lease(organizationId, request.tenantId(), request.spaceId(), request.startDate(), request.endDate(), request.monthlyRentCents(), request.securityDepositCents());
         Lease savedLease = leaseRepository.save(lease);
+        eventPublisher.publishEvent(new LeaseCreatedEvent(savedLease.getOrganizationId(), savedLease.getId(), savedLease.getStartDate(), savedLease.getEndDate(), savedLease.getMonthlyRentCents()));
         paymentAccess.generateRentObligations(organizationId, savedLease.getId(), savedLease.getStartDate(), savedLease.getEndDate(), savedLease.getMonthlyRentCents());
         if (request.startDate().isAfter(LocalDate.now())) {
             spaceAccess.prepareForFutureLease(request.spaceId());
@@ -184,5 +190,10 @@ public class LeaseService {
 
         CreateLeaseRequest createRequest = new CreateLeaseRequest(previousLease.getTenantId(), previousLease.getSpaceId(), previousLease.getStartDate(), previousLease.getEndDate(), previousLease.getMonthlyRentCents(), previousLease.getSecurityDepositCents());
         return createLease(organizationId, createRequest);
+    }
+
+    @Override 
+    public void requireBelongsToOrganization(Long leaseId, Long organizationId){
+        leaseValidation(leaseId, organizationId);
     }
 }
