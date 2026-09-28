@@ -18,7 +18,6 @@ import com.isabilalli.rentora.lease.api.dto.UpdateLeaseRequest;
 import com.isabilalli.rentora.lease.api.event.LeaseCreatedEvent;
 import com.isabilalli.rentora.lease.infrastructure.LeaseRepository;
 import com.isabilalli.rentora.organization.application.OrganizationAccessService;
-import com.isabilalli.rentora.payment.api.PaymentAccess;
 import com.isabilalli.rentora.property.api.SpaceAccess;
 import com.isabilalli.rentora.shared.api.BadRequestException;
 import com.isabilalli.rentora.tenant.api.TenantAccess;
@@ -33,16 +32,14 @@ public class LeaseService implements LeaseAccess {
     private final LeaseRepository leaseRepository;
     private final TenantAccess tenantAccess;
     private final SpaceAccess spaceAccess;
-    private final PaymentAccess paymentAccess;
     private final CurrentUserService currentUserService;
     private final OrganizationAccessService organizationAccessService;
     private final ApplicationEventPublisher eventPublisher;
 
-    public LeaseService(LeaseRepository leaseRepository, TenantAccess tenantAccess, SpaceAccess spaceAccess, PaymentAccess paymentAccess, CurrentUserService currentUserService, OrganizationAccessService organizationAccessService, ApplicationEventPublisher eventPublisher){
+    public LeaseService(LeaseRepository leaseRepository, TenantAccess tenantAccess, SpaceAccess spaceAccess, CurrentUserService currentUserService, OrganizationAccessService organizationAccessService, ApplicationEventPublisher eventPublisher){
         this.leaseRepository=leaseRepository;
         this.tenantAccess=tenantAccess;
         this.spaceAccess=spaceAccess;
-        this.paymentAccess=paymentAccess;
         this.currentUserService=currentUserService;
         this.organizationAccessService=organizationAccessService;
         this.eventPublisher=eventPublisher;
@@ -77,7 +74,6 @@ public class LeaseService implements LeaseAccess {
         Lease lease = new Lease(organizationId, request.tenantId(), request.spaceId(), request.startDate(), request.endDate(), request.monthlyRentCents(), request.securityDepositCents());
         Lease savedLease = leaseRepository.save(lease);
         eventPublisher.publishEvent(new LeaseCreatedEvent(savedLease.getOrganizationId(), savedLease.getId(), savedLease.getStartDate(), savedLease.getEndDate(), savedLease.getMonthlyRentCents()));
-        paymentAccess.generateRentObligations(organizationId, savedLease.getId(), savedLease.getStartDate(), savedLease.getEndDate(), savedLease.getMonthlyRentCents());
         if (request.startDate().isAfter(LocalDate.now())) {
             spaceAccess.prepareForFutureLease(request.spaceId());
         } else {

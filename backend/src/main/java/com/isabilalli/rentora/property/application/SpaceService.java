@@ -143,4 +143,12 @@ public class SpaceService implements SpaceAccess{
 
         spaceRepository.save(space);
     }
+
+    @Override 
+    public void requireBelongsToProperty(Long spaceId, Long propertyId){
+        Space space = spaceRepository.findById(spaceId).orElseThrow(()-> new IllegalArgumentException("Space not  found"));
+        if(!space.getPropertyId().equals(propertyId)){
+            throw new AccessDeniedException("Space does not belong to this property");
+        }
+    }
 }

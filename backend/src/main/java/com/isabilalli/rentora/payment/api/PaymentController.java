@@ -37,11 +37,6 @@ public class PaymentController {
         return ResponseEntity.ok(paymentService.getAllPaymentsByLeaseId(organizationId, leaseId));
     }
     
-    @GetMapping("/status")
-    public ResponseEntity<List<PaymentResponse>> getAllPaymentsByStatus(@PathVariable Long organizationId, @Valid @RequestBody PaymentStatus status) {
-        return ResponseEntity.ok(paymentService.getAllPaymentsByStatus(organizationId, status));
-    }
-    
     @GetMapping("/{paymentId}")
     public ResponseEntity<PaymentResponse> getPayment(@PathVariable Long organizationId, @PathVariable Long paymentId) {
         return ResponseEntity.ok(paymentService.getPayment(organizationId, paymentId));
