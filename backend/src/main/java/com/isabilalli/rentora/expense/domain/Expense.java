@@ -145,4 +145,32 @@ public class Expense {
     public OffsetDateTime getUpdatedAt(){
         return updatedAt;
     }
+
+    public void update(ExpenseCategory category, String vendorName, String description, Long amountCents, LocalDate expenseDate){
+        if (status != ExpenseStatus.RECORDED) {
+            throw new BadRequestException("Only recorded expenses can be updated");
+        }
+
+        if (category != null) {
+            this.category = category;
+        }
+
+        if (vendorName != null) {
+            this.vendorName = vendorName;
+        }
+
+        if (description != null) {
+            this.description = description;
+        }
+
+        if (amountCents != null) {
+            this.amountCents = amountCents;
+        }
+
+        if (expenseDate != null) {
+            this.expenseDate = expenseDate;
+        }
+
+        this.updatedAt = OffsetDateTime.now();
+    }
 }

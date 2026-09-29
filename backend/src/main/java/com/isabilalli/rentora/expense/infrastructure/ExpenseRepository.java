@@ -11,4 +11,5 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long>{
     List<Expense> findAllByOrganizationId(Long organizationId);
     List<Expense> findAllByPropertyId(Long propertyId);
     List<Expense> findAllByStatus(ExpenseStatus status);
+    List<Expense> findAllByOrganizationIdAndPaid(Long oranizationId, boolean paid, ExpenseStatus status);
 }
