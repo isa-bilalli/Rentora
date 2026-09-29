@@ -1,6 +1,7 @@
 package com.isabilalli.rentora.shared.api;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -30,14 +31,22 @@ public class GlobalExceptionHandler {
 
         return errors;
     }
+
     @ResponseStatus(HttpStatus.NOT_FOUND)
     @ExceptionHandler(IllegalArgumentException.class)
     public Map<String, String> handleIllegalArgumentException(IllegalArgumentException exception) {
         return Map.of("error", exception.getMessage());
     }
+
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     @ExceptionHandler(BadRequestException.class)
     public Map<String, String> handleBadRequestException(BadRequestException exception) {
+        return Map.of("error", exception.getMessage());
+    }
+
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    @ExceptionHandler(AccessDeniedException.class)
+    public Map<String, String> handleAccessDeniedException(AccessDeniedException exception) { 
         return Map.of("error", exception.getMessage());
     }
 }
