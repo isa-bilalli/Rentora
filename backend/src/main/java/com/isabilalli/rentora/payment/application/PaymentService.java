@@ -126,24 +126,24 @@ public class PaymentService implements PaymentAccess {
     }
 
     @Override
-    public Long sumOverdueRent(Long organizationId, LocalDate beforeDate) {
-        return paymentRepository.sumOverdueRent(organizationId, beforeDate, PaymentStatus.PENDING);
+    public Long sumOverdueRent(Long organizationId, LocalDate beforeDate, Long propertyId) {
+        return paymentRepository.sumOverdueRent(organizationId, beforeDate, PaymentStatus.PENDING.name(), propertyId);
 
     }
 
     @Override
-    public Long sumOutstandingRent(Long organizationId, LocalDate startDate, LocalDate endDate){
-        return paymentRepository.sumOutstandingRent(organizationId, startDate, endDate, PaymentStatus.PENDING);
+    public Long sumOutstandingRent(Long organizationId, LocalDate startDate, LocalDate endDate, Long propertyId){
+        return paymentRepository.sumOutstandingRent(organizationId, startDate, endDate, PaymentStatus.PENDING.name(), propertyId);
     }
 
     @Override 
-    public Long sumExpectedRent(Long organizationId,LocalDate startDate, LocalDate endDate){
-        return paymentRepository.sumExpectedRent(organizationId, startDate, endDate, PaymentStatus.VOIDED);
+    public Long sumExpectedRent(Long organizationId,LocalDate startDate, LocalDate endDate, Long propertyId){
+        return paymentRepository.sumExpectedRent(organizationId, startDate, endDate, PaymentStatus.VOIDED.name(), propertyId);
     }
 
     @Override 
-    public Long sumPaidRent(Long organizationId, LocalDate startDate, LocalDate endDate){
-        return paymentRepository.sumByStatusForPeriod(organizationId, startDate, endDate, PaymentStatus.PAID);
+    public Long sumPaidRent(Long organizationId, LocalDate startDate, LocalDate endDate, Long propertyId){
+        return paymentRepository.sumByStatusForPeriod(organizationId, startDate, endDate, PaymentStatus.PAID.name(), propertyId);
     }
 
     @Override

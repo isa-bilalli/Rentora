@@ -54,10 +54,10 @@ public class DashboardService {
         LocalDate today = LocalDate.now();
         LocalDate startDate = today.withDayOfMonth(1);
         LocalDate endDate = today.withDayOfMonth(today.lengthOfMonth());
-        Long expectedRent = paymentAccess.sumExpectedRent(organizationId, startDate, endDate);
-        Long collectedRent = paymentAccess.sumPaidRent(organizationId, startDate, endDate);
-        Long outstandingRent = paymentAccess.sumOutstandingRent(organizationId, startDate, endDate);
-        Long overdueRent = paymentAccess.sumOverdueRent(organizationId, today);
+        Long expectedRent = paymentAccess.sumExpectedRent(organizationId, startDate, endDate, null);
+        Long collectedRent = paymentAccess.sumPaidRent(organizationId, startDate, endDate, null);
+        Long outstandingRent = paymentAccess.sumOutstandingRent(organizationId, startDate, endDate,null);
+        Long overdueRent = paymentAccess.sumOverdueRent(organizationId, today,null);
         Long paidExpenses = expenseAccess.sumPaidExpenses(organizationId, startDate, endDate);
         Long unpaidExpenses = expenseAccess.sumUnpaidExpenses( organizationId, startDate, endDate);
         Long netIncome = collectedRent - paidExpenses;
