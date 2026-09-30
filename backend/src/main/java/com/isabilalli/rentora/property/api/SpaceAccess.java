@@ -12,4 +12,5 @@ public interface SpaceAccess {
     void requireBelongsToProperty(Long spaceId, Long propertyId);
     Long countByOrganizationIdAndStatus(Long organizationId, SpaceStatus status);
     Long countByOrganizationId(Long organizationId);
+    Long countSpaces(Long organizationId, Long propertyId);
 }

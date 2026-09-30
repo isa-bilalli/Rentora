@@ -30,4 +30,15 @@ public interface SpaceRepository extends JpaRepository<Space, Long>{
             AND s.status = :status
     """)
     long countByOrganizationIdAndStatus(@Param("organizationId") Long organizationId, @Param("status") SpaceStatus status);
+    @Query("""
+        SELECT COUNT(s)
+        FROM Space s
+        WHERE s.propertyId IN (
+            SELECT p.id
+            FROM Property p
+            WHERE p.organizationId = :organizationId
+        )
+        AND (:propertyId IS NULL OR s.propertyId = :propertyId)
+        """)
+    Long countSpaces(@Param("organizationId") Long organizationId, @Param("propertyId") Long propertyId);
 }

@@ -42,4 +42,15 @@ public interface LeaseRepository extends JpaRepository<Lease, Long> {
                 AND l.endDate <= :endDate
             """)
     Long countExpiringBetween(@Param("organizationId") Long organizationId, @Param("status") LeaseStatus status, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+    @Query(value = """
+    SELECT COALESCE(
+        SUM(LEAST(l.end_date, :endDate) - GREATEST(l.start_date, :startDate) + 1), 0)
+        FROM leases l
+        JOIN spaces s ON s.id = l.space_id
+        WHERE l.organization_id = :organizationId
+          AND l.start_date <= :endDate
+          AND l.end_date >= :startDate
+          AND (:propertyId IS NULL OR s.property_id = :propertyId)
+        """, nativeQuery = true)
+    Long sumOccupiedSpaceDays( @Param("organizationId") Long organizationId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("propertyId") Long propertyId);
 }

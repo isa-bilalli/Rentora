@@ -40,6 +40,9 @@ public class Lease {
     @Column(nullable = false, length = 30)
     private LeaseStatus status;
 
+    @Column(name = "renewed_from_lease_id")
+    private Long renewedFromLeaseId;
+
     @Column(nullable = false)
     private OffsetDateTime createdAt;
 
@@ -68,6 +71,7 @@ public class Lease {
         this.status = LeaseStatus.ACTIVE;
         this.createdAt = OffsetDateTime.now();
         this.updatedAt = OffsetDateTime.now();
+        this.renewedFromLeaseId = null;
     }
 
     public Long getId(){
@@ -114,6 +118,10 @@ public class Lease {
         return updatedAt;
     }
 
+    public Long getRenewedFromLeaseId() {
+        return renewedFromLeaseId;
+    }
+
     public void update(LocalDate startDate, LocalDate endDate, Long monthlyRentCents, Long securityDepositCents) {
         if (startDate != null) {
             this.startDate = startDate;
@@ -148,5 +156,13 @@ public class Lease {
         }
         this.status = LeaseStatus.CANCELLED;
         this.updatedAt=OffsetDateTime.now();
+    }
+
+    public void markAsRenewalOf(Long previousLeaseId){
+        if(previousLeaseId==null){
+            throw new IllegalArgumentException("Previous lease ID cannot be null");
+        }
+
+        this.renewedFromLeaseId=previousLeaseId;
     }
 }

@@ -2,6 +2,8 @@ package com.isabilalli.rentora.reporting.api;
 
 import com.isabilalli.rentora.reporting.api.dto.FinancialReportRequest;
 import com.isabilalli.rentora.reporting.api.dto.FinancialReportResponse;
+import com.isabilalli.rentora.reporting.api.dto.OccupancyReportRequest;
+import com.isabilalli.rentora.reporting.api.dto.OccupancyReportResponse;
 import com.isabilalli.rentora.reporting.application.ReportingService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -25,5 +27,10 @@ public class ReportingController {
     @PostMapping("/properties/{propertyId}/financial")
     public ResponseEntity<FinancialReportResponse> getPropertyFinancialReport(@PathVariable Long organizationId, @PathVariable Long propertyId, @Valid @RequestBody FinancialReportRequest request) {
         return ResponseEntity.ok(reportingService.getPropertyFinancialReport(organizationId, propertyId, request));
+    }
+
+    @PostMapping("/occupancy")
+    public ResponseEntity<OccupancyReportResponse> getOccupancyReport(@PathVariable Long organizationId, @Valid @RequestBody OccupancyReportRequest request) {
+        return ResponseEntity.ok(reportingService.getOccupancyReport(organizationId, request));
     }
 }

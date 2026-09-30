@@ -184,8 +184,12 @@ public class LeaseService implements LeaseAccess {
             throw new BadRequestException("Renewal must start after the previous lease ends");
         }
 
-        CreateLeaseRequest createRequest = new CreateLeaseRequest(previousLease.getTenantId(), previousLease.getSpaceId(), previousLease.getStartDate(), previousLease.getEndDate(), previousLease.getMonthlyRentCents(), previousLease.getSecurityDepositCents());
-        return createLease(organizationId, createRequest);
+        CreateLeaseRequest createRequest = new CreateLeaseRequest(previousLease.getTenantId(), previousLease.getSpaceId(), request.startDate(), request.endDate(), request.monthlyRentCents(), request.securityDepositCents());
+        LeaseResponse response = createLease(organizationId, createRequest);
+        Lease renewedLease = leaseRepository.findById(response.id()).orElseThrow(()-> new IllegalStateException("Created renewal lease could not be found"));
+        renewedLease.markAsRenewalOf(previousLease.getId());
+        Lease savedLease = leaseRepository.save(renewedLease);
+        return LeaseResponse.from(savedLease);
     }
 
     @Override 
@@ -201,5 +205,10 @@ public class LeaseService implements LeaseAccess {
     @Override 
     public Long countLeasesExpiring(Long organizationId, LocalDate startDate, LocalDate endDate){
         return leaseRepository.countExpiringBetween(organizationId, LeaseStatus.ACTIVE, startDate, endDate);
+    }
+
+    @Override 
+    public Long sumOccupiedSpaceDays(Long organizationId, LocalDate startDate, LocalDate endDate, Long propertyId){
+        return leaseRepository.sumOccupiedSpaceDays(organizationId, startDate, endDate, propertyId);
     }
 }

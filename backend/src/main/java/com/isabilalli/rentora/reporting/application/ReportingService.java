@@ -3,10 +3,14 @@ package com.isabilalli.rentora.reporting.application;
 import com.isabilalli.rentora.auth.application.CurrentUserService;
 import com.isabilalli.rentora.auth.infrastructure.security.AuthenticatedUser;
 import com.isabilalli.rentora.expense.api.ExpenseAccess;
+import com.isabilalli.rentora.lease.api.LeaseAccess;
 import com.isabilalli.rentora.payment.api.PaymentAccess;
 import com.isabilalli.rentora.property.api.PropertyAccess;
+import com.isabilalli.rentora.property.api.SpaceAccess;
 import com.isabilalli.rentora.reporting.api.dto.FinancialReportRequest;
 import com.isabilalli.rentora.reporting.api.dto.FinancialReportResponse;
+import com.isabilalli.rentora.reporting.api.dto.OccupancyReportRequest;
+import com.isabilalli.rentora.reporting.api.dto.OccupancyReportResponse;
 import com.isabilalli.rentora.reporting.domain.ReportRange;
 import com.isabilalli.rentora.organization.application.OrganizationAccessService;
 import org.springframework.stereotype.Service;
@@ -22,14 +26,18 @@ public class ReportingService {
     private final PaymentAccess paymentAccess;
     private final ExpenseAccess expenseAccess;
     private final PropertyAccess propertyAccess;
+    private final SpaceAccess spaceAccess;
+    private final LeaseAccess leaseAccess;
 
-    public ReportingService(CurrentUserService currentUserService, OrganizationAccessService organizationAccessService, ReportRangeResolver reportRangeResolver, PaymentAccess paymentAccess, ExpenseAccess expenseAccess, PropertyAccess propertyAccess) {
+    public ReportingService(CurrentUserService currentUserService, OrganizationAccessService organizationAccessService, ReportRangeResolver reportRangeResolver, PaymentAccess paymentAccess, ExpenseAccess expenseAccess, PropertyAccess propertyAccess, SpaceAccess spaceAccess, LeaseAccess leaseAccess) {
         this.currentUserService = currentUserService;
         this.organizationAccessService = organizationAccessService;
         this.reportRangeResolver = reportRangeResolver;
         this.paymentAccess = paymentAccess;
         this.expenseAccess = expenseAccess;
-        this.propertyAccess=propertyAccess;
+        this.propertyAccess = propertyAccess;
+        this.spaceAccess = spaceAccess;
+        this.leaseAccess = leaseAccess;
     }
 
     public FinancialReportResponse getFinancialReport(Long organizationId, FinancialReportRequest request) {
@@ -67,5 +75,17 @@ public class ReportingService {
         double collectionRate = expectedRent == 0 ? 0.0 : ((double) collectedRent / expectedRent) * 100.0;
         List<FinancialReportResponse.ExpenseCategoryTotal> expensesByCategory = expenseAccess.sumExpensesByCategory(organizationId, range.startDate(), range.endDate(), propertyId).stream().map(category -> new FinancialReportResponse.ExpenseCategoryTotal(category.category(), category.amountCents())).toList();
         return new FinancialReportResponse(expectedRent, collectedRent, outstandingRent, overdueRent, collectionRate, paidExpenses, unpaidExpenses, netIncome, expensesByCategory);
+    }
+
+    public OccupancyReportResponse getOccupancyReport(Long organizationId, OccupancyReportRequest request){
+        authorizeOrganization(organizationId);
+        ReportRange range = reportRangeResolver.resolve(request.period(), request.referenceDate(), request.from(), request.to());
+        Long totalSpaces = spaceAccess.countSpaces(organizationId, request.propertyId());
+        Long totalDays = range.endDate().toEpochDay() - range.startDate().toEpochDay() + 1;
+        Long occupiedSpaceDays = leaseAccess.sumOccupiedSpaceDays(organizationId, range.startDate(), range.endDate(), request.propertyId());
+        double averageOccupiedSpaces = totalDays == 0 ? 0.0 : (double) occupiedSpaceDays / totalDays;
+        double totalPossibleSpaceDays = (double) totalSpaces * totalDays;
+        double occupancyRate = totalPossibleSpaceDays == 0 ? 0.0 : (occupiedSpaceDays / totalPossibleSpaceDays) * 100.0;
+        return new OccupancyReportResponse(totalSpaces, totalDays, occupiedSpaceDays, averageOccupiedSpaces, occupancyRate);
     }
 }
