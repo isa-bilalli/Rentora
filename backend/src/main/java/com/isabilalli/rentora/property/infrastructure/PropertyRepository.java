@@ -9,4 +9,5 @@ import com.isabilalli.rentora.property.domain.Property;
 public interface PropertyRepository extends JpaRepository<Property, Long> {
     List<Property> findAllByOrganizationId(Long organizationId);
     Long countByOrganizationId(Long organizationId);
+    List<Long> findIdsByOrganizationId(Long organizationId);
 }

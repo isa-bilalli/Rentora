@@ -111,13 +111,18 @@ public class ExpenseService implements ExpenseAccess {
     }
 
     @Override 
-    public Long sumPaidExpenses(Long organizationId, LocalDate startDate, LocalDate endDate){
-        return expenseRepository.sumByOrganizationAndPeriodAndPaid(organizationId, startDate, endDate, ExpenseStatus.RECORDED, false);
+    public Long sumPaidExpenses(Long organizationId, LocalDate startDate, LocalDate endDate, Long propertyId){
+        return expenseRepository.sumByOrganizationAndPeriodAndPaid(organizationId, startDate, endDate, ExpenseStatus.RECORDED, true, propertyId);
     }
 
     @Override 
-    public Long sumUnpaidExpenses(Long organizationId, LocalDate startDate, LocalDate endDate){
-        return expenseRepository.sumByOrganizationAndPeriodAndPaid(organizationId, startDate, endDate, ExpenseStatus.RECORDED, false);
+    public Long sumUnpaidExpenses(Long organizationId, LocalDate startDate, LocalDate endDate, Long propertyId){
+        return expenseRepository.sumByOrganizationAndPeriodAndPaid(organizationId, startDate, endDate, ExpenseStatus.RECORDED, false, propertyId);
+    }
+
+    @Override 
+    public List<ExpenseAccess.ExpenseCategoryTotal> sumExpensesByCategory(Long organizationId, LocalDate startDate, LocalDate endDate, Long propertyId){
+        return expenseRepository.sumByCategory(organizationId, startDate, endDate, ExpenseStatus.RECORDED, propertyId).stream().map(result -> new ExpenseAccess.ExpenseCategoryTotal(result.getCategory(), result.getAmountCents())).toList();
     }
 
 }

@@ -55,4 +55,9 @@ public class PropertyService implements PropertyAccess{
     public Long countByOrganizationId(Long organizationId){
         return propertyRepository.countByOrganizationId(organizationId);
     }
+
+    @Override 
+    public List<Long> findIdsByOrganizationId(Long organizationId){
+        return propertyRepository.findIdsByOrganizationId(organizationId);
+    }
 }

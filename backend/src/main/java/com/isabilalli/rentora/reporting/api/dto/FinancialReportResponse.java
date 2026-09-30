@@ -11,9 +11,7 @@ public record FinancialReportResponse(
         long paidExpensesCents,
         long unpaidExpensesCents,
         long netIncomeCents,
-        List<ExpenseCategoryTotal> expensesByCategory,
-        List<PropertyFinancialTotal> byProperty
+        List<ExpenseCategoryTotal> expensesByCategory
 ) {
     public record ExpenseCategoryTotal(String category, Long amountCents) {}
-    public record PropertyFinancialTotal(Long propertyId, Long collectedRentCents, Long paidExpensesCents, Long netIncomeCents) {}
 }

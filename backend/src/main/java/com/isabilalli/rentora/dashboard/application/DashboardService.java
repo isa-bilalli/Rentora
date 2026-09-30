@@ -58,8 +58,8 @@ public class DashboardService {
         Long collectedRent = paymentAccess.sumPaidRent(organizationId, startDate, endDate, null);
         Long outstandingRent = paymentAccess.sumOutstandingRent(organizationId, startDate, endDate,null);
         Long overdueRent = paymentAccess.sumOverdueRent(organizationId, today,null);
-        Long paidExpenses = expenseAccess.sumPaidExpenses(organizationId, startDate, endDate);
-        Long unpaidExpenses = expenseAccess.sumUnpaidExpenses( organizationId, startDate, endDate);
+        Long paidExpenses = expenseAccess.sumPaidExpenses(organizationId, startDate, endDate, null);
+        Long unpaidExpenses = expenseAccess.sumUnpaidExpenses( organizationId, startDate, endDate, null);
         Long netIncome = collectedRent - paidExpenses;
         return new DashboardResponse.Financial(expectedRent, collectedRent, outstandingRent, overdueRent, paidExpenses, unpaidExpenses, netIncome);
     }
