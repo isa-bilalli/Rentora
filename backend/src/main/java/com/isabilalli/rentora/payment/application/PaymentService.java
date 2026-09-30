@@ -124,4 +124,30 @@ public class PaymentService implements PaymentAccess {
     public void handleLeaseCreated(LeaseCreatedEvent event) {
         generateRentObligations(event.organizationId(), event.leaseId(), event.startDate(), event.endDate(), event.monthlyRentCents());
     }
+
+    @Override
+    public Long sumOverdueRent(Long organizationId, LocalDate beforeDate) {
+        return paymentRepository.sumOverdueRent(organizationId, beforeDate, PaymentStatus.PENDING);
+
+    }
+
+    @Override
+    public Long sumOutstandingRent(Long organizationId, LocalDate startDate, LocalDate endDate){
+        return paymentRepository.sumOutstandingRent(organizationId, startDate, endDate, PaymentStatus.PENDING);
+    }
+
+    @Override 
+    public Long sumExpectedRent(Long organizationId,LocalDate startDate, LocalDate endDate){
+        return paymentRepository.sumExpectedRent(organizationId, startDate, endDate, PaymentStatus.VOIDED);
+    }
+
+    @Override 
+    public Long sumPaidRent(Long organizationId, LocalDate startDate, LocalDate endDate){
+        return paymentRepository.sumByStatusForPeriod(organizationId, startDate, endDate, PaymentStatus.PAID);
+    }
+
+    @Override
+    public Long countOverduePayments(Long organizationId, LocalDate beforeDate) {
+        return paymentRepository.countOverduePayments(organizationId, beforeDate, PaymentStatus.PENDING);
+    }
 }

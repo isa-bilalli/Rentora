@@ -2,6 +2,7 @@ package com.isabilalli.rentora.maintenance.application;
 
 import com.isabilalli.rentora.auth.application.CurrentUserService;
 import com.isabilalli.rentora.auth.infrastructure.security.AuthenticatedUser;
+import com.isabilalli.rentora.maintenance.api.MaintenanceAccess;
 import com.isabilalli.rentora.maintenance.api.dto.CreateMaintenanceRequest;
 import com.isabilalli.rentora.maintenance.api.dto.MaintenanceResponse;
 import com.isabilalli.rentora.maintenance.api.dto.UpdateMaintenanceRequest;
@@ -20,7 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-public class MaintenanceService {
+public class MaintenanceService implements MaintenanceAccess {
 
     private final MaintenanceRepository maintenanceRepository;
     private final CurrentUserService currentUserService;
@@ -132,5 +133,10 @@ public class MaintenanceService {
     public List<MaintenanceResponse> getMaintenanceByPriority(Long organizationId, MaintenancePriority priority){
         organizationAuthorization(organizationId);
         return maintenanceRepository.findAllByOrganizationIdAndPriority(organizationId, priority).stream().map(MaintenanceResponse::from).toList();
+    }
+
+    @Override 
+    public Long countOpenRequests(Long organizationId){
+        return maintenanceRepository.countByOrganizationIdAndStatuses(organizationId, List.of(MaintenanceStatus.OPEN, MaintenanceStatus.IN_PROGRESS));
     }
 }

@@ -1,9 +1,9 @@
 package com.isabilalli.rentora.lease.api;
 
-public interface LeaseAccess {
+import java.time.LocalDate;
 
-    void requireBelongsToOrganization(
-            Long leaseId,
-            Long organizationId
-    );
+public interface LeaseAccess {
+    void requireBelongsToOrganization(Long leaseId, Long organizationId);
+    Long countActiveLeases(Long organizationId);
+    Long countLeasesExpiring(Long organizationId, LocalDate startDate, LocalDate enddDate);
 }

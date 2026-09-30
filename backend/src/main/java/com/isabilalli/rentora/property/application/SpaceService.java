@@ -151,4 +151,12 @@ public class SpaceService implements SpaceAccess{
             throw new AccessDeniedException("Space does not belong to this property");
         }
     }
+    @Override 
+    public Long countByOrganizationIdAndStatus(Long organizationId, SpaceStatus status){
+        return spaceRepository.countByOrganizationIdAndStatus(organizationId, status);
+    }
+    @Override 
+    public Long countByOrganizationId(Long organizationId){
+        return spaceRepository.countByOrganizationId(organizationId);
+    }
 }

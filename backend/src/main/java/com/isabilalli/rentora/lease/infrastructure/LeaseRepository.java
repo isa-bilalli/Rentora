@@ -26,4 +26,20 @@ public interface LeaseRepository extends JpaRepository<Lease, Long> {
     boolean existsOverlappingActiveLease(@Param("spaceId") Long spaceId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("excludeLeaseId") Long excludeLeaseId);
     Optional<Lease> findFirstBySpaceIdAndStatusAndIdNotOrderByStartDateAsc(Long spaceId, LeaseStatus status, Long leaseId);
     List<Lease> findAllByStatusAndEndDateBefore(LeaseStatus status, LocalDate endDate);
+    @Query("""
+            SELECT COUNT(l)
+            FROM Lease l
+            WHERE l.organizationId = :organizationId
+                AND l.status = :status
+            """)
+    Long countByOrganizationIdAndStatus(@Param("organizationId") Long organizationId, @Param("status") LeaseStatus status);
+    @Query("""
+            SELECT COUNT(l)
+            FROM Lease l
+            WHERE l.organizationId = :organizationId
+                AND l.status = :status
+                AND l.endDate >= :startDate
+                AND l.endDate <= :endDate
+            """)
+    Long countExpiringBetween(@Param("organizationId") Long organizationId, @Param("status") LeaseStatus status, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 }

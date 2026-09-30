@@ -192,4 +192,14 @@ public class LeaseService implements LeaseAccess {
     public void requireBelongsToOrganization(Long leaseId, Long organizationId){
         leaseValidation(leaseId, organizationId);
     }
+
+    @Override 
+    public Long countActiveLeases(Long organizationId){
+        return leaseRepository.countByOrganizationIdAndStatus(organizationId, LeaseStatus.ACTIVE);
+    }
+
+    @Override 
+    public Long countLeasesExpiring(Long organizationId, LocalDate startDate, LocalDate endDate){
+        return leaseRepository.countExpiringBetween(organizationId, LeaseStatus.ACTIVE, startDate, endDate);
+    }
 }

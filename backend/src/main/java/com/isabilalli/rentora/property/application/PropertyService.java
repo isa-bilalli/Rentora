@@ -50,4 +50,9 @@ public class PropertyService implements PropertyAccess{
             throw new AccessDeniedException("Property does not belong to this organization");
         }
     }
+
+    @Override
+    public Long countByOrganizationId(Long organizationId){
+        return propertyRepository.countByOrganizationId(organizationId);
+    }
 }

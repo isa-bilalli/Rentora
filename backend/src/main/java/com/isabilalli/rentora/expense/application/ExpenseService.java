@@ -2,6 +2,7 @@ package com.isabilalli.rentora.expense.application;
 
 import com.isabilalli.rentora.auth.application.CurrentUserService;
 import com.isabilalli.rentora.auth.infrastructure.security.AuthenticatedUser;
+import com.isabilalli.rentora.expense.api.ExpenseAccess;
 import com.isabilalli.rentora.expense.api.dto.CreateExpenseRequest;
 import com.isabilalli.rentora.expense.api.dto.ExpenseResponse;
 import com.isabilalli.rentora.expense.api.dto.UpdateExpenseRequest;
@@ -12,6 +13,7 @@ import com.isabilalli.rentora.organization.application.OrganizationAccessService
 import com.isabilalli.rentora.property.api.PropertyAccess;
 import com.isabilalli.rentora.property.api.SpaceAccess;
 
+import java.time.LocalDate;
 import java.util.List;
 
 import org.springframework.security.access.AccessDeniedException;
@@ -19,7 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-public class ExpenseService {
+public class ExpenseService implements ExpenseAccess {
 
     private final ExpenseRepository expenseRepository;
     private final CurrentUserService currentUserService;
@@ -27,13 +29,7 @@ public class ExpenseService {
     private final PropertyAccess propertyAccess;
     private final SpaceAccess spaceAccess;
 
-    public ExpenseService(
-            ExpenseRepository expenseRepository,
-            CurrentUserService currentUserService,
-            OrganizationAccessService organizationAccessService,
-            PropertyAccess propertyAccess,
-            SpaceAccess spaceAccess
-    ) {
+    public ExpenseService(ExpenseRepository expenseRepository, CurrentUserService currentUserService, OrganizationAccessService organizationAccessService, PropertyAccess propertyAccess, SpaceAccess spaceAccess) {
         this.expenseRepository = expenseRepository;
         this.currentUserService = currentUserService;
         this.organizationAccessService = organizationAccessService;
@@ -113,4 +109,15 @@ public class ExpenseService {
         organizationAuthorization(organizationId);
         return expenseRepository.findAllByOrganizationIdAndPaid(organizationId, paid, ExpenseStatus.RECORDED).stream().map(ExpenseResponse::from).toList();
     }
+
+    @Override 
+    public Long sumPaidExpenses(Long organizationId, LocalDate startDate, LocalDate endDate){
+        return expenseRepository.sumByOrganizationAndPeriodAndPaid(organizationId, startDate, endDate, ExpenseStatus.RECORDED, false);
+    }
+
+    @Override 
+    public Long sumUnpaidExpenses(Long organizationId, LocalDate startDate, LocalDate endDate){
+        return expenseRepository.sumByOrganizationAndPeriodAndPaid(organizationId, startDate, endDate, ExpenseStatus.RECORDED, false);
+    }
+
 }
