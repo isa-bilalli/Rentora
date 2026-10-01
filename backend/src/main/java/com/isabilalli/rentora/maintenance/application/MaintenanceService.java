@@ -14,6 +14,7 @@ import com.isabilalli.rentora.organization.application.OrganizationAccessService
 import com.isabilalli.rentora.property.api.PropertyAccess;
 import com.isabilalli.rentora.property.api.SpaceAccess;
 
+import java.time.LocalDate;
 import java.util.List;
 
 import org.springframework.security.access.AccessDeniedException;
@@ -138,5 +139,25 @@ public class MaintenanceService implements MaintenanceAccess {
     @Override 
     public Long countOpenRequests(Long organizationId){
         return maintenanceRepository.countByOrganizationIdAndStatuses(organizationId, List.of(MaintenanceStatus.OPEN, MaintenanceStatus.IN_PROGRESS));
+    }
+
+    @Override
+    public Long countOpenedRequests(Long organizationId, LocalDate startDate, LocalDate endDate, Long propertyId) {
+        return maintenanceRepository.countOpenedRequests(organizationId, startDate, endDate, propertyId);
+    }
+
+    @Override
+    public Long countResolvedRequests(Long organizationId, LocalDate startDate, LocalDate endDate, Long propertyId) {
+        return maintenanceRepository.countResolvedRequests( organizationId, startDate, endDate, propertyId);
+    }
+
+    @Override
+    public Long countCancelledRequests(Long organizationId, LocalDate startDate, LocalDate endDate, Long propertyId) {
+        return maintenanceRepository.countCancelledRequests(organizationId, startDate, endDate, propertyId);
+    }
+
+    @Override
+    public double averageResolutionHours(Long organizationId, LocalDate startDate, LocalDate endDate, Long propertyId) {
+        return maintenanceRepository.averageResolutionHours(organizationId, startDate, endDate, propertyId);
     }
 }

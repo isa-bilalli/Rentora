@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 
@@ -23,4 +24,41 @@ public interface MaintenanceRepository extends JpaRepository<MaintenanceRequest,
                 AND m.status IN :statuses
             """)
     Long countByOrganizationIdAndStatuses(@Param("organizationId") Long organizationId, @Param("statuses") Collection<MaintenanceStatus> statuses);
+    @Query(value = """
+        SELECT COUNT(m.id)
+        FROM maintenance_requests m
+        WHERE m.organization_id = :organizationId
+          AND CAST(m.reported_at AS date) >= :startDate
+          AND CAST(m.reported_at AS date) <= :endDate
+          AND (:propertyId IS NULL OR m.property_id = :propertyId)
+        """, nativeQuery = true)
+    Long countOpenedRequests(@Param("organizationId") Long organizationId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("propertyId") Long propertyId);
+    @Query(value = """
+        SELECT COUNT(m.id)
+        FROM maintenance_requests m
+        WHERE m.organization_id = :organizationId
+          AND CAST(m.resolved_at AS date) >= :startDate
+          AND CAST(m.resolved_at AS date) <= :endDate
+          AND (:propertyId IS NULL OR m.property_id = :propertyId)
+        """, nativeQuery = true)
+    Long countResolvedRequests(@Param("organizationId") Long organizationId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("propertyId") Long propertyId);
+    @Query(value = """
+        SELECT COUNT(m.id)
+        FROM maintenance_requests m
+        WHERE m.organization_id = :organizationId
+          AND CAST(m.cancelled_at AS date) >= :startDate
+          AND CAST(m.cancelled_at AS date) <= :endDate
+          AND (:propertyId IS NULL OR m.property_id = :propertyId)
+        """, nativeQuery = true)
+    Long countCancelledRequests(@Param("organizationId") Long organizationId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("propertyId") Long propertyId);
+    @Query(value = """
+        SELECT COALESCE(AVG(EXTRACT(EPOCH FROM (m.resolved_at - m.reported_at)) / 3600.0), 0)
+        FROM maintenance_requests m
+        WHERE m.organization_id = :organizationId
+          AND m.resolved_at IS NOT NULL
+          AND CAST(m.resolved_at AS date) >= :startDate
+          AND CAST(m.resolved_at AS date) <= :endDate
+          AND (:propertyId IS NULL OR m.property_id = :propertyId)
+        """, nativeQuery = true)
+    double averageResolutionHours(@Param("organizationId") Long organizationId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("propertyId") Long propertyId);
 }

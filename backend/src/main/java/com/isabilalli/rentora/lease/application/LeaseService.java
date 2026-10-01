@@ -211,4 +211,24 @@ public class LeaseService implements LeaseAccess {
     public Long sumOccupiedSpaceDays(Long organizationId, LocalDate startDate, LocalDate endDate, Long propertyId){
         return leaseRepository.sumOccupiedSpaceDays(organizationId, startDate, endDate, propertyId);
     }
+
+    @Override 
+    public Long countStartedLeases(Long organizationId, LocalDate startDate, LocalDate endDate, Long propertyId){
+        return leaseRepository.countStartedLeases(organizationId, startDate, endDate, propertyId);
+    }
+
+    @Override 
+    public Long countEndedLeases(Long organizationId, LocalDate startDate, LocalDate endDate, Long propertyId){
+        return leaseRepository.countEndedLeases(organizationId, startDate, endDate, propertyId);
+    }
+
+    @Override 
+    public Long  countRenewedLeases(Long organizationId, LocalDate startDate, LocalDate endDate, Long propertyId){
+        return leaseRepository.countRenewedLeases(organizationId, startDate, endDate, propertyId);
+    }
+
+    @Override 
+    public Long countLeasesExpiringBetween(Long organizationId, LocalDate startDate, LocalDate endDate, Long propertyId){
+        return leaseRepository.countLeasesExpiringBetween(organizationId, startDate, endDate, propertyId);
+    }
 }

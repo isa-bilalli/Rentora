@@ -1,0 +1,2 @@
+ALTER TABLE maintenance_requests
+ADD COLUMN cancelled_at TIMESTAMPTZ;

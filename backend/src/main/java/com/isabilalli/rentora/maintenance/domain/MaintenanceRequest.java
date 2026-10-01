@@ -51,6 +51,9 @@ public class MaintenanceRequest {
     @Column(nullable = false)
     private OffsetDateTime updatedAt;
 
+    @Column(name = "cancelled_at")
+    private OffsetDateTime cancelledAt;
+
     protected MaintenanceRequest() {
     }
 
@@ -91,6 +94,7 @@ public class MaintenanceRequest {
             throw new BadRequestException("Only open or in-progress maintenance requests can be cancelled");
         }
         this.status = MaintenanceStatus.CANCELLED;
+        this.cancelledAt = OffsetDateTime.now();
         this.updatedAt = OffsetDateTime.now();
     }
 
@@ -144,6 +148,10 @@ public class MaintenanceRequest {
 
     public OffsetDateTime getUpdatedAt() {
         return updatedAt;
+    }
+
+    public OffsetDateTime getCancelledAt(){
+        return cancelledAt;
     }
 
     public void update(String title, String description, MaintenancePriority priority){

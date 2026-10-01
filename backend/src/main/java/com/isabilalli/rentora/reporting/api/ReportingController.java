@@ -2,6 +2,10 @@ package com.isabilalli.rentora.reporting.api;
 
 import com.isabilalli.rentora.reporting.api.dto.FinancialReportRequest;
 import com.isabilalli.rentora.reporting.api.dto.FinancialReportResponse;
+import com.isabilalli.rentora.reporting.api.dto.LeaseReportRequest;
+import com.isabilalli.rentora.reporting.api.dto.LeaseReportResponse;
+import com.isabilalli.rentora.reporting.api.dto.MaintenanceReportRequest;
+import com.isabilalli.rentora.reporting.api.dto.MaintenanceReportResponse;
 import com.isabilalli.rentora.reporting.api.dto.OccupancyReportRequest;
 import com.isabilalli.rentora.reporting.api.dto.OccupancyReportResponse;
 import com.isabilalli.rentora.reporting.application.ReportingService;
@@ -32,5 +36,15 @@ public class ReportingController {
     @PostMapping("/occupancy")
     public ResponseEntity<OccupancyReportResponse> getOccupancyReport(@PathVariable Long organizationId, @Valid @RequestBody OccupancyReportRequest request) {
         return ResponseEntity.ok(reportingService.getOccupancyReport(organizationId, request));
+    }
+
+    @PostMapping("/leases")
+    public ResponseEntity<LeaseReportResponse> getLeaseReport(@PathVariable Long organizationId, @Valid @RequestBody LeaseReportRequest request) {
+        return ResponseEntity.ok(reportingService.getLeaseReport(organizationId, request));
+    }
+
+    @PostMapping("/maintenance")
+    public ResponseEntity<MaintenanceReportResponse> getMaintenanceReport(@PathVariable Long organizationId, @Valid @RequestBody MaintenanceReportRequest request) {
+        return ResponseEntity.ok(reportingService.getMaintenanceReport(organizationId, request));
     }
 }

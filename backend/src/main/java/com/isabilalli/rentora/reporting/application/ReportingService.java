@@ -4,11 +4,16 @@ import com.isabilalli.rentora.auth.application.CurrentUserService;
 import com.isabilalli.rentora.auth.infrastructure.security.AuthenticatedUser;
 import com.isabilalli.rentora.expense.api.ExpenseAccess;
 import com.isabilalli.rentora.lease.api.LeaseAccess;
+import com.isabilalli.rentora.maintenance.api.MaintenanceAccess;
 import com.isabilalli.rentora.payment.api.PaymentAccess;
 import com.isabilalli.rentora.property.api.PropertyAccess;
 import com.isabilalli.rentora.property.api.SpaceAccess;
 import com.isabilalli.rentora.reporting.api.dto.FinancialReportRequest;
 import com.isabilalli.rentora.reporting.api.dto.FinancialReportResponse;
+import com.isabilalli.rentora.reporting.api.dto.LeaseReportRequest;
+import com.isabilalli.rentora.reporting.api.dto.LeaseReportResponse;
+import com.isabilalli.rentora.reporting.api.dto.MaintenanceReportRequest;
+import com.isabilalli.rentora.reporting.api.dto.MaintenanceReportResponse;
 import com.isabilalli.rentora.reporting.api.dto.OccupancyReportRequest;
 import com.isabilalli.rentora.reporting.api.dto.OccupancyReportResponse;
 import com.isabilalli.rentora.reporting.domain.ReportRange;
@@ -28,8 +33,9 @@ public class ReportingService {
     private final PropertyAccess propertyAccess;
     private final SpaceAccess spaceAccess;
     private final LeaseAccess leaseAccess;
+    private final MaintenanceAccess maintenanceAccess;
 
-    public ReportingService(CurrentUserService currentUserService, OrganizationAccessService organizationAccessService, ReportRangeResolver reportRangeResolver, PaymentAccess paymentAccess, ExpenseAccess expenseAccess, PropertyAccess propertyAccess, SpaceAccess spaceAccess, LeaseAccess leaseAccess) {
+    public ReportingService(CurrentUserService currentUserService, OrganizationAccessService organizationAccessService, ReportRangeResolver reportRangeResolver, PaymentAccess paymentAccess, ExpenseAccess expenseAccess, PropertyAccess propertyAccess, SpaceAccess spaceAccess, LeaseAccess leaseAccess, MaintenanceAccess maintenanceAccess) {
         this.currentUserService = currentUserService;
         this.organizationAccessService = organizationAccessService;
         this.reportRangeResolver = reportRangeResolver;
@@ -38,6 +44,7 @@ public class ReportingService {
         this.propertyAccess = propertyAccess;
         this.spaceAccess = spaceAccess;
         this.leaseAccess = leaseAccess;
+        this.maintenanceAccess = maintenanceAccess;
     }
 
     public FinancialReportResponse getFinancialReport(Long organizationId, FinancialReportRequest request) {
@@ -87,5 +94,28 @@ public class ReportingService {
         double totalPossibleSpaceDays = (double) totalSpaces * totalDays;
         double occupancyRate = totalPossibleSpaceDays == 0 ? 0.0 : (occupiedSpaceDays / totalPossibleSpaceDays) * 100.0;
         return new OccupancyReportResponse(totalSpaces, totalDays, occupiedSpaceDays, averageOccupiedSpaces, occupancyRate);
+    }
+
+    public LeaseReportResponse getLeaseReport(Long organizationId, LeaseReportRequest request){
+        authorizeOrganization(organizationId);
+        ReportRange range = reportRangeResolver.resolve(request.period(), request.referenceDate(), request.from(), request.to());
+        Long leasesStarted = leaseAccess.countStartedLeases(organizationId, range.startDate(), range.endDate(), request.propertyId());
+        Long leasesEnded = leaseAccess.countEndedLeases(organizationId, range.startDate(), range.endDate(), request.propertyId());
+        Long leasesRenewed = leaseAccess.countRenewedLeases(organizationId, range.startDate(), range.endDate(), request.propertyId());
+        Long leasesExpiring = leaseAccess.countLeasesExpiringBetween(organizationId, range.startDate(), range.endDate(), request.propertyId());
+        return new LeaseReportResponse(leasesStarted, leasesEnded, leasesRenewed, leasesExpiring);
+    }
+
+    public MaintenanceReportResponse getMaintenanceReport(Long organizationId, MaintenanceReportRequest request){
+        authorizeOrganization(organizationId);
+        ReportRange range = reportRangeResolver.resolve(request.period(), request.referenceDate(), request.from(), request.to());
+        if (request.propertyId() != null) {
+            propertyAccess.requireBelongsToOrganization(request.propertyId(), organizationId);
+        }
+        Long requestsOpened = maintenanceAccess.countOpenedRequests(organizationId, range.startDate(), range.endDate(), request.propertyId());
+        Long requestsResolved = maintenanceAccess.countResolvedRequests(organizationId,range.startDate(), range.endDate(), request.propertyId());
+        Long requestsCancelled = maintenanceAccess.countCancelledRequests(organizationId,range.startDate(), range.endDate(), request.propertyId());
+        double averageResolutionHours = maintenanceAccess.averageResolutionHours(organizationId,range.startDate(), range.endDate(), request.propertyId());
+        return new MaintenanceReportResponse(requestsOpened, requestsResolved, requestsCancelled, averageResolutionHours);
     }
 }

@@ -53,4 +53,46 @@ public interface LeaseRepository extends JpaRepository<Lease, Long> {
           AND (:propertyId IS NULL OR s.property_id = :propertyId)
         """, nativeQuery = true)
     Long sumOccupiedSpaceDays( @Param("organizationId") Long organizationId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("propertyId") Long propertyId);
+    @Query(value = """
+        SELECT COUNT(l.id)
+        FROM leases l
+        JOIN spaces s ON s.id = l.space_id
+        WHERE l.organization_id = :organizationId
+          AND l.start_date >= :startDate
+          AND l.start_date <= :endDate
+          AND (:propertyId IS NULL OR s.property_id = :propertyId)
+        """, nativeQuery = true)
+    Long countStartedLeases(@Param("organizationId") Long organizationId, @Param("startDate") LocalDate startDate,@Param("endDate") LocalDate endDate, @Param("propertyId") Long propertyId);
+    @Query(value = """
+        SELECT COUNT(l.id)
+        FROM leases l
+        JOIN spaces s ON s.id = l.space_id
+        WHERE l.organization_id = :organizationId
+          AND l.end_date >= :startDate
+          AND l.end_date <= :endDate
+          AND (:propertyId IS NULL OR s.property_id = :propertyId)
+        """, nativeQuery = true)
+    Long countEndedLeases(@Param("organizationId") Long organizationId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("propertyId") Long propertyId);
+    @Query(value = """
+        SELECT COUNT(l.id)
+        FROM leases l
+        JOIN spaces s ON s.id = l.space_id
+        WHERE l.organization_id = :organizationId
+          AND l.renewed_from_lease_id IS NOT NULL
+          AND l.start_date >= :startDate
+          AND l.start_date <= :endDate
+          AND (:propertyId IS NULL OR s.property_id = :propertyId)
+    """, nativeQuery = true)
+    Long countRenewedLeases(@Param("organizationId") Long organizationId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("propertyId") Long propertyId);
+    @Query(value = """
+        SELECT COUNT(l.id)
+        FROM leases l
+        JOIN spaces s ON s.id = l.space_id
+        WHERE l.organization_id = :organizationId
+          AND l.status = 'ACTIVE'
+          AND l.end_date >= :startDate
+          AND l.end_date <= :endDate
+          AND (:propertyId IS NULL OR s.property_id = :propertyId)
+    """, nativeQuery = true)
+    Long countLeasesExpiringBetween(@Param("organizationId") Long organizationId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("propertyId") Long propertyId);
 }
