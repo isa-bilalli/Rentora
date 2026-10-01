@@ -39,7 +39,6 @@ public class DashboardService {
     }
 
     public DashboardResponse.Portfolio getPortfolio(Long organizationId) {
-        organizationAuthorization(organizationId);
         long totalProperties = propertyAccess.countByOrganizationId(organizationId);
         long totalSpaces = spaceAccess.countByOrganizationId(organizationId);
         long occupiedSpaces = spaceAccess.countByOrganizationIdAndStatus(organizationId, SpaceStatus.OCCUPIED);
@@ -50,7 +49,6 @@ public class DashboardService {
     }
 
     public DashboardResponse.Financial getFinancial(Long organizationId){
-        organizationAuthorization(organizationId);
         LocalDate today = LocalDate.now();
         LocalDate startDate = today.withDayOfMonth(1);
         LocalDate endDate = today.withDayOfMonth(today.lengthOfMonth());
@@ -71,7 +69,6 @@ public class DashboardService {
     }
 
     public DashboardResponse.Operations getOperations(Long organizationId){
-        organizationAuthorization(organizationId);
         LocalDate today = LocalDate.now();
         LocalDate thirtyDaysFromNow = today.plusDays(30);
         Long activeLeases = leaseAccess.countActiveLeases(organizationId);
@@ -82,6 +79,7 @@ public class DashboardService {
     }
 
     public DashboardResponse getDashboard(Long organizationId){
+        organizationAuthorization(organizationId);
         return new DashboardResponse(getPortfolio(organizationId), getFinancial(organizationId), getOperations(organizationId));
     }
 }
