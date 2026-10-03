@@ -7,6 +7,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import com.isabilalli.rentora.auth.application.exception.InvalidRefreshTokenException;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -30,6 +32,12 @@ public class GlobalExceptionHandler {
                 );
 
         return errors;
+    }
+
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    @ExceptionHandler(InvalidRefreshTokenException.class)
+    public Map<String, String> handleInvalidRefreshTokenException(InvalidRefreshTokenException exception) {
+        return Map.of("error", exception.getMessage());
     }
 
     @ResponseStatus(HttpStatus.NOT_FOUND)
