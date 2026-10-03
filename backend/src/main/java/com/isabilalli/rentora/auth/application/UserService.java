@@ -1,7 +1,6 @@
 package com.isabilalli.rentora.auth.application;
 
 import com.isabilalli.rentora.auth.api.dto.CreateUserRequest;
-// import com.isabilalli.rentora.auth.api.dto.UserResponse;
 import com.isabilalli.rentora.auth.domain.User;
 import com.isabilalli.rentora.auth.infrastructure.UserRepository;
 
@@ -28,5 +27,9 @@ public class UserService {
                 passwordHash
         );
         return userRepository.save(user);
+    }
+    
+    public User findById(Long userId){
+        return userRepository.findById(userId).orElseThrow(() -> new IllegalArgumentException("User not found"));
     }
 }

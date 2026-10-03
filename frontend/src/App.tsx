@@ -1,8 +1,8 @@
+import { Outlet } from "react-router";
+
 function App(){
   
-  return(
-    <p className="font-bold">test</p>
-  )
+  return <Outlet />
 }
 
 export default App;

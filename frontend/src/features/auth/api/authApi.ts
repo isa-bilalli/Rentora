@@ -1,3 +1,4 @@
+import { apiRequest } from "../../../lib/api/client";
 import type { AuthUser } from "../types";
 
 export interface LoginRequest{
@@ -6,13 +7,16 @@ export interface LoginRequest{
 }
 
 export interface  LoginResponse{
-    user: AuthUser;
+    userId: number;
+    email: string;
     accessToken: string;
 }
 
 export async function login(request: LoginRequest): Promise<LoginResponse> {
-    //TODO: implement backend call
-    throw new Error("Not implemented");
+    return apiRequest<LoginResponse>("/api/auth/login", {
+        method: "POST",
+        body: JSON.stringify(request),
+    });
 }
 
 export async function restoreSession(): Promise<AuthUser> {

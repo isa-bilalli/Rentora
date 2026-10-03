@@ -38,7 +38,17 @@ export function AuthProvider({children}: AuthProviderProps ){
 
     const login = useCallback(async (request: LoginRequest) => {
         const response = await loginApi(request);
-        setUser(response.user);
+        
+        localStorage.setItem("accessToken", response.accessToken);
+
+        const user: AuthUser = {
+            id: response.userId,
+            email: response.email,
+            firstName: "",
+            lastName: "",
+        }
+
+        setUser(user);
         setStatus("authenticated");
     }, []);
 
