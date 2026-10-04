@@ -1,6 +1,6 @@
 import { useAuth } from "../../../features/auth/useAuth";
 
-export default function DashboardPage() {
+function DashboardPage() {
     const { logout } = useAuth();
 
     async function handleLogout() {
@@ -10,10 +10,11 @@ export default function DashboardPage() {
     return (
         <div>
             <h1>Dashboard Page</h1>
-
             <button onClick={handleLogout}>
                 Logout
             </button>
         </div>
     );
 }
+
+export default DashboardPage;
