@@ -27,7 +27,7 @@ export default function Sidebar() {
 
     return (
         <aside
-            className={`flex min-h-screen flex-col bg-[#14302b] text-[#e8efe9] transition-[width] duration-200 ${
+            className={`sticky top-0 flex h-screen flex-col bg-[#14302b] text-[#e8efe9] transition-[width] duration-200 ${
                 collapsed ? "w-18" : "w-64"
             }`}
         >
@@ -41,7 +41,7 @@ export default function Sidebar() {
                 {collapsed ? (<PanelLeftOpen className="h-5 w-5" aria-hidden="true" />) : (<PanelLeftClose className="h-5 w-5" aria-hidden="true" />)}
                 </button>
             </div>
-            <nav className="flex-1 px-3 py-4">
+            <nav className="flex-1 overflow-y-auto px-3 py-4">
                 <div className="space-y-1">
                     {navigation.map((item) => {
                         const Icon = item.icon;

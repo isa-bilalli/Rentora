@@ -2,6 +2,8 @@ import { createBrowserRouter, Navigate } from "react-router";
 
 import App from "../App";
 
+import { OrganizationProvider } from "../features/organizations/OrganizationProvider";
+
 import ProtectedRoute from "../routes/ProtectedRoute";
 import PublicOnlyRoute from "../routes/PublicOnlyRoute";
 
@@ -50,59 +52,64 @@ export const router = createBrowserRouter([
                 element: <ProtectedRoute />,
                 children: [
                     {
-                        path: "app",
-                        element: <AppLayout />,
+                        element: <OrganizationProvider />,
                         children: [
                             {
-                                index: true,
-                                element: <Navigate to="dashboard" replace />,
-                            },
-                            {
-                                path: "dashboard",
-                                element: <DashboardPage />,
-                            },
-                            {
-                                path: "properties",
-                                element: <PropertiesPage />,
-                            },
-                            {
-                                path: "properties/:propertyId",
-                                element: <PropertyDetailsPage />,
-                            },
-                            {
-                                path: "tenants",
-                                element: <TenantsPage />,
-                            },
-                            {
-                                path: "tenants/:tenantId",
-                                element: <TenantDetailsPage />,
-                            },
-                            {
-                                path: "leases",
-                                element: <LeasesPage />,
-                            },
-                            {
-                                path: "leases/:leaseId",
-                                element: <LeaseDetailsPage />,
-                            },
-                            {
-                                path: "payments",
-                                element: <PaymentsPage />,
-                            },
-                            {
-                                path: "expenses",
-                                element: <ExpensesPage />,
-                            },
-                            {
-                                path: "maintenance",
-                                element: <MaintenancePage />,
-                            },
-                            {
-                                path: "reports",
-                                element: <ReportsPage />,
+                                path: "app",
+                                element: <AppLayout />,
+                                children: [
+                                    {
+                                        index: true,
+                                        element: (<Navigate to="dashboard" replace/>),
+                                    },
+                                    {
+                                        path: "dashboard",
+                                        element: <DashboardPage />,
+                                    },
+                                    {
+                                        path: "properties",
+                                        element: <PropertiesPage />,
+                                    },
+                                    {
+                                        path: "properties/:propertyId",
+                                        element: (<PropertyDetailsPage />),
+                                    },
+                                    {
+                                        path: "tenants",
+                                        element: <TenantsPage />,
+                                    },
+                                    {
+                                        path: "tenants/:tenantId",
+                                        element: (<TenantDetailsPage />),
+                                    },
+                                    {
+                                        path: "leases",
+                                        element: <LeasesPage />,
+                                    },
+                                    {
+                                        path: "leases/:leaseId",
+                                        element: (<LeaseDetailsPage />),
+                                    },
+                                    {
+                                        path: "payments",
+                                        element: <PaymentsPage />,
+                                    },
+                                    {
+                                        path: "expenses",
+                                        element: <ExpensesPage />,
+                                    },
+                                    {
+                                        path: "maintenance",
+                                        element: <MaintenancePage />,
+                                    },
+                                    {
+                                        path: "reports",
+                                        element: <ReportsPage />,
+                                    },
+                                ],
                             },
                         ],
-                    }
+                    },
                 ],
             },
 
