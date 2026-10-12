@@ -15,6 +15,7 @@ import com.isabilalli.rentora.lease.api.dto.CreateLeaseRequest;
 import com.isabilalli.rentora.lease.api.dto.LeaseResponse;
 import com.isabilalli.rentora.lease.api.dto.RenewLeaseRequest;
 import com.isabilalli.rentora.lease.api.dto.UpdateLeaseRequest;
+import com.isabilalli.rentora.lease.api.dto.CurrentSpaceRentSummary;
 import com.isabilalli.rentora.lease.api.event.LeaseCreatedEvent;
 import com.isabilalli.rentora.lease.infrastructure.LeaseRepository;
 import com.isabilalli.rentora.organization.application.OrganizationAccessService;
@@ -230,5 +231,10 @@ public class LeaseService implements LeaseAccess {
     @Override 
     public Long countLeasesExpiringBetween(Long organizationId, LocalDate startDate, LocalDate endDate, Long propertyId){
         return leaseRepository.countLeasesExpiringBetween(organizationId, startDate, endDate, propertyId);
+    }
+
+    @Override 
+    public List<CurrentSpaceRentSummary> getCurrentMonthlyRentBySpace(Long organizationId, LocalDate today){
+        return leaseRepository.sumCurrentMonthlyRentBySpace(organizationId, LeaseStatus.ACTIVE, today);
     }
 }

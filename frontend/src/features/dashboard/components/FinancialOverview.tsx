@@ -45,7 +45,7 @@ export default function FinancialOverview({
         <section className="space-y-4">
             <div className="relative overflow-hidden rounded-xl bg-linear-to-br from-[#14302b] to-[#1f4a41] p-5 text-[#e8efe9] shadow-sm sm:p-6">
                 <div
-                    className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full border-[20px] border-[#d4a94f]/15"
+                    className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full border-20 border-[#d4a94f]/15"
                     aria-hidden="true"
                 />
                 <div className="relative flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">

@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import com.isabilalli.rentora.lease.api.dto.CurrentSpaceRentSummary;
 import com.isabilalli.rentora.lease.domain.Lease;
 import com.isabilalli.rentora.lease.domain.LeaseStatus;
 
@@ -95,4 +96,14 @@ public interface LeaseRepository extends JpaRepository<Lease, Long> {
           AND (:propertyId IS NULL OR s.property_id = :propertyId)
     """, nativeQuery = true)
     Long countLeasesExpiringBetween(@Param("organizationId") Long organizationId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("propertyId") Long propertyId);
+    @Query("""
+    SELECT new com.isabilalli.rentora.lease.api.dto.CurrentSpaceRentSummary(l.spaceId,SUM(l.monthlyRentCents))
+        FROM Lease l
+        WHERE l.organizationId = :organizationId
+          AND l.status = :status
+          AND l.startDate <= :today
+          AND l.endDate >= :today
+        GROUP BY l.spaceId
+    """)
+    List<CurrentSpaceRentSummary> sumCurrentMonthlyRentBySpace(@Param("organizationId") Long organizationId, @Param("status") LeaseStatus status, @Param("today") LocalDate today);
 }

@@ -1,6 +1,7 @@
 package com.isabilalli.rentora.property.infrastructure;
 
 import java.util.List;
+import java.util.Collection;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -41,4 +42,5 @@ public interface SpaceRepository extends JpaRepository<Space, Long>{
         AND (:propertyId IS NULL OR s.propertyId = :propertyId)
         """)
     Long countSpaces(@Param("organizationId") Long organizationId, @Param("propertyId") Long propertyId);
+    List<Space> findAllByPropertyIdIn(Collection<Long> propertyIds);
 }

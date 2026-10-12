@@ -1,4 +1,4 @@
-import { act, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { AlertTriangle } from "lucide-react";
  
@@ -124,7 +124,7 @@ export default function DashboardPage() {
             <div className="mx-auto w-full max-w-7xl p-4 sm:p-6 lg:p-8">
                 <header className="relative mb-10 overflow-hidden rounded-2xl bg-linear-to-br from-[#14302b] to-[#1f4a41] px-6 py-8 text-[#e8efe9] shadow-sm sm:px-8">
                     <div
-                        className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full border-[28px] border-[#d4a94f]/15"
+                        className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full border-28 border-[#d4a94f]/15"
                         aria-hidden="true"
                     />
                     <div

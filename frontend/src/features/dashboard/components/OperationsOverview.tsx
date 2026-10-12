@@ -6,9 +6,7 @@ interface OperationsOverviewProps {
     data: Operations;
 }
  
-export default function OperationsOverview({
-    data,
-}: OperationsOverviewProps) {
+export default function OperationsOverview({data,}: OperationsOverviewProps) {
     const stats = [
         {
             label: "Active Leases",
@@ -46,14 +44,9 @@ export default function OperationsOverview({
                     const Icon = stat.icon;
                     const needsAttention = stat.alert !== undefined && stat.value > 0;
                     return (
-                        <div
-                            key={stat.label}
-                            className={`rounded-xl border border-[#14302b]/10 border-l-4 bg-white p-4 shadow-sm transition-shadow hover:shadow-md ${
-                                needsAttention ? stat.alert : "border-l-[#14302b]/10"
-                            }`}
-                        >
+                        <div key={stat.label} className={`rounded-xl border border-[#14302b]/10 border-l-4 bg-white p-4 shadow-sm transition-shadow hover:shadow-md ${needsAttention ? stat.alert : "border-l-[#14302b]/10"}`}>
                             <span className={`flex h-9 w-9 items-center justify-center rounded-lg ${stat.tone}`}>
-                                <Icon className="h-[18px] w-[18px]" aria-hidden="true" />
+                                <Icon className="h-4.5 w-4.5" aria-hidden="true" />
                             </span>
                             <p className="mt-4 text-2xl font-semibold tracking-tight text-[#14302b]">
                                 {stat.value}

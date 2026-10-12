@@ -38,7 +38,7 @@ export default function PortfolioOverview({
                             className="rounded-xl border border-[#14302b]/10 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
                         >
                             <span className={`flex h-9 w-9 items-center justify-center rounded-lg ${stat.tone}`}>
-                                <Icon className="h-[18px] w-[18px]" aria-hidden="true" />
+                                <Icon className="h-4.5 w-4.5" aria-hidden="true" />
                             </span>
                             <p className="mt-4 text-2xl font-semibold tracking-tight text-[#14302b]">
                                 {stat.value}
