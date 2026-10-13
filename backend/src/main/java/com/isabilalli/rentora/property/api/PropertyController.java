@@ -42,5 +42,10 @@ public class PropertyController {
     public ResponseEntity<List<PropertySummaryResponse>> getPropertySummaries(@PathVariable Long organizationId) {
         return ResponseEntity.ok(propertyService.getPropertySummaries(organizationId));
     }
+
+    @GetMapping("/{propertyId}")
+    public ResponseEntity<PropertyResponse> getPropertyById(@PathVariable Long organizationId, @PathVariable Long propertyId) {
+        return ResponseEntity.ok(propertyService.getProperty(organizationId, propertyId));
+    }
     
 }

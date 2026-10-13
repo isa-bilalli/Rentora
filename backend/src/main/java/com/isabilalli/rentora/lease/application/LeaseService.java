@@ -108,10 +108,9 @@ public class LeaseService implements LeaseAccess {
         if(!finalEndDate.isAfter(finalStartDate)){
             throw new BadRequestException("End date must be after start date");
         }
-        if(leaseRepository.existsOverlappingActiveLease(organizationId, finalStartDate, finalEndDate, leaseId)){
-            throw new BadRequestException("Space already has an overlapping lease");
+        if (leaseRepository.existsOverlappingActiveLease(lease.getSpaceId(), finalStartDate, finalEndDate, leaseId)) {
+            throw new BadRequestException("Space already has an overlapping active lease");
         }
-
         lease.update(finalStartDate, finalEndDate, request.monthlyRentCents(), request.securityDepositCents());
         Lease savedLease = leaseRepository.save(lease);
         
@@ -171,6 +170,7 @@ public class LeaseService implements LeaseAccess {
 
     @Transactional 
     public LeaseResponse renewLease(Long organizationId, Long leaseId, RenewLeaseRequest request){
+        organizationAuthorization(organizationId);
         Lease previousLease = leaseValidation(leaseId, organizationId);
 
         if (previousLease.getStatus() == LeaseStatus.CANCELLED) {

@@ -37,16 +37,14 @@ export default function PropertiesPage() {
             setLoading(false);
             return;
         }
-
+        const organizationId = activeOrganization.id;
         let cancelled = false;
 
         async function loadProperties() {
             setLoading(true);
             setError(null);
             try {
-                const result = await getPropertySummaries(
-                    activeOrganization.id,
-                );
+                const result = await getPropertySummaries(organizationId);
 
                 if (!cancelled) {
                     setProperties(result);

@@ -3,12 +3,14 @@ package com.isabilalli.rentora.property.application;
 import org.springframework.security.access.AccessDeniedException;
 
 import java.lang.IllegalArgumentException;
+import java.time.LocalDate;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
 
 import com.isabilalli.rentora.auth.application.CurrentUserService;
 import com.isabilalli.rentora.auth.infrastructure.security.AuthenticatedUser;
+import com.isabilalli.rentora.lease.api.LeaseStatusAccess;
 import com.isabilalli.rentora.organization.application.OrganizationAccessService;
 import com.isabilalli.rentora.property.api.SpaceAccess;
 import com.isabilalli.rentora.property.api.dto.CreateSpaceRequest;
@@ -27,17 +29,20 @@ public class SpaceService implements SpaceAccess{
     private final PropertyRepository propertyRepository;
     private final CurrentUserService currentUserService;
     private final OrganizationAccessService organizationAccessService;
+    private final LeaseStatusAccess leaseStatusAccess;
 
     public SpaceService(
             SpaceRepository spaceRepository,
             PropertyRepository propertyRepository,
             CurrentUserService currentUserService,
-            OrganizationAccessService organizationAccessService
+            OrganizationAccessService organizationAccessService,
+            LeaseStatusAccess leaseStatusAccess
     ) {
         this.spaceRepository = spaceRepository;
         this.propertyRepository = propertyRepository;
         this.currentUserService = currentUserService;
         this.organizationAccessService = organizationAccessService;
+        this.leaseStatusAccess = leaseStatusAccess;
     }
 
     private Property getAuthorizedProperty(Long organizationId, Long propertyId){
@@ -80,8 +85,37 @@ public class SpaceService implements SpaceAccess{
     public SpaceResponse updateSpace(Long organizationId, Long propertyId, Long spaceId , UpdateSpaceRequest request){
         getAuthorizedProperty(organizationId, propertyId);
         Space space = validateSpace(spaceId, propertyId);
+        space.update(request.name(), request.type(), request.floor(), request.area(), request.hasFloor(), request.hasArea());
+        Space updatedSpace = spaceRepository.save(space);
+        return SpaceResponse.from(updatedSpace);
+    }
 
-        space.update(request.name(), request.type(), request.floor(), request.area());
+    public SpaceResponse updateSpaceStatus(Long organizationId, Long propertyId, Long SpaceId, SpaceStatus status){
+        if(status == null){
+            throw new BadRequestException("Space status is required");
+        }
+        getAuthorizedProperty(organizationId, propertyId);
+        Space space = validateSpace(SpaceId, propertyId);
+        
+        LocalDate today = LocalDate.now();
+        boolean hasCurrentLease = leaseStatusAccess.hasCurrentActiveLease(organizationId, SpaceId, today);
+        boolean hasUpcomingLease = leaseStatusAccess.hasUpcomingActiveLease(organizationId, SpaceId, today);
+
+        if(hasCurrentLease && status != SpaceStatus.OCCUPIED){
+            throw new BadRequestException("This space has an active lease covering today and must remain occupied");
+        }
+
+        if(!hasCurrentLease && hasUpcomingLease && status != SpaceStatus.RESERVED){
+            throw new BadRequestException("This space has an upcoming active lease and must remain reserved");
+        }
+        
+        switch (status) {
+            case VACANT -> space.markVacant();
+            case OCCUPIED -> space.markOccupied();
+            case RESERVED -> space.markReserved();
+            case MAINTENANCE -> space.markMaintenance();
+        }
+
         Space updatedSpace = spaceRepository.save(space);
         return SpaceResponse.from(updatedSpace);
     }
@@ -95,7 +129,7 @@ public class SpaceService implements SpaceAccess{
 
     @Override 
     public void requireBelongsToOrganization(Long spaceId, Long organizationId){
-        Space space = spaceRepository.findById(organizationId).orElseThrow(()-> new IllegalArgumentException("Space not found"));
+        Space space = spaceRepository.findById(spaceId).orElseThrow(()-> new IllegalArgumentException("Space not found"));
         Property property = propertyRepository.findById(space.getPropertyId()).orElseThrow(()-> new IllegalArgumentException("Property not found"));
         if(!property.getOrganizationId().equals(organizationId)){
             throw new AccessDeniedException("Space does not belong to this organization");

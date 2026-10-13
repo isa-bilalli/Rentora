@@ -6,6 +6,8 @@ import type {
     SpaceResponse,
     PropertySummaryResponse,
     CreateSpaceRequest,
+    UpdateSpaceRequest,
+    UpdateSpaceStatusRequest,
 } from "../types";
 
 export async function getProperties(organizationId: number): Promise<PropertyResponse[]> {
@@ -48,4 +50,27 @@ export async function getPropertySummaries(organizationId: number): Promise<Prop
             authenticated: true,
         },
     );
+}
+
+export async function getProperty(organizationId: number, propertyId: number): Promise<PropertyResponse> {
+    return apiRequest<PropertyResponse>(`/api/organizations/${organizationId}/properties/${propertyId}`, {
+        method: "GET",
+        authenticated: true,
+    })
+}
+
+export async function updateSpace(organizationId: number, propertyId: number, spaceId: number, request: UpdateSpaceRequest): Promise<SpaceResponse>{
+    return apiRequest<SpaceResponse>(`/api/organizations/${organizationId}/properties/${propertyId}/spaces/${spaceId}`, {
+        method: "PATCH",
+        body: JSON.stringify(request),
+        authenticated: true,
+    })
+}
+
+export async function updateSpaceStatus(organizationId: number, propertyId: number, spaceId: number, request: UpdateSpaceStatusRequest): Promise<SpaceResponse>{
+    return apiRequest<SpaceResponse>(`/api/organizations/${organizationId}/properties/${propertyId}/spaces/${spaceId}/status`,{
+        method: "PATCH",
+        body: JSON.stringify(request),
+        authenticated: true,    
+    })
 }

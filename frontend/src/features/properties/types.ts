@@ -72,3 +72,14 @@ export interface PropertySummaryResponse {
     maintenanceSpaces: number;
     monthlyExpectedRentCents: number;
 }
+
+export interface UpdateSpaceRequest {
+    name?: string;
+    type?: SpaceType;
+    floor?: number | null;
+    area?: number | null;
+}
+
+export interface UpdateSpaceStatusRequest {
+    status: SpaceStatus;
+}

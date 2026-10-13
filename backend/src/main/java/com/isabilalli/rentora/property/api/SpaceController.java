@@ -3,6 +3,7 @@ package com.isabilalli.rentora.property.api;
 import com.isabilalli.rentora.property.api.dto.CreateSpaceRequest;
 import com.isabilalli.rentora.property.api.dto.SpaceResponse;
 import com.isabilalli.rentora.property.api.dto.UpdateSpaceRequest;
+import com.isabilalli.rentora.property.api.dto.UpdateSpaceStatusRequest;
 import com.isabilalli.rentora.property.application.SpaceService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -47,4 +48,9 @@ public class SpaceController {
     public void deleteSpace(@PathVariable Long organizationId, @PathVariable Long propertyId, @PathVariable Long spaceId){
         spaceService.deleteSpace(organizationId, propertyId, spaceId);
     } 
+
+    @PatchMapping("/{spaceId}/status")
+    public ResponseEntity<SpaceResponse> updateSpaceStatus(@PathVariable Long organizationId, @PathVariable Long propertyId, @PathVariable Long spaceId, @Valid @RequestBody UpdateSpaceStatusRequest request){
+        return ResponseEntity.ok(spaceService.updateSpaceStatus(organizationId, propertyId, spaceId, request.status()));
+    }
 }

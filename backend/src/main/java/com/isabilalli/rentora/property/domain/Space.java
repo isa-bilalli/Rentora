@@ -96,19 +96,23 @@ public class Space {
         return updatedAt;
     }
 
-    public void update(String name, SpaceType type, Integer floor, BigDecimal area){
+    public void update(String name, SpaceType type, Integer floor, BigDecimal area, boolean floorProvided, boolean areaProvided) {
         if (name != null) {
             this.name = name;
         }
+
         if (type != null) {
             this.type = type;
         }
-        if (floor != null) {
+
+        if (floorProvided) {
             this.floor = floor;
         }
-        if (area != null) {
+
+        if (areaProvided) {
             this.area = area;
         }
+
         this.updatedAt = OffsetDateTime.now();
     }
 

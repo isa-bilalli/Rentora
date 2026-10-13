@@ -59,6 +59,16 @@ public class PropertyService implements PropertyAccess{
         return propertyRepository.findAllByOrganizationId(organizationId).stream().map(PropertyResponse::from).toList();
     }
 
+    public PropertyResponse getProperty(Long organizationId, Long propertyId){
+        AuthenticatedUser currentUser = currentUserService.getCurrentUser();
+        organizationAccessService.requireAccess(currentUser, organizationId);
+        Property property = propertyRepository.findById(propertyId).orElseThrow(() -> new IllegalArgumentException("Property not found"));
+        if(!property.getOrganizationId().equals(organizationId)){
+            throw new AccessDeniedException("Property does not belong to this organization");
+        }
+        return PropertyResponse.from(property);
+    }
+
     @Override
     public void requireBelongsToOrganization(Long propertyId, Long organizationId){
         Property property = propertyRepository.findById(propertyId).orElseThrow(()-> new IllegalArgumentException("Property not found"));

@@ -106,4 +106,6 @@ public interface LeaseRepository extends JpaRepository<Lease, Long> {
         GROUP BY l.spaceId
     """)
     List<CurrentSpaceRentSummary> sumCurrentMonthlyRentBySpace(@Param("organizationId") Long organizationId, @Param("status") LeaseStatus status, @Param("today") LocalDate today);
+    boolean existsByOrganizationIdAndSpaceIdAndStatusAndStartDateLessThanEqualAndEndDateGreaterThanEqual(Long organizationId, Long spaceId, LeaseStatus status, LocalDate startDate, LocalDate endDate);
+    boolean existsByOrganizationIdAndSpaceIdAndStatusAndStartDateGreaterThan(Long organizationId, Long spaceId, LeaseStatus status, LocalDate startDate);
 }
