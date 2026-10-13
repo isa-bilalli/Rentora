@@ -48,3 +48,27 @@ export interface CreateSpaceRequest {
     floor: number | null;
     area: number | null;
 }
+
+export type PropertyType =
+    | "RESIDENTIAL"
+    | "OFFICE"
+    | "RETAIL"
+    | "MIXED_USE"
+    | "OTHER"
+    | "NOT_CLASSIFIED";
+
+export interface PropertySummaryResponse {
+    id: number;
+    name: string;
+    addressLine: string;
+    city: string;
+    postalCode: string | null;
+    country: string;
+    propertyType: PropertyType;
+    totalSpaces: number;
+    occupiedSpaces: number;
+    reservedSpaces: number;
+    vacantSpaces: number;
+    maintenanceSpaces: number;
+    monthlyExpectedRentCents: number;
+}

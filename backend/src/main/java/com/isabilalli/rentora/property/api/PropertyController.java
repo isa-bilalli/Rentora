@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.isabilalli.rentora.property.api.dto.CreatePropertyRequest;
+import com.isabilalli.rentora.property.api.dto.PropertySummaryResponse;
 import com.isabilalli.rentora.property.api.dto.PropertyResponse;
 import com.isabilalli.rentora.property.application.PropertyService;
 
@@ -36,4 +37,10 @@ public class PropertyController {
     public ResponseEntity<List<PropertyResponse>> getProperties(@PathVariable Long organizationId){
         return ResponseEntity.ok(propertyService.getProperties(organizationId));
     }
+
+    @GetMapping("/summary")
+    public ResponseEntity<List<PropertySummaryResponse>> getPropertySummaries(@PathVariable Long organizationId) {
+        return ResponseEntity.ok(propertyService.getPropertySummaries(organizationId));
+    }
+    
 }

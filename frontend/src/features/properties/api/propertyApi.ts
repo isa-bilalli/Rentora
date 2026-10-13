@@ -4,6 +4,7 @@ import type {
     PropertyResponse,
     CreatePropertyRequest,
     SpaceResponse,
+    PropertySummaryResponse,
     CreateSpaceRequest,
 } from "../types";
 
@@ -36,6 +37,14 @@ export async function createSpace(organizationId: number, propertyId: number, re
     return apiRequest<SpaceResponse>(`/api/organizations/${organizationId}/properties/${propertyId}/spaces`, {
             method: "POST",
             body: JSON.stringify(request),
+            authenticated: true,
+        },
+    );
+}
+
+export async function getPropertySummaries(organizationId: number): Promise<PropertySummaryResponse[]> {
+    return apiRequest<PropertySummaryResponse[]>(`/api/organizations/${organizationId}/properties/summary`, {
+            method: "GET",
             authenticated: true,
         },
     );
