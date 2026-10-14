@@ -83,3 +83,11 @@ export interface UpdateSpaceRequest {
 export interface UpdateSpaceStatusRequest {
     status: SpaceStatus;
 }
+
+export interface UpdatePropertyRequest {
+    name: string;
+    addressLine: string;
+    city: string;
+    postalCode: string;
+    country: string;
+}

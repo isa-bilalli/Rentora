@@ -22,6 +22,7 @@ import com.isabilalli.rentora.lease.api.dto.CurrentSpaceRentSummary;
 import com.isabilalli.rentora.organization.application.OrganizationAccessService;
 import com.isabilalli.rentora.property.api.PropertyAccess;
 import com.isabilalli.rentora.property.api.dto.CreatePropertyRequest;
+import com.isabilalli.rentora.property.api.dto.UpdatePropertyRequest;
 import com.isabilalli.rentora.property.api.dto.PropertyResponse;
 import com.isabilalli.rentora.property.api.dto.PropertySummaryResponse;
 import com.isabilalli.rentora.property.infrastructure.PropertyRepository;
@@ -67,6 +68,23 @@ public class PropertyService implements PropertyAccess{
             throw new AccessDeniedException("Property does not belong to this organization");
         }
         return PropertyResponse.from(property);
+    }
+
+    public PropertyResponse updateProperty(Long organizationId, Long propertyId, UpdatePropertyRequest request){
+        AuthenticatedUser currentUser = currentUserService.getCurrentUser();
+        organizationAccessService.requireAccess(currentUser, organizationId);
+        Property property = propertyRepository.findById(propertyId).orElseThrow(() -> new IllegalArgumentException("Property not found"));
+        if(!property.getOrganizationId().equals(organizationId)){
+            throw new AccessDeniedException("Property does not belong to this organization");
+        }
+        property.update(
+            request.name().trim(),
+            request.addressLine().trim(),
+            request.city().trim(),
+            request.postalCode() == null || request.postalCode().isBlank() ? null : request.postalCode().trim(), request.country().trim()
+        );
+        Property updatedProperty = propertyRepository.save(property);
+        return PropertyResponse.from(updatedProperty);
     }
 
     @Override

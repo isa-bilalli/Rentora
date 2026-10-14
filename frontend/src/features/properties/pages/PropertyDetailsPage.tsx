@@ -17,6 +17,7 @@ import {
     createSpace,
     updateSpace,
     updateSpaceStatus,
+    updateProperty,
 } from "../api/propertyApi";
 
 import {
@@ -40,6 +41,7 @@ import type { TenantResponse } from "../../tenants/types";
 
 import CreateLeaseForm from "../../leases/components/CreateLeaseForm";
 import RenewLeaseForm from "../../leases/components/RenewLeaseForm";
+import UpdatePropertyForm from "../components/form/EditPropertyForm";
 import CreateSpaceForm from "../components/form/CreateSpaceForm";
 
 import type {
@@ -48,6 +50,7 @@ import type {
     SpaceResponse,
     SpaceStatus,
     SpaceType,
+    UpdatePropertyRequest,
 } from "../types";
 
 type DetailsTab =
@@ -139,6 +142,8 @@ export default function PropertyDetailsPage() {
     const [spaces, setSpaces] = useState<SpaceResponse[]>([]);
     const [leases, setLeases] = useState<LeaseResponse[]>([]);
     const [tenants, setTenants] = useState<TenantResponse[]>([]);
+    const [showEditProperty, setShowEditProperty] = useState(false);
+    const [updatingProperty, setUpdatingProperty] = useState(false);
 
     const [activeTab, setActiveTab] =
         useState<DetailsTab>("overview");
@@ -341,6 +346,31 @@ export default function PropertyDetailsPage() {
             cancelled = true;
         };
     }, [organizationStatus, activeOrganization?.id]);
+
+    async function handleUpdateProperty(
+        request: UpdatePropertyRequest,
+    ): Promise<void> {
+        if (!activeOrganization || !property) {
+            throw new Error(
+                "An active organization and property are required.",
+            );
+        }
+
+        setUpdatingProperty(true);
+
+        try {
+            const updatedProperty = await updateProperty(
+                activeOrganization.id,
+                property.id,
+                request,
+            );
+
+            setProperty(updatedProperty);
+            setShowEditProperty(false);
+        } finally {
+            setUpdatingProperty(false);
+        }
+    }
 
     async function refreshPropertySpaces(): Promise<void> {
         if (!activeOrganization || !property) {
@@ -728,12 +758,32 @@ export default function PropertyDetailsPage() {
                             </p>
                         </div>
                     </div>
+                    <div className="flex w-fit flex-wrap items-center gap-3">
+                        <span className="inline-flex rounded-full bg-[#e8efe9] px-3 py-1.5 text-xs font-medium text-[#14302b]">
+                            {getPropertyType(spaces)}
+                        </span>
 
-                    <span className="inline-flex w-fit rounded-full bg-[#e8efe9] px-3 py-1.5 text-xs font-medium text-[#14302b]">
-                        {getPropertyType(spaces)}
-                    </span>
+                        {!showEditProperty && (
+                            <button
+                                type="button"
+                                onClick={() => setShowEditProperty(true)}
+                                className="inline-flex items-center gap-2 rounded-lg border border-[#d5dfd8] bg-white px-4 py-2 text-sm font-medium text-[#14302b] transition hover:bg-[#f8faf8]"
+                            >
+                                <Pencil className="h-4 w-4" />
+                                Edit property
+                            </button>
+                        )}
+                    </div>
                 </header>
-
+                    {showEditProperty && (
+                        <UpdatePropertyForm
+                            key={property.id}
+                            property={property}
+                            submitting={updatingProperty}
+                            onSubmit={handleUpdateProperty}
+                            onCancel={() => setShowEditProperty(false)}
+                        />
+                    )}  
                 <section
                     aria-label="Property summary"
                     className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4"

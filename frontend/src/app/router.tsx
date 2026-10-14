@@ -24,6 +24,7 @@ import TenantDetailsPage from "../features/tenants/pages/TenantDetailsPage";
 import TenantsPage from "../features/tenants/pages/TenantsPage"
 import PropertiesPage from "../features/properties/pages/PropertiesPage";
 import PropertyDetailsPage from "../features/properties/pages/PropertyDetailsPage";
+import CreatePropertyPage from "../features/properties/pages/CreatePropertyPage";
 
 export const router = createBrowserRouter([
     {
@@ -73,6 +74,10 @@ export const router = createBrowserRouter([
                                     {
                                         path: "properties/:propertyId",
                                         element: (<PropertyDetailsPage />),
+                                    },
+                                    {
+                                        path: "properties/new",
+                                        element: <CreatePropertyPage />,
                                     },
                                     {
                                         path: "tenants",

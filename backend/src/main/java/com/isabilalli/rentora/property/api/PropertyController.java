@@ -7,12 +7,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.isabilalli.rentora.property.api.dto.CreatePropertyRequest;
 import com.isabilalli.rentora.property.api.dto.PropertySummaryResponse;
+import com.isabilalli.rentora.property.api.dto.UpdatePropertyRequest;
 import com.isabilalli.rentora.property.api.dto.PropertyResponse;
 import com.isabilalli.rentora.property.application.PropertyService;
 
@@ -46,6 +48,11 @@ public class PropertyController {
     @GetMapping("/{propertyId}")
     public ResponseEntity<PropertyResponse> getPropertyById(@PathVariable Long organizationId, @PathVariable Long propertyId) {
         return ResponseEntity.ok(propertyService.getProperty(organizationId, propertyId));
+    }
+
+    @PutMapping("/{propertyId}")
+    public ResponseEntity<PropertyResponse> updateProperty(@PathVariable Long organizationId, @PathVariable Long propertyId, @Valid @RequestBody UpdatePropertyRequest request){
+        return ResponseEntity.ok(propertyService.updateProperty(organizationId, propertyId, request));
     }
     
 }

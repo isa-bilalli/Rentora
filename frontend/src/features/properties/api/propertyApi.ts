@@ -8,6 +8,7 @@ import type {
     CreateSpaceRequest,
     UpdateSpaceRequest,
     UpdateSpaceStatusRequest,
+    UpdatePropertyRequest,
 } from "../types";
 
 export async function getProperties(organizationId: number): Promise<PropertyResponse[]> {
@@ -72,5 +73,13 @@ export async function updateSpaceStatus(organizationId: number, propertyId: numb
         method: "PATCH",
         body: JSON.stringify(request),
         authenticated: true,    
+    })
+}
+
+export async function updateProperty(organizationId: number, propertyId: number, request: UpdatePropertyRequest): Promise<PropertyResponse>{
+    return apiRequest<PropertyResponse>(`/api/organizations/${organizationId}/properties/${propertyId}`, {
+        method: "PUT",
+        body: JSON.stringify(request),
+        authenticated: true,
     })
 }

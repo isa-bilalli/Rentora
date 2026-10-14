@@ -208,10 +208,7 @@ export default function PropertiesPage() {
                             {properties.length === 0 ? (
                                 <div className="rounded-xl border border-dashed border-[#d5dfd8] bg-white px-6 py-14 text-center">
                                     <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-[#e8efe9] text-[#14302b]">
-                                        <Building2
-                                            className="h-6 w-6"
-                                            aria-hidden="true"
-                                        />
+                                        <Building2 className="h-6 w-6" aria-hidden="true" />
                                     </div>
 
                                     <h3 className="mt-4 text-base font-semibold text-[#14302b]">
@@ -219,25 +216,40 @@ export default function PropertiesPage() {
                                     </h3>
 
                                     <p className="mt-1 text-sm text-gray-500">
-                                        Add your first property to start
-                                        managing your portfolio.
+                                        Add your first property to start managing your portfolio.
                                     </p>
 
                                     <Link
                                         to="/app/properties/new"
                                         className="mt-5 inline-flex items-center gap-2 rounded-lg bg-[#14302b] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#20453d]"
                                     >
-                                        <Plus
-                                            className="h-4 w-4"
-                                            aria-hidden="true"
-                                        />
+                                        <Plus className="h-4 w-4" aria-hidden="true" />
                                         Add your first property
                                     </Link>
                                 </div>
+                            ) : filteredProperties.length === 0 ? (
+                                <div className="rounded-xl border border-dashed border-[#d5dfd8] bg-white px-6 py-12 text-center">
+                                    <h3 className="text-base font-semibold text-[#14302b]">
+                                        No matching properties
+                                    </h3>
+
+                                    <p className="mt-1 text-sm text-gray-500">
+                                        Try changing your search or selecting a different property type.
+                                    </p>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setSearch("");
+                                            setPropertyType("ALL");
+                                        }}
+                                        className="mt-4 inline-flex items-center justify-center rounded-lg border border-[#d5dfd8] bg-white px-4 py-2.5 text-sm font-medium text-[#14302b] transition hover:bg-[#f8faf8]"
+                                    >
+                                        Clear filters
+                                    </button>
+                                </div>
                             ) : (
-                                <PropertyTable
-                                    properties={filteredProperties}
-                                />
+                                <PropertyTable properties={filteredProperties} />
                             )}
                         </section>
                     </>

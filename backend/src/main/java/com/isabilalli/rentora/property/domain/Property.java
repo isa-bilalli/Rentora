@@ -92,4 +92,19 @@ public class Property {
     public OffsetDateTime getUpdatedAt() {
         return updatedAt;
     }
+
+    public void update(
+            String name,
+            String addressLine,
+            String city,
+            String postalCode,
+            String country
+    ) {
+        this.name = name;
+        this.addressLine = addressLine;
+        this.city = city;
+        this.postalCode = postalCode;
+        this.country = country;
+        this.updatedAt = OffsetDateTime.now();
+    }
 }
