@@ -39,6 +39,9 @@ import type {
 import { getTenants } from "../../tenants/api/tenantApi";
 import type { TenantResponse } from "../../tenants/types";
 
+import { getPayments } from "../../payments/api/paymentApi";
+import type { PaymentResponse, PaymentStatus } from "../../payments/types";
+
 import CreateLeaseForm from "../../leases/components/CreateLeaseForm";
 import RenewLeaseForm from "../../leases/components/RenewLeaseForm";
 import UpdatePropertyForm from "../components/form/EditPropertyForm";
@@ -128,6 +131,29 @@ function formatLeaseMoney(cents: number): string {
     }).format(cents / 100);
 }
 
+function getTodayLocalDate(): string {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, "0");
+    const day = String(today.getDate()).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
+}
+
+function formatPaidAt(value: string | null): string {
+    if (!value) {
+        return "—";
+    }
+
+    return new Intl.DateTimeFormat("en-GB", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+    }).format(new Date(value));
+}
+
 export default function PropertyDetailsPage() {
     const { propertyId } = useParams();
 
@@ -142,6 +168,9 @@ export default function PropertyDetailsPage() {
     const [spaces, setSpaces] = useState<SpaceResponse[]>([]);
     const [leases, setLeases] = useState<LeaseResponse[]>([]);
     const [tenants, setTenants] = useState<TenantResponse[]>([]);
+    const [payments, setPayments] = useState<PaymentResponse[]>([]);
+    const [paymentsLoading, setPaymentsLoading] = useState(true);
+    const [paymentsError, setPaymentsError] = useState<string | null>(null);
     const [showEditProperty, setShowEditProperty] = useState(false);
     const [updatingProperty, setUpdatingProperty] = useState(false);
 
@@ -341,6 +370,50 @@ export default function PropertyDetailsPage() {
         }
 
         void loadTenants();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [organizationStatus, activeOrganization?.id]);
+
+    useEffect(() => {
+        if (
+            organizationStatus !== "ready" ||
+            !activeOrganization
+        ) {
+            return;
+        }
+
+        const organizationId = activeOrganization.id;
+        let cancelled = false;
+
+        async function loadPayments() {
+            setPaymentsLoading(true);
+            setPaymentsError(null);
+            setPayments([]);
+
+            try {
+                const data = await getPayments(organizationId);
+
+                if (!cancelled) {
+                    setPayments(data);
+                }
+            } catch (requestError) {
+                if (!cancelled) {
+                    setPaymentsError(
+                        requestError instanceof Error
+                            ? requestError.message
+                            : "Failed to load payments.",
+                    );
+                }
+            } finally {
+                if (!cancelled) {
+                    setPaymentsLoading(false);
+                }
+            }
+        }
+
+        void loadPayments();
 
         return () => {
             cancelled = true;
@@ -720,6 +793,42 @@ export default function PropertyDetailsPage() {
 
     const spacesById = new Map(
         spaces.map((space) => [space.id, space]),
+    );
+
+    const propertyLeaseIds = new Set(
+        propertyLeases.map((lease) => lease.id),
+    );
+
+    const leasesById = new Map(
+        propertyLeases.map((lease) => [lease.id, lease]),
+    );
+
+    const propertyPayments = payments
+        .filter((payment) => propertyLeaseIds.has(payment.leaseId))
+        .sort((a, b) => b.dueDate.localeCompare(a.dueDate));
+
+    const today = getTodayLocalDate();
+
+    const collectedCents = propertyPayments
+        .filter((payment) => payment.status === "PAID")
+        .reduce((total, payment) => total + payment.amountCents, 0);
+
+    const pendingPayments = propertyPayments.filter(
+        (payment) => payment.status === "PENDING",
+    );
+
+    const outstandingCents = pendingPayments.reduce(
+        (total, payment) => total + payment.amountCents,
+        0,
+    );
+
+    const overduePayments = pendingPayments.filter(
+        (payment) => payment.dueDate < today,
+    );
+
+    const overdueCents = overduePayments.reduce(
+        (total, payment) => total + payment.amountCents,
+        0,
     );
 
     const renewingLease =
@@ -1224,10 +1333,143 @@ export default function PropertyDetailsPage() {
                         )}
 
                         {activeTab === "financials" && (
-                            <TabPlaceholder
-                                title="Financials"
-                                description="Property-specific rent, payments and expenses will appear here."
-                            />
+                            <div className="space-y-6">
+                                <div>
+                                    <h2 className="text-lg font-semibold text-[#14302b]">
+                                        Financials
+                                    </h2>
+                                    <p className="mt-1 text-sm text-gray-500">
+                                        Payment obligations and collected rent for this property.
+                                    </p>
+                                </div>
+
+                                {paymentsError && (
+                                    <div
+                                        role="alert"
+                                        className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+                                    >
+                                        Unable to load payments: {paymentsError}
+                                    </div>
+                                )}
+
+                                {paymentsLoading ? (
+                                    <div
+                                        role="status"
+                                        className="rounded-xl border border-[#e1e8e3] bg-white p-8 text-sm text-gray-500"
+                                    >
+                                        Loading financial data...
+                                    </div>
+                                ) : paymentsError ? null : (
+                                    <>
+                                        <section
+                                            aria-label="Financial summary"
+                                            className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
+                                        >
+                                            <SummaryCard
+                                                label="Rent collected"
+                                                value={formatLeaseMoney(collectedCents)}
+                                                description="Payments recorded as paid"
+                                            />
+
+                                            <SummaryCard
+                                                label="Outstanding"
+                                                value={formatLeaseMoney(outstandingCents)}
+                                                description="All pending payments, including overdue"
+                                            />
+
+                                            <SummaryCard
+                                                label="Overdue"
+                                                value={formatLeaseMoney(overdueCents)}
+                                                description={`${overduePayments.length} overdue ${overduePayments.length === 1 ? "payment" : "payments"}`}
+                                            />
+                                        </section>
+
+                                        <section className="space-y-4">
+                                            <div>
+                                                <h3 className="font-semibold text-[#14302b]">
+                                                    Payment history
+                                                </h3>
+                                                <p className="mt-1 text-sm text-gray-500">
+                                                    Recorded, pending, and voided payment obligations.
+                                                </p>
+                                            </div>
+
+                                            {propertyPayments.length === 0 ? (
+                                                <div className="rounded-xl border border-dashed border-[#d5dfd8] bg-white px-6 py-12 text-center">
+                                                    <h4 className="font-semibold text-[#14302b]">
+                                                        No payment records yet
+                                                    </h4>
+                                                    <p className="mt-1 text-sm text-gray-500">
+                                                        Payments associated with this property's leases will appear here.
+                                                    </p>
+                                                </div>
+                                            ) : (
+                                                <div className="overflow-x-auto rounded-lg border border-[#e1e8e3]">
+                                                    <table className="w-full min-w-[1000px] text-left">
+                                                        <thead className="bg-[#f8faf8]">
+                                                            <tr>
+                                                                <TableHeader>Due date</TableHeader>
+                                                                <TableHeader>Space</TableHeader>
+                                                                <TableHeader>Lease</TableHeader>
+                                                                <TableHeader>Amount</TableHeader>
+                                                                <TableHeader>Status</TableHeader>
+                                                                <TableHeader>Paid at</TableHeader>
+                                                                <TableHeader>Method</TableHeader>
+                                                            </tr>
+                                                        </thead>
+
+                                                        <tbody className="divide-y divide-[#edf0ee]">
+                                                            {propertyPayments.map((payment) => {
+                                                                const lease = leasesById.get(payment.leaseId);
+                                                                const space = lease
+                                                                    ? spacesById.get(lease.spaceId)
+                                                                    : undefined;
+
+                                                                return (
+                                                                    <tr
+                                                                        key={payment.id}
+                                                                        className="hover:bg-[#f8faf8]"
+                                                                    >
+                                                                        <td className="px-4 py-4 text-sm text-gray-600">
+                                                                            {formatLeaseDate(payment.dueDate)}
+                                                                        </td>
+
+                                                                        <td className="px-4 py-4 text-sm font-medium text-[#14302b]">
+                                                                            {space?.name ?? `Space #${lease?.spaceId ?? "—"}`}
+                                                                        </td>
+
+                                                                        <td className="px-4 py-4 text-sm text-gray-600">
+                                                                            #{payment.leaseId}
+                                                                        </td>
+
+                                                                        <td className="px-4 py-4 text-sm font-medium text-[#243b35]">
+                                                                            {formatLeaseMoney(payment.amountCents)}
+                                                                        </td>
+
+                                                                        <td className="px-4 py-4">
+                                                                            <PaymentStatusBadge status={payment.status} />
+                                                                        </td>
+
+                                                                        <td className="px-4 py-4 text-sm text-gray-600">
+                                                                            {formatPaidAt(payment.paidAt)}
+                                                                        </td>
+
+                                                                        <td className="px-4 py-4 text-sm text-gray-600">
+                                                                            {payment.paymentMethod
+                                                                                ? payment.paymentMethod.replace(/_/g, " ").toLowerCase()
+                                                                                : "—"}
+                                                                        </td>
+                                                                    </tr>
+                                                                );
+                                                            })}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            )}
+                                        </section>
+                                    </>
+                                )}
+                            </div>
                         )}
 
                         {activeTab === "maintenance" && (
@@ -1305,6 +1547,32 @@ function LeaseStatusBadge({
         ACTIVE: "Active",
         ENDED: "Ended",
         CANCELLED: "Cancelled",
+    };
+
+    return (
+        <span
+            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${styles[status]}`}
+        >
+            {labels[status]}
+        </span>
+    );
+}
+
+function PaymentStatusBadge({
+    status,
+}: {
+    status: PaymentStatus;
+}) {
+    const styles: Record<PaymentStatus, string> = {
+        PAID: "bg-[#e8efe9] text-[#14302b]",
+        PENDING: "bg-amber-50 text-amber-800",
+        VOIDED: "bg-gray-100 text-gray-600",
+    };
+
+    const labels: Record<PaymentStatus, string> = {
+        PAID: "Paid",
+        PENDING: "Pending",
+        VOIDED: "Voided",
     };
 
     return (
