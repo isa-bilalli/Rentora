@@ -1,5 +1,5 @@
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useParams } from "react-router";
 import {
     ArrowLeft,
@@ -7,6 +7,7 @@ import {
     LayoutGrid,
     Plus,
     Pencil,
+    X,
 } from "lucide-react";
 
 import { useOrganization } from "../../organizations/OrganizationProvider";
@@ -39,8 +40,17 @@ import type {
 import { getTenants } from "../../tenants/api/tenantApi";
 import type { TenantResponse } from "../../tenants/types";
 
-import { getPayments } from "../../payments/api/paymentApi";
-import type { PaymentResponse, PaymentStatus } from "../../payments/types";
+import {
+    getPayments,
+    recordPayments,
+    voidPayment,
+} from "../../payments/api/paymentApi";
+import type {
+    PaymentMethod,
+    PaymentResponse,
+    PaymentStatus,
+    RecordPaymentRequest,
+} from "../../payments/types";
 
 import CreateLeaseForm from "../../leases/components/CreateLeaseForm";
 import RenewLeaseForm from "../../leases/components/RenewLeaseForm";
@@ -171,6 +181,9 @@ export default function PropertyDetailsPage() {
     const [payments, setPayments] = useState<PaymentResponse[]>([]);
     const [paymentsLoading, setPaymentsLoading] = useState(true);
     const [paymentsError, setPaymentsError] = useState<string | null>(null);
+    const [recordingPaymentId, setRecordingPaymentId] = useState<number | null>(null);
+    const [paymentActionBusyId, setPaymentActionBusyId] = useState<number | null>(null);
+    const [paymentActionError, setPaymentActionError] = useState<string | null>(null);
     const [showEditProperty, setShowEditProperty] = useState(false);
     const [updatingProperty, setUpdatingProperty] = useState(false);
 
@@ -442,6 +455,70 @@ export default function PropertyDetailsPage() {
             setShowEditProperty(false);
         } finally {
             setUpdatingProperty(false);
+        }
+    }
+
+    async function handleRecordPayment(
+        paymentId: number,
+        request: RecordPaymentRequest,
+    ): Promise<void> {
+        if (!activeOrganization) {
+            throw new Error("An active organization is required.");
+        }
+
+        setPaymentActionBusyId(paymentId);
+        setPaymentActionError(null);
+
+        try {
+            const updatedPayment = await recordPayments(
+                activeOrganization.id,
+                paymentId,
+                request,
+            );
+
+            setPayments((currentPayments) =>
+                currentPayments.map((payment) =>
+                    payment.id === updatedPayment.id ? updatedPayment : payment,
+                ),
+            );
+            setRecordingPaymentId(null);
+        } finally {
+            setPaymentActionBusyId(null);
+        }
+    }
+
+    async function handleVoidPayment(payment: PaymentResponse): Promise<void> {
+        const confirmed = window.confirm(
+            `Void payment #${payment.id} for ${formatLeaseMoney(payment.amountCents)}? This cannot be undone.`,
+        );
+
+        if (!confirmed || !activeOrganization) {
+            return;
+        }
+
+        setPaymentActionBusyId(payment.id);
+        setPaymentActionError(null);
+
+        try {
+            const updatedPayment = await voidPayment(
+                activeOrganization.id,
+                payment.id,
+            );
+
+            setPayments((currentPayments) =>
+                currentPayments.map((item) =>
+                    item.id === updatedPayment.id ? updatedPayment : item,
+                ),
+            );
+            setRecordingPaymentId(null);
+        } catch (requestError) {
+            setPaymentActionError(
+                requestError instanceof Error
+                    ? requestError.message
+                    : "Failed to void payment.",
+            );
+        } finally {
+            setPaymentActionBusyId(null);
         }
     }
 
@@ -806,6 +883,9 @@ export default function PropertyDetailsPage() {
     const propertyPayments = payments
         .filter((payment) => propertyLeaseIds.has(payment.leaseId))
         .sort((a, b) => b.dueDate.localeCompare(a.dueDate));
+
+    const recordingPayment =
+        propertyPayments.find((payment) => payment.id === recordingPaymentId) ?? null;
 
     const today = getTodayLocalDate();
 
@@ -1352,6 +1432,15 @@ export default function PropertyDetailsPage() {
                                     </div>
                                 )}
 
+                                {paymentActionError && (
+                                    <div
+                                        role="alert"
+                                        className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+                                    >
+                                        {paymentActionError}
+                                    </div>
+                                )}
+
                                 {paymentsLoading ? (
                                     <div
                                         role="status"
@@ -1384,6 +1473,18 @@ export default function PropertyDetailsPage() {
                                             />
                                         </section>
 
+                                        {recordingPayment && (
+                                            <RecordPaymentForm
+                                                key={recordingPayment.id}
+                                                payment={recordingPayment}
+                                                submitting={paymentActionBusyId === recordingPayment.id}
+                                                onSubmit={(request) =>
+                                                    handleRecordPayment(recordingPayment.id, request)
+                                                }
+                                                onCancel={() => setRecordingPaymentId(null)}
+                                            />
+                                        )}
+
                                         <section className="space-y-4">
                                             <div>
                                                 <h3 className="font-semibold text-[#14302b]">
@@ -1405,7 +1506,7 @@ export default function PropertyDetailsPage() {
                                                 </div>
                                             ) : (
                                                 <div className="overflow-x-auto rounded-lg border border-[#e1e8e3]">
-                                                    <table className="w-full min-w-[1000px] text-left">
+                                                    <table className="w-full min-w-300 text-left">
                                                         <thead className="bg-[#f8faf8]">
                                                             <tr>
                                                                 <TableHeader>Due date</TableHeader>
@@ -1415,6 +1516,7 @@ export default function PropertyDetailsPage() {
                                                                 <TableHeader>Status</TableHeader>
                                                                 <TableHeader>Paid at</TableHeader>
                                                                 <TableHeader>Method</TableHeader>
+                                                                <TableHeader>Actions</TableHeader>
                                                             </tr>
                                                         </thead>
 
@@ -1458,6 +1560,38 @@ export default function PropertyDetailsPage() {
                                                                             {payment.paymentMethod
                                                                                 ? payment.paymentMethod.replace(/_/g, " ").toLowerCase()
                                                                                 : "—"}
+                                                                        </td>
+
+                                                                        <td className="px-4 py-4">
+                                                                            {payment.status === "PENDING" ? (
+                                                                                <div className="flex flex-wrap gap-2">
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        disabled={paymentActionBusyId !== null}
+                                                                                        onClick={() => {
+                                                                                            setPaymentActionError(null);
+                                                                                            setRecordingPaymentId(payment.id);
+                                                                                        }}
+                                                                                        className="rounded-lg border border-[#d5dfd8] bg-white px-3 py-2 text-xs font-medium text-[#14302b] hover:bg-[#f8faf8] disabled:cursor-not-allowed disabled:opacity-50"
+                                                                                    >
+                                                                                        {paymentActionBusyId === payment.id && recordingPaymentId === payment.id
+                                                                                            ? "Saving..."
+                                                                                            : "Record payment"}
+                                                                                    </button>
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        disabled={paymentActionBusyId !== null}
+                                                                                        onClick={() => void handleVoidPayment(payment)}
+                                                                                        className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                                                                    >
+                                                                                        {paymentActionBusyId === payment.id && recordingPaymentId !== payment.id
+                                                                                            ? "Voiding..."
+                                                                                            : "Void"}
+                                                                                    </button>
+                                                                                </div>
+                                                                            ) : (
+                                                                                <span className="text-sm text-gray-400">—</span>
+                                                                            )}
                                                                         </td>
                                                                     </tr>
                                                                 );
@@ -1555,6 +1689,157 @@ function LeaseStatusBadge({
         >
             {labels[status]}
         </span>
+    );
+}
+
+function getLocalDateTimeInputValue(): string {
+    const now = new Date();
+    const offsetMinutes = now.getTimezoneOffset();
+    const localTime = new Date(now.getTime() - offsetMinutes * 60_000);
+    return localTime.toISOString().slice(0, 16);
+}
+
+function RecordPaymentForm({
+    payment,
+    submitting,
+    onSubmit,
+    onCancel,
+}: {
+    payment: PaymentResponse;
+    submitting: boolean;
+    onSubmit: (request: RecordPaymentRequest) => Promise<void>;
+    onCancel: () => void;
+}) {
+    const [paidAt, setPaidAt] = useState(getLocalDateTimeInputValue);
+    const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | "">("");
+    const [error, setError] = useState<string | null>(null);
+
+    async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        setError(null);
+
+        if (!paidAt) {
+            setError("Select the date and time the payment was received.");
+            return;
+        }
+
+        if (!paymentMethod) {
+            setError("Select a payment method.");
+            return;
+        }
+
+        const paidAtDate = new Date(paidAt);
+        if (Number.isNaN(paidAtDate.getTime())) {
+            setError("Enter a valid payment date and time.");
+            return;
+        }
+
+        try {
+            await onSubmit({
+                // ISO UTC timestamps are valid OffsetDateTime values for Spring.
+                paidAt: paidAtDate.toISOString(),
+                paymentMethod,
+            });
+        } catch (submitError) {
+            setError(
+                submitError instanceof Error
+                    ? submitError.message
+                    : "Failed to record payment.",
+            );
+        }
+    }
+
+    const inputClass =
+        "w-full rounded-lg border border-[#dce4de] bg-white px-3 py-2.5 text-sm text-[#243b35] outline-none focus:border-[#14302b] focus:ring-2 focus:ring-[#14302b]/10 disabled:cursor-not-allowed disabled:bg-gray-100";
+    const labelClass = "mb-1.5 block text-sm font-medium text-[#243b35]";
+
+    return (
+        <form
+            onSubmit={handleSubmit}
+            className="rounded-xl border border-[#d5dfd8] bg-[#f8faf8] p-5"
+        >
+            <div className="mb-5 flex items-start justify-between gap-3">
+                <div>
+                    <h3 className="font-semibold text-[#14302b]">
+                        Record payment #{payment.id}
+                    </h3>
+                    <p className="mt-1 text-sm text-gray-500">
+                        Record receipt of {formatLeaseMoney(payment.amountCents)} for the payment due {formatLeaseDate(payment.dueDate)}.
+                    </p>
+                </div>
+                <button
+                    type="button"
+                    onClick={onCancel}
+                    disabled={submitting}
+                    aria-label="Cancel recording payment"
+                    className="rounded-md p-2 text-gray-500 hover:bg-white hover:text-[#14302b] disabled:opacity-60"
+                >
+                    <X className="h-4 w-4" />
+                </button>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                    <label htmlFor="payment-paid-at" className={labelClass}>
+                        Date and time received
+                    </label>
+                    <input
+                        id="payment-paid-at"
+                        type="datetime-local"
+                        required
+                        value={paidAt}
+                        onChange={(event) => setPaidAt(event.target.value)}
+                        disabled={submitting}
+                        className={inputClass}
+                    />
+                </div>
+
+                <div>
+                    <label htmlFor="payment-method" className={labelClass}>
+                        Payment method
+                    </label>
+                    <select
+                        id="payment-method"
+                        required
+                        value={paymentMethod}
+                        onChange={(event) => setPaymentMethod(event.target.value as PaymentMethod | "")}
+                        disabled={submitting}
+                        className={inputClass}
+                    >
+                        <option value="">Select payment method</option>
+                        <option value="CASH">Cash</option>
+                        <option value="BANK_TRANSFER">Bank transfer</option>
+                        <option value="CARD">Card</option>
+                        <option value="OTHER">Other</option>
+                    </select>
+                </div>
+            </div>
+
+            {error && (
+                <p role="alert" className="mt-4 text-sm text-red-700">
+                    {error}
+                </p>
+            )}
+
+            <div className="mt-5 flex justify-end gap-3">
+                <button
+                    type="button"
+                    onClick={onCancel}
+                    disabled={submitting}
+                    className="rounded-lg border border-[#d5dfd8] bg-white px-4 py-2.5 text-sm font-medium text-[#243b35] hover:bg-gray-50 disabled:opacity-60"
+                >
+                    Cancel
+                </button>
+                <button
+                    type="submit"
+                    disabled={submitting}
+                    className="inline-flex items-center gap-2 rounded-lg bg-[#14302b] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#20453d] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                    <Pencil className="h-4 w-4" />
+                    {submitting ? "Recording..." : "Confirm payment"}
+                </button>
+            </div>
+        </form>
     );
 }
 

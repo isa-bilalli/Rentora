@@ -13,3 +13,10 @@ export interface PaymentResponse {
     createdAt: string;
     updatedAt: string;
 }
+
+export type PaymentMethod = | "CASH" | "BANK_TRANSFER" | "CARD" | "OTHER";
+
+export interface RecordPaymentRequest{
+    paidAt: string;
+    paymentMethod: PaymentMethod;
+}
