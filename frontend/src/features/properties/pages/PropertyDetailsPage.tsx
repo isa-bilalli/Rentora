@@ -64,6 +64,7 @@ import {
     getAllMaintenanceRequests,
 } from "../../maintenance/api/maintenanceApi";
 import CreateMaintenanceForm from "../../maintenance/components/CreateMaintenanceForm";
+import { formatDate, formatDateTime, formatMoney } from "../../../lib/format";
 import type {
     CreateMaintenanceRequest,
     MaintenancePriority,
@@ -130,31 +131,6 @@ function getPropertyType(spaces: SpaceResponse[]): string {
     return spaceTypeLabels[spaces[0].type];
 }
 
-function formatDate(value: string): string {
-    return new Intl.DateTimeFormat("en-GB", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-    }).format(new Date(value));
-}
-
-function formatLeaseDate(value: string): string {
-    const [year, month, day] = value.split("-").map(Number);
-
-    return new Intl.DateTimeFormat("en-GB", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-    }).format(new Date(year, month - 1, day));
-}
-
-function formatLeaseMoney(cents: number): string {
-    return new Intl.NumberFormat("en-IE", {
-        style: "currency",
-        currency: "EUR",
-    }).format(cents / 100);
-}
-
 function getTodayLocalDate(): string {
     const today = new Date();
     const year = today.getFullYear();
@@ -162,20 +138,6 @@ function getTodayLocalDate(): string {
     const day = String(today.getDate()).padStart(2, "0");
 
     return `${year}-${month}-${day}`;
-}
-
-function formatPaidAt(value: string | null): string {
-    if (!value) {
-        return "—";
-    }
-
-    return new Intl.DateTimeFormat("en-GB", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-    }).format(new Date(value));
 }
 
 export default function PropertyDetailsPage() {
@@ -555,7 +517,7 @@ export default function PropertyDetailsPage() {
 
     async function handleVoidPayment(payment: PaymentResponse): Promise<void> {
         const confirmed = window.confirm(
-            `Void payment #${payment.id} for ${formatLeaseMoney(payment.amountCents)}? This cannot be undone.`,
+            `Void payment #${payment.id} for ${formatMoney(payment.amountCents)}? This cannot be undone.`,
         );
 
         if (!confirmed || !activeOrganization) {
@@ -1517,16 +1479,16 @@ export default function PropertyDetailsPage() {
                                                             #{lease.tenantId}
                                                         </td>
                                                         <td className="px-4 py-4 text-sm text-gray-600">
-                                                            <div>{formatLeaseDate(lease.startDate)}</div>
+                                                            <div>{formatDate(lease.startDate)}</div>
                                                             <div className="mt-1 text-gray-400">
-                                                                to {formatLeaseDate(lease.endDate)}
+                                                                to {formatDate(lease.endDate)}
                                                             </div>
                                                         </td>
                                                         <td className="px-4 py-4 text-sm font-medium text-[#243b35]">
-                                                            {formatLeaseMoney(lease.monthlyRentCents)}
+                                                            {formatMoney(lease.monthlyRentCents)}
                                                         </td>
                                                         <td className="px-4 py-4 text-sm text-gray-600">
-                                                            {formatLeaseMoney(lease.securityDepositCents)}
+                                                            {formatMoney(lease.securityDepositCents)}
                                                         </td>
                                                         <td className="px-4 py-4">
                                                             <LeaseStatusBadge status={lease.status} />
@@ -1636,19 +1598,19 @@ export default function PropertyDetailsPage() {
                                         >
                                             <SummaryCard
                                                 label="Rent collected"
-                                                value={formatLeaseMoney(collectedCents)}
+                                                value={formatMoney(collectedCents)}
                                                 description="Payments recorded as paid"
                                             />
 
                                             <SummaryCard
                                                 label="Outstanding"
-                                                value={formatLeaseMoney(outstandingCents)}
+                                                value={formatMoney(outstandingCents)}
                                                 description="All pending payments, including overdue"
                                             />
 
                                             <SummaryCard
                                                 label="Overdue"
-                                                value={formatLeaseMoney(overdueCents)}
+                                                value={formatMoney(overdueCents)}
                                                 description={`${overduePayments.length} overdue ${overduePayments.length === 1 ? "payment" : "payments"}`}
                                             />
                                         </section>
@@ -1713,7 +1675,7 @@ export default function PropertyDetailsPage() {
                                                                         className="hover:bg-[#f8faf8]"
                                                                     >
                                                                         <td className="px-4 py-4 text-sm text-gray-600">
-                                                                            {formatLeaseDate(payment.dueDate)}
+                                                                            {formatDate(payment.dueDate)}
                                                                         </td>
 
                                                                         <td className="px-4 py-4 text-sm font-medium text-[#14302b]">
@@ -1725,7 +1687,7 @@ export default function PropertyDetailsPage() {
                                                                         </td>
 
                                                                         <td className="px-4 py-4 text-sm font-medium text-[#243b35]">
-                                                                            {formatLeaseMoney(payment.amountCents)}
+                                                                            {formatMoney(payment.amountCents)}
                                                                         </td>
 
                                                                         <td className="px-4 py-4">
@@ -1733,7 +1695,7 @@ export default function PropertyDetailsPage() {
                                                                         </td>
 
                                                                         <td className="px-4 py-4 text-sm text-gray-600">
-                                                                            {formatPaidAt(payment.paidAt)}
+                                                                            {formatDateTime(payment.paidAt)}
                                                                         </td>
 
                                                                         <td className="px-4 py-4 text-sm text-gray-600">
@@ -2119,7 +2081,7 @@ function RecordPaymentForm({
                         Record payment #{payment.id}
                     </h3>
                     <p className="mt-1 text-sm text-gray-500">
-                        Record receipt of {formatLeaseMoney(payment.amountCents)} for the payment due {formatLeaseDate(payment.dueDate)}.
+                        Record receipt of {formatMoney(payment.amountCents)} for the payment due {formatDate(payment.dueDate)}.
                     </p>
                 </div>
                 <button

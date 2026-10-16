@@ -4,7 +4,7 @@ import { ArrowUpRight, MapPin } from "lucide-react";
 import type { PropertySummaryResponse } from "../types";
 import PropertyTypeBadge from "./PropertyTypeBadge";
 import OccupancyIndicator from "./OccupancyIndicator";
-import { formatCurrencyFromCents } from "../utils/formatters";
+import { formatMoney } from "../../../lib/format";
 
 interface PropertyTableProps {
     properties: PropertySummaryResponse[];
@@ -113,7 +113,7 @@ export default function PropertyTable({
 
                                 <td className="px-5 py-4 text-right">
                                     <span className="whitespace-nowrap text-sm font-semibold tabular-nums text-[#14302b]">
-                                        {formatCurrencyFromCents(
+                                        {formatMoney(
                                             property.monthlyExpectedRentCents,
                                         )}
                                     </span>

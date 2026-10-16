@@ -23,6 +23,7 @@ import type { LeaseResponse } from "../../leases/types";
 
 import { getPayments } from "../../payments/api/paymentApi";
 import type { PaymentResponse, PaymentStatus } from "../../payments/types";
+import { formatDateTime, formatLongDate, formatMoney } from "../../../lib/format";
 
 import {
     getTenantDisplayName,
@@ -37,40 +38,6 @@ function getLocalDateString(): string {
     const day = String(now.getDate()).padStart(2, "0");
 
     return `${year}-${month}-${day}`;
-}
-
-function formatDate(value: string): string {
-    const date = /^\d{4}-\d{2}-\d{2}$/.test(value)
-        ? new Date(`${value}T12:00:00`)
-        : new Date(value);
-
-    if (Number.isNaN(date.getTime())) return "—";
-
-    return new Intl.DateTimeFormat(undefined, {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-    }).format(date);
-}
-
-function formatDateTime(value: string | null): string {
-    if (!value) return "—";
-
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) return "—";
-
-    return new Intl.DateTimeFormat(undefined, {
-        dateStyle: "medium",
-        timeStyle: "short",
-    }).format(date);
-}
-
-function formatMoney(cents: number): string {
-    return new Intl.NumberFormat(undefined, {
-        style: "currency",
-        currency: "EUR",
-    }).format(cents / 100);
 }
 
 function getLeaseDisplayStatus(
@@ -550,7 +517,7 @@ export default function TenantDetailsPage() {
                                 Created
                             </p>
                             <p className="mt-1 text-sm text-[#42574e]">
-                                {formatDate(tenant.createdAt)}
+                                {formatLongDate(tenant.createdAt)}
                             </p>
                         </div>
 
@@ -560,7 +527,7 @@ export default function TenantDetailsPage() {
                                 Last updated
                             </p>
                             <p className="mt-1 text-sm text-[#42574e]">
-                                {formatDate(tenant.updatedAt)}
+                                {formatLongDate(tenant.updatedAt)}
                             </p>
                         </div>
                     </div>
@@ -643,11 +610,11 @@ export default function TenantDetailsPage() {
                                             </td>
 
                                             <td className="px-5 py-4 text-[#42574e]">
-                                                <span>{formatDate(lease.startDate)}</span>
+                                                <span>{formatLongDate(lease.startDate)}</span>
                                                 <span className="mx-1.5 text-gray-400">
                                                     →
                                                 </span>
-                                                <span>{formatDate(lease.endDate)}</span>
+                                                <span>{formatLongDate(lease.endDate)}</span>
                                             </td>
 
                                             <td className="px-5 py-4 font-medium text-[#243b35]">
@@ -799,7 +766,7 @@ export default function TenantDetailsPage() {
                                                     </td>
 
                                                     <td className="px-5 py-4 text-[#42574e]">
-                                                        {formatDate(payment.dueDate)}
+                                                        {formatLongDate(payment.dueDate)}
                                                     </td>
 
                                                     <td className="px-5 py-4 font-medium text-[#243b35]">

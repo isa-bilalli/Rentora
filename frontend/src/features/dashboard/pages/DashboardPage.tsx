@@ -11,6 +11,7 @@ import FinancialOverview from "../components/FinancialOverview";
 import OperationsOverview from "../components/OperationsOverview";
  
 import type { DashboardResponse } from "../types";
+import { DISPLAY_LOCALE } from "../../../lib/format";
  
 function Section({ label, children }: { label: string; children: ReactNode }) {
     return (
@@ -154,7 +155,7 @@ export default function DashboardPage() {
                         </div>
  
                         <span className="self-start rounded-full border border-white/15 bg-white/5 px-4 py-1.5 text-xs font-medium text-[#e8efe9]/80 sm:self-auto">
-                            {new Date().toLocaleDateString(undefined, {
+                            {new Date().toLocaleDateString(DISPLAY_LOCALE, {
                                 weekday: "long",
                                 month: "long",
                                 day: "numeric",

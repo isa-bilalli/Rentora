@@ -9,21 +9,12 @@ import {
 } from "lucide-react";
  
 import type { Financial } from "../types";
+import { formatMoney } from "../../../lib/format";
  
 interface FinancialOverviewProps {
     data: Financial;
 }
- 
-// Change this to the currency your backend uses.
-const CURRENCY = "EUR";
- 
-function formatMoney(cents: number) {
-    return new Intl.NumberFormat(undefined, {
-        style: "currency",
-        currency: CURRENCY,
-    }).format(cents / 100);
-}
- 
+
 export default function FinancialOverview({
     data,
 }: FinancialOverviewProps) {

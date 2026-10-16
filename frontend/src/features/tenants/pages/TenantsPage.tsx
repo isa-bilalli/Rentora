@@ -4,21 +4,12 @@ import { Building2, Mail, Plus, Search, Users } from "lucide-react";
 import { createTenant, getTenants } from "../api/tenantApi";
 import { useOrganization } from "../../organizations/useOrganization";
 import TenantForm from "../components/TenantForm";
+import { formatDate } from "../../../lib/format";
 import {
     getTenantDisplayName,
     type CreateTenantRequest,
     type TenantResponse,
 } from "../types";
-
-function formatDate(value: string): string {
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "—";
-    return new Intl.DateTimeFormat(undefined, {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-    }).format(date);
-}
 
 export default function TenantsPage() {
     const { activeOrganization } = useOrganization();

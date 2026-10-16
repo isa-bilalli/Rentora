@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 
 import type { PropertySummaryResponse } from "../types";
-import { formatCurrencyFromCents } from "../utils/formatters";
+import { formatMoney } from "../../../lib/format";
 
 interface PropertySummaryCardsProps {
     properties: PropertySummaryResponse[];
@@ -55,7 +55,7 @@ export default function PropertySummaryCards({
         },
         {
             label: "Monthly expected rent",
-            value: formatCurrencyFromCents(
+            value: formatMoney(
                 monthlyExpectedRentCents,
             ),
             description: "Current active leases",

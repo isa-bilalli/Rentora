@@ -19,6 +19,7 @@ import type { LeaseResponse, RenewLeaseRequest } from "../types";
 import { getTenants } from "../../tenants/api/tenantApi";
 import { getTenantDisplayName, type TenantResponse } from "../../tenants/types";
 import { getPropertySummaries, getSpaces } from "../../properties/api/propertyApi";
+import { formatDateTime, formatLongDate, formatMoney } from "../../../lib/format";
 
 type PropertySummary = Awaited<ReturnType<typeof getPropertySummaries>>[number];
 type SpaceResponse = Awaited<ReturnType<typeof getSpaces>>[number];
@@ -41,42 +42,6 @@ function addOneYear(value: string): string {
     const date = new Date(`${value}T12:00:00`);
     date.setFullYear(date.getFullYear() + 1);
     return toLocalDateString(date);
-}
-
-function formatDate(value: string | null | undefined): string {
-    if (!value) return "—";
-
-    const date = /^\d{4}-\d{2}-\d{2}$/.test(value)
-        ? new Date(`${value}T12:00:00`)
-        : new Date(value);
-
-    if (Number.isNaN(date.getTime())) return "—";
-
-    return new Intl.DateTimeFormat(undefined, {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-    }).format(date);
-}
-
-function formatDateTime(value: string | null | undefined): string {
-    if (!value) return "—";
-
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) return "—";
-
-    return new Intl.DateTimeFormat(undefined, {
-        dateStyle: "medium",
-        timeStyle: "short",
-    }).format(date);
-}
-
-function formatMoney(cents: number): string {
-    return new Intl.NumberFormat(undefined, {
-        style: "currency",
-        currency: "EUR",
-    }).format(cents / 100);
 }
 
 function moneyInputFromCents(cents: number): string {
@@ -621,7 +586,7 @@ export default function LeaseDetailsPage() {
                             <p className="mt-1 text-sm text-gray-500">
                                 This creates a new lease for the same tenant
                                 and space. Its start date must be after{" "}
-                                {formatDate(lease.endDate)}.
+                                {formatLongDate(lease.endDate)}.
                             </p>
                         </div>
 
@@ -829,7 +794,7 @@ export default function LeaseDetailsPage() {
                     </div>
 
                     <p className="mt-3 text-lg font-semibold text-[#14302b]">
-                        {formatDate(lease.startDate)}
+                        {formatLongDate(lease.startDate)}
                     </p>
 
                     <p className="mt-1 text-xs text-gray-500">
@@ -846,7 +811,7 @@ export default function LeaseDetailsPage() {
                     </div>
 
                     <p className="mt-3 text-lg font-semibold text-[#14302b]">
-                        {formatDate(lease.endDate)}
+                        {formatLongDate(lease.endDate)}
                     </p>
 
                     <p className="mt-1 text-xs text-gray-500">
