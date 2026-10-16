@@ -1,5 +1,6 @@
 package com.isabilalli.rentora.payment.application;
 
+import com.isabilalli.rentora.shared.api.NotFoundException;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -76,7 +77,7 @@ public class PaymentService implements PaymentAccess {
     }
 
     private Payment validatePayment(Long paymentId, Long organizationId){
-        Payment payment = paymentRepository.findById(paymentId).orElseThrow(() -> new IllegalArgumentException("Payment not found"));
+        Payment payment = paymentRepository.findById(paymentId).orElseThrow(() -> new NotFoundException("Payment not found"));
         if (!payment.getOrganizationId().equals(organizationId)) {
             throw new AccessDeniedException("Payment does not belong to this organization");
         }

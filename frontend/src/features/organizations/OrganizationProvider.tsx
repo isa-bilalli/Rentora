@@ -1,7 +1,5 @@
 import {
-    createContext,
     useCallback,
-    useContext,
     useEffect,
     useMemo,
     useState,
@@ -9,20 +7,8 @@ import {
 import { Outlet } from "react-router";
 
 import { getMyOrganizations } from "./api/organizationApi";
+import { OrganizationContext, type OrganizationStatus } from "./OrganizationContext";
 import type { Organization } from "./types";
-
-type OrganizationStatus = "loading" | "ready" | "error";
-
-interface OrganizationContextValue {
-    organizations: Organization[];
-    activeOrganization: Organization | null;
-    status: OrganizationStatus;
-    error: string | null;
-    setActiveOrganization: (organizationId: number) => void;
-}
-
-export const OrganizationContext =
-    createContext<OrganizationContextValue | undefined>(undefined);
 
 const ACTIVE_ORGANIZATION_KEY = "activeOrganizationId";
 
@@ -145,16 +131,4 @@ export function OrganizationProvider() {
             <Outlet />
         </OrganizationContext.Provider>
     );
-}
-
-export function useOrganization() {
-    const context = useContext(OrganizationContext);
-
-    if (context === undefined) {
-        throw new Error(
-            "useOrganization must be used within an OrganizationProvider",
-        );
-    }
-
-    return context;
 }

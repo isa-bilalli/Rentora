@@ -1,5 +1,6 @@
 package com.isabilalli.rentora.maintenance.application;
 
+import com.isabilalli.rentora.shared.api.NotFoundException;
 import com.isabilalli.rentora.auth.application.CurrentUserService;
 import com.isabilalli.rentora.auth.infrastructure.security.AuthenticatedUser;
 import com.isabilalli.rentora.maintenance.api.MaintenanceAccess;
@@ -45,7 +46,7 @@ public class MaintenanceService implements MaintenanceAccess {
     }
 
     private MaintenanceRequest validateMaintenanceRequest(Long organizationId, Long maintenanceId){
-        MaintenanceRequest request = maintenanceRepository.findById(maintenanceId).orElseThrow(()-> new IllegalArgumentException("Maintenance request not found"));
+        MaintenanceRequest request = maintenanceRepository.findById(maintenanceId).orElseThrow(()-> new NotFoundException("Maintenance request not found"));
         if(!request.getOrganizationId().equals(organizationId)){
             throw new AccessDeniedException("Maintenance request does not belong to this organization");
         }

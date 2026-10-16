@@ -1,5 +1,6 @@
 package com.isabilalli.rentora.lease.application;
 
+import com.isabilalli.rentora.shared.api.NotFoundException;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -52,7 +53,7 @@ public class LeaseService implements LeaseAccess {
     }
 
     private Lease leaseValidation(Long leaseId, Long organizationId){
-        Lease lease = leaseRepository.findById(leaseId).orElseThrow(()-> new IllegalArgumentException("Lease not found"));
+        Lease lease = leaseRepository.findById(leaseId).orElseThrow(()-> new NotFoundException("Lease not found"));
         if(!lease.getOrganizationId().equals(organizationId)){
             throw new AccessDeniedException("Lease does not belong to this organization");
         }
@@ -158,7 +159,7 @@ public class LeaseService implements LeaseAccess {
 
     @Transactional
     public void expireLease(Long leaseId){
-        Lease lease = leaseRepository.findById(leaseId).orElseThrow(()-> new IllegalArgumentException("Lease not found"));
+        Lease lease = leaseRepository.findById(leaseId).orElseThrow(()-> new NotFoundException("Lease not found"));
         if(lease.getStatus() != LeaseStatus.ACTIVE){
             return;
         }

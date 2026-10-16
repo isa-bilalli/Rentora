@@ -90,13 +90,14 @@ public class LoginController {
 
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(@CookieValue (value = "refreshToken", required = false) String refreshToken, HttpServletResponse response) {
-        if(refreshToken != null || !refreshToken.isBlank()){
+        if(refreshToken != null && !refreshToken.isBlank()){
             refreshTokenService.revoke(refreshToken);
         }
         ResponseCookie clearCookie = ResponseCookie.from("refreshToken", "")
             .httpOnly(true)
             .secure(false)
             .sameSite("Lax")
+            .path("/api/auth")
             .maxAge(0)
             .build();
         response.addHeader(HttpHeaders.SET_COOKIE, clearCookie.toString());

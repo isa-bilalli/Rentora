@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 import { Building2, Mail, Plus, Search, Users } from "lucide-react";
 import { createTenant, getTenants } from "../api/tenantApi";
-import { useOrganization } from "../../organizations/OrganizationProvider";
+import { useOrganization } from "../../organizations/useOrganization";
 import TenantForm from "../components/TenantForm";
 import {
     getTenantDisplayName,
@@ -24,8 +24,13 @@ export default function TenantsPage() {
     const { activeOrganization } = useOrganization();
     const organizationId = activeOrganization?.id ?? 0;
     const [tenants, setTenants] = useState<TenantResponse[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [loadError, setLoadError] = useState<string | null>(null);
+    const hasOrganization = Number.isFinite(organizationId) && organizationId > 0;
+    const [loadingTenants, setLoading] = useState(true);
+    const [tenantsError, setLoadError] = useState<string | null>(null);
+    const loading = hasOrganization && loadingTenants;
+    const loadError = hasOrganization
+        ? tenantsError
+        : "Select an organization to view its tenants.";
     const [query, setQuery] = useState("");
     const [showCreateForm, setShowCreateForm] = useState(false);
     const [creating, setCreating] = useState(false);
@@ -53,18 +58,14 @@ export default function TenantsPage() {
             }
         }
 
-        if (Number.isFinite(organizationId) && organizationId > 0) {
+        if (hasOrganization) {
             void loadTenants();
-        } else {
-            setTenants([]);
-            setLoading(false);
-            setLoadError("Select an organization to view its tenants.");
         }
 
         return () => {
             cancelled = true;
         };
-    }, [organizationId]);
+    }, [organizationId, hasOrganization]);
 
     const filteredTenants = useMemo(() => {
         const normalizedQuery = query.trim().toLocaleLowerCase();

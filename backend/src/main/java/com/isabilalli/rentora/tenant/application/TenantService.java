@@ -1,5 +1,7 @@
 package com.isabilalli.rentora.tenant.application;
 
+import com.isabilalli.rentora.shared.api.BadRequestException;
+import com.isabilalli.rentora.shared.api.NotFoundException;
 import com.isabilalli.rentora.auth.application.CurrentUserService;
 import com.isabilalli.rentora.auth.infrastructure.security.AuthenticatedUser;
 import com.isabilalli.rentora.organization.application.OrganizationAccessService;
@@ -40,19 +42,19 @@ public class TenantService implements TenantAccess{
     private void validateTenant(CreateTenantRequest request){
         if(request.type() == TenantType.INDIVIDUAL){
             if(isBlank(request.firstName()) || isBlank(request.lastName())){
-                throw new IllegalArgumentException("Individual tenant requires first name and last name");
+                throw new BadRequestException("Individual tenant requires first name and last name");
             }
             if(request.companyName() != null){
-                throw new IllegalArgumentException("Individual tenant cannot have company name");
+                throw new BadRequestException("Individual tenant cannot have company name");
             }
         }
     
         if(request.type() == TenantType.COMPANY){
             if(isBlank(request.companyName())){
-                throw new IllegalArgumentException("Company tenant requires a company name");
+                throw new BadRequestException("Company tenant requires a company name");
             }
             if(request.firstName() != null || request.lastName() != null){
-                throw new IllegalArgumentException("Company tenant cannot have individual name");
+                throw new BadRequestException("Company tenant cannot have individual name");
             }
         }
     }
@@ -78,7 +80,7 @@ public class TenantService implements TenantAccess{
 
     public TenantResponse findTenant(Long organizationId, Long tenantId){
         organizationAuthorization(organizationId);
-        Tenant tenant = tenantRepository.findById(tenantId).orElseThrow(()-> new IllegalArgumentException("Tenant not found"));
+        Tenant tenant = tenantRepository.findById(tenantId).orElseThrow(()-> new NotFoundException("Tenant not found"));
         if(!tenant.getOrganizationId().equals(organizationId)){
             throw new AccessDeniedException("Tenant does not belong to this organization");
         }
@@ -87,7 +89,7 @@ public class TenantService implements TenantAccess{
     
     public TenantResponse updateTenant(Long organizationId, Long tenantId, UpdateTenantRequest request){
         organizationAuthorization(organizationId);
-        Tenant tenant = tenantRepository.findById(tenantId).orElseThrow(()-> new IllegalArgumentException("Tenant not found"));
+        Tenant tenant = tenantRepository.findById(tenantId).orElseThrow(()-> new NotFoundException("Tenant not found"));
         if(!tenant.getOrganizationId().equals(organizationId)){
             throw new AccessDeniedException("Tenant does not belong to this organization");
         }
@@ -97,7 +99,7 @@ public class TenantService implements TenantAccess{
 
     public void deleteTenant(Long organizationId, Long tenantId){
         organizationAuthorization(organizationId);
-        Tenant tenant = tenantRepository.findById(tenantId).orElseThrow(()-> new IllegalArgumentException("Tenant not found"));
+        Tenant tenant = tenantRepository.findById(tenantId).orElseThrow(()-> new NotFoundException("Tenant not found"));
         if(!tenant.getOrganizationId().equals(organizationId)){
             throw new AccessDeniedException("Tenant does not belong to this organization");
         }
@@ -108,7 +110,7 @@ public class TenantService implements TenantAccess{
     //METHOD FOR VERIFIYNG TENANTS, IMPLEMENTED FOR INTERFACE
     @Override 
     public void requireBelongsToOrganization(Long tenantId, Long organizationId){
-        Tenant tenant = tenantRepository.findById(tenantId).orElseThrow(()-> new IllegalArgumentException("Tenant not found"));
+        Tenant tenant = tenantRepository.findById(tenantId).orElseThrow(()-> new NotFoundException("Tenant not found"));
         if(!tenant.getOrganizationId().equals(organizationId)){
             throw new AccessDeniedException("Tenant does not belong to this organization");
         }

@@ -9,7 +9,7 @@ import {
     LayoutGrid,
 } from "lucide-react";
 
-import { useOrganization } from "../../organizations/OrganizationProvider";
+import { useOrganization } from "../../organizations/useOrganization";
 
 import {
     createProperty,

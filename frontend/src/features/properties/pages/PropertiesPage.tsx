@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { Plus, Building2 } from "lucide-react";
 
-import { useOrganization } from "../../organizations/OrganizationProvider";
+import { useOrganization } from "../../organizations/useOrganization";
 import { getPropertySummaries } from "../api/propertyApi";
 
 import PropertySummaryCards from "../components/PropertySummaryCards";
@@ -29,15 +29,17 @@ export default function PropertiesPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
+    const activeOrganizationId = activeOrganization?.id;
+
     useEffect(() => {
+        // Nothing to load; the render below handles the missing-organization states.
         if (
             organizationStatus !== "ready" ||
-            !activeOrganization
+            activeOrganizationId === undefined
         ) {
-            setLoading(false);
             return;
         }
-        const organizationId = activeOrganization.id;
+        const organizationId = activeOrganizationId;
         let cancelled = false;
 
         async function loadProperties() {
@@ -71,7 +73,7 @@ export default function PropertiesPage() {
         };
     }, [
         organizationStatus,
-        activeOrganization?.id,
+        activeOrganizationId,
     ]);
 
     const normalizedSearch = search.trim().toLowerCase();

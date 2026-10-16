@@ -1,5 +1,6 @@
 package com.isabilalli.rentora.expense.application;
 
+import com.isabilalli.rentora.shared.api.NotFoundException;
 import com.isabilalli.rentora.auth.application.CurrentUserService;
 import com.isabilalli.rentora.auth.infrastructure.security.AuthenticatedUser;
 import com.isabilalli.rentora.expense.api.ExpenseAccess;
@@ -43,7 +44,7 @@ public class ExpenseService implements ExpenseAccess {
     }
 
     private Expense validateExpense(Long organizationId, Long expenseId){
-        Expense expense = expenseRepository.findById(expenseId).orElseThrow(()-> new IllegalArgumentException("Expense not found"));
+        Expense expense = expenseRepository.findById(expenseId).orElseThrow(()-> new NotFoundException("Expense not found"));
         if(!expense.getOrganizationId().equals(organizationId)){
             throw new AccessDeniedException("Expense does not belong to this organization");
         }

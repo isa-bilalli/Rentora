@@ -1,5 +1,6 @@
 package com.isabilalli.rentora.property.application;
 
+import com.isabilalli.rentora.shared.api.NotFoundException;
 import com.isabilalli.rentora.property.domain.Property;
 import com.isabilalli.rentora.property.domain.Space;
 
@@ -63,7 +64,7 @@ public class PropertyService implements PropertyAccess{
     public PropertyResponse getProperty(Long organizationId, Long propertyId){
         AuthenticatedUser currentUser = currentUserService.getCurrentUser();
         organizationAccessService.requireAccess(currentUser, organizationId);
-        Property property = propertyRepository.findById(propertyId).orElseThrow(() -> new IllegalArgumentException("Property not found"));
+        Property property = propertyRepository.findById(propertyId).orElseThrow(() -> new NotFoundException("Property not found"));
         if(!property.getOrganizationId().equals(organizationId)){
             throw new AccessDeniedException("Property does not belong to this organization");
         }
@@ -73,7 +74,7 @@ public class PropertyService implements PropertyAccess{
     public PropertyResponse updateProperty(Long organizationId, Long propertyId, UpdatePropertyRequest request){
         AuthenticatedUser currentUser = currentUserService.getCurrentUser();
         organizationAccessService.requireAccess(currentUser, organizationId);
-        Property property = propertyRepository.findById(propertyId).orElseThrow(() -> new IllegalArgumentException("Property not found"));
+        Property property = propertyRepository.findById(propertyId).orElseThrow(() -> new NotFoundException("Property not found"));
         if(!property.getOrganizationId().equals(organizationId)){
             throw new AccessDeniedException("Property does not belong to this organization");
         }
@@ -89,7 +90,7 @@ public class PropertyService implements PropertyAccess{
 
     @Override
     public void requireBelongsToOrganization(Long propertyId, Long organizationId){
-        Property property = propertyRepository.findById(propertyId).orElseThrow(()-> new IllegalArgumentException("Property not found"));
+        Property property = propertyRepository.findById(propertyId).orElseThrow(()-> new NotFoundException("Property not found"));
         if(!property.getOrganizationId().equals(organizationId)){
             throw new AccessDeniedException("Property does not belong to this organization");
         }
