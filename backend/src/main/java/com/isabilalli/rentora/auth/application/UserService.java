@@ -1,5 +1,7 @@
 package com.isabilalli.rentora.auth.application;
 
+import com.isabilalli.rentora.shared.api.ConflictException;
+import com.isabilalli.rentora.shared.api.NotFoundException;
 import com.isabilalli.rentora.auth.api.dto.CreateUserRequest;
 import com.isabilalli.rentora.auth.domain.User;
 import com.isabilalli.rentora.auth.infrastructure.UserRepository;
@@ -19,6 +21,9 @@ public class UserService {
     }
 
     public User createUser(CreateUserRequest request) {
+        if (userRepository.existsByEmail(request.email())) {
+            throw new ConflictException("An account with this email already exists");
+        }
         String passwordHash = passwordEncoder.encode(request.password());
         User user = new User(
                 request.firstName(),
@@ -30,6 +35,6 @@ public class UserService {
     }
     
     public User findById(Long userId){
-        return userRepository.findById(userId).orElseThrow(() -> new IllegalArgumentException("User not found"));
+        return userRepository.findById(userId).orElseThrow(() -> new NotFoundException("User not found"));
     }
 }

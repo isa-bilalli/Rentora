@@ -4,7 +4,7 @@ import { AlertTriangle } from "lucide-react";
  
 import { getDashboard } from "../api/dashboardApi";
  
-import { useOrganization } from "../../organizations/OrganizationProvider";
+import { useOrganization } from "../../organizations/useOrganization";
  
 import PortfolioOverview from "../components/PortfolioOverview";
 import FinancialOverview from "../components/FinancialOverview";
@@ -29,6 +29,7 @@ function Section({ label, children }: { label: string; children: ReactNode }) {
  
 export default function DashboardPage() {
     const { activeOrganization } = useOrganization();
+    const activeOrganizationId = activeOrganization?.id;
     const [dashboard, setDashboard] =
         useState<DashboardResponse | null>(null);
  
@@ -39,7 +40,7 @@ export default function DashboardPage() {
     useEffect(() => {
         let cancelled = false;
         async function loadDashboard() {
-            if (!activeOrganization) {
+            if (activeOrganizationId === undefined) {
                 setDashboard(null);
                 setError(null);
                 setLoading(false);
@@ -49,7 +50,7 @@ export default function DashboardPage() {
             setError(null);
             setDashboard(null);
             try {
-                const data = await getDashboard(activeOrganization.id);
+                const data = await getDashboard(activeOrganizationId);
                 if (!cancelled) {
                     setDashboard(data);
                 }
@@ -67,7 +68,7 @@ export default function DashboardPage() {
         return () => {
             cancelled = true;
         };
-    }, [activeOrganization?.id]);
+    }, [activeOrganizationId]);
  
     if (loading) {
         return (

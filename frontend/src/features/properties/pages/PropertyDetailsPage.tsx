@@ -9,7 +9,7 @@ import {
     X,
 } from "lucide-react";
 
-import { useOrganization } from "../../organizations/OrganizationProvider";
+import { useOrganization } from "../../organizations/useOrganization";
 
 import {
     getProperty,
@@ -186,6 +186,8 @@ export default function PropertyDetailsPage() {
         status: organizationStatus,
     } = useOrganization();
 
+    const activeOrganizationId = activeOrganization?.id;
+
     const [property, setProperty] =
         useState<PropertyResponse | null>(null);
 
@@ -253,28 +255,26 @@ export default function PropertyDetailsPage() {
 
     const parsedPropertyId = Number(propertyId);
 
+    const isValidPropertyId =
+        Number.isInteger(parsedPropertyId) && parsedPropertyId > 0;
+
     const editingSpace =
         spaces.find((space) => space.id === editingSpaceId) ?? null;
 
     useEffect(() => {
         if (
             organizationStatus !== "ready" ||
-            !activeOrganization
+            activeOrganizationId === undefined
         ) {
             return;
         }
 
-        if (
-            !Number.isInteger(parsedPropertyId) ||
-            parsedPropertyId <= 0
-        ) {
-            setProperty(null);
-            setError("Invalid property ID.");
-            setLoading(false);
+        // An invalid ID is rendered directly below; there is nothing to fetch.
+        if (!isValidPropertyId) {
             return;
         }
 
-        const organizationId = activeOrganization.id;
+        const organizationId = activeOrganizationId;
         let cancelled = false;
 
         async function loadProperty() {
@@ -318,19 +318,20 @@ export default function PropertyDetailsPage() {
         };
     }, [
         organizationStatus,
-        activeOrganization?.id,
+        activeOrganizationId,
         parsedPropertyId,
+        isValidPropertyId,
     ]);
 
     useEffect(() => {
         if (
             organizationStatus !== "ready" ||
-            !activeOrganization
+            activeOrganizationId === undefined
         ) {
             return;
         }
 
-        const organizationId = activeOrganization.id;
+        const organizationId = activeOrganizationId;
         let cancelled = false;
 
         async function loadLeases() {
@@ -364,17 +365,17 @@ export default function PropertyDetailsPage() {
         return () => {
             cancelled = true;
         };
-    }, [organizationStatus, activeOrganization?.id]);
+    }, [organizationStatus, activeOrganizationId]);
 
     useEffect(() => {
         if (
             organizationStatus !== "ready" ||
-            !activeOrganization
+            activeOrganizationId === undefined
         ) {
             return;
         }
 
-        const organizationId = activeOrganization.id;
+        const organizationId = activeOrganizationId;
         let cancelled = false;
 
         async function loadTenants() {
@@ -408,17 +409,17 @@ export default function PropertyDetailsPage() {
         return () => {
             cancelled = true;
         };
-    }, [organizationStatus, activeOrganization?.id]);
+    }, [organizationStatus, activeOrganizationId]);
 
     useEffect(() => {
         if (
             organizationStatus !== "ready" ||
-            !activeOrganization
+            activeOrganizationId === undefined
         ) {
             return;
         }
 
-        const organizationId = activeOrganization.id;
+        const organizationId = activeOrganizationId;
         let cancelled = false;
 
         async function loadPayments() {
@@ -452,17 +453,17 @@ export default function PropertyDetailsPage() {
         return () => {
             cancelled = true;
         };
-    }, [organizationStatus, activeOrganization?.id]);
+    }, [organizationStatus, activeOrganizationId]);
 
     useEffect(() => {
         if (
             organizationStatus !== "ready" ||
-            !activeOrganization
+            activeOrganizationId === undefined
         ) {
             return;
         }
 
-        const organizationId = activeOrganization.id;
+        const organizationId = activeOrganizationId;
         let cancelled = false;
 
         async function loadMaintenanceRequests() {
@@ -496,7 +497,7 @@ export default function PropertyDetailsPage() {
         return () => {
             cancelled = true;
         };
-    }, [organizationStatus, activeOrganization?.id]);
+    }, [organizationStatus, activeOrganizationId]);
 
     async function handleUpdateProperty(
         request: UpdatePropertyRequest,
@@ -981,7 +982,7 @@ export default function PropertyDetailsPage() {
         );
     }
 
-    if (loading) {
+    if (loading && isValidPropertyId) {
         return (
             <div className="p-8 text-sm text-gray-500">
                 Loading property...
@@ -989,7 +990,9 @@ export default function PropertyDetailsPage() {
         );
     }
 
-    if (error || !property) {
+    const propertyError = isValidPropertyId ? error : "Invalid property ID.";
+
+    if (propertyError || !property) {
         return (
             <div className="space-y-4 p-8">
                 <Link
@@ -1008,7 +1011,7 @@ export default function PropertyDetailsPage() {
                         Unable to load property
                     </h1>
                     <p className="mt-1 text-sm text-red-700">
-                        {error ?? "Property not found."}
+                        {propertyError ?? "Property not found."}
                     </p>
                 </div>
             </div>

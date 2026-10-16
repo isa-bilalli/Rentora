@@ -1,5 +1,6 @@
 package com.isabilalli.rentora.auth.application;
 
+import com.isabilalli.rentora.auth.application.exception.InvalidCredentialsException;
 import org.springframework.stereotype.Service;
 
 import com.isabilalli.rentora.auth.api.dto.LoginRequest;
@@ -31,9 +32,9 @@ public class LoginService {
 ) {}
 
     public LoginResult login(LoginRequest request) {
-        User user = userRepository.findByEmail(request.email()).orElseThrow(() -> new RuntimeException("Invalid credentials"));
+        User user = userRepository.findByEmail(request.email()).orElseThrow(() -> new InvalidCredentialsException());
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
-            throw new RuntimeException("Invalid credentials");
+            throw new InvalidCredentialsException();
         }
         String accessToken = jwtService.generateToken(user.getId(), user.getEmail());
         RefreshTokenService.IssuedRefreshToken refreshToken = refreshTokenService.issue(user.getId());

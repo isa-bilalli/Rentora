@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 
 import { getTenant, updateTenant } from "../api/tenantApi";
-import { useOrganization } from "../../organizations/OrganizationProvider";
+import { useOrganization } from "../../organizations/useOrganization";
 import TenantForm from "../components/TenantForm";
 
 import { getLeases } from "../../leases/api/leasesApi";

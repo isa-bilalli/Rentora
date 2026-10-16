@@ -1,5 +1,6 @@
 package com.isabilalli.rentora.property.application;
 
+import com.isabilalli.rentora.shared.api.NotFoundException;
 import org.springframework.security.access.AccessDeniedException;
 
 import java.lang.IllegalArgumentException;
@@ -49,7 +50,7 @@ public class SpaceService implements SpaceAccess{
         AuthenticatedUser currentUser=currentUserService.getCurrentUser();
         organizationAccessService.requireAccess(currentUser, organizationId);
 
-        Property property = propertyRepository.findById(propertyId).orElseThrow(()-> new IllegalArgumentException("Property not found"));
+        Property property = propertyRepository.findById(propertyId).orElseThrow(()-> new NotFoundException("Property not found"));
         if(!property.getOrganizationId().equals(organizationId)){
             throw new AccessDeniedException("Property does not belong to this organization");
         }
@@ -57,7 +58,7 @@ public class SpaceService implements SpaceAccess{
     }
 
     private Space validateSpace(Long spaceId, Long propertyId){
-        Space space = spaceRepository.findById(spaceId).orElseThrow(()-> new IllegalArgumentException("Space not found"));
+        Space space = spaceRepository.findById(spaceId).orElseThrow(()-> new NotFoundException("Space not found"));
         if(!space.getPropertyId().equals(propertyId)){
             throw new AccessDeniedException("Space does not belong to this property");
         }
@@ -129,8 +130,8 @@ public class SpaceService implements SpaceAccess{
 
     @Override 
     public void requireBelongsToOrganization(Long spaceId, Long organizationId){
-        Space space = spaceRepository.findById(spaceId).orElseThrow(()-> new IllegalArgumentException("Space not found"));
-        Property property = propertyRepository.findById(space.getPropertyId()).orElseThrow(()-> new IllegalArgumentException("Property not found"));
+        Space space = spaceRepository.findById(spaceId).orElseThrow(()-> new NotFoundException("Space not found"));
+        Property property = propertyRepository.findById(space.getPropertyId()).orElseThrow(()-> new NotFoundException("Property not found"));
         if(!property.getOrganizationId().equals(organizationId)){
             throw new AccessDeniedException("Space does not belong to this organization");
         }
@@ -138,35 +139,35 @@ public class SpaceService implements SpaceAccess{
 
     @Override 
     public void markVacant(Long spaceId){
-        Space space = spaceRepository.findById(spaceId).orElseThrow(()-> new IllegalArgumentException("Space not found"));
+        Space space = spaceRepository.findById(spaceId).orElseThrow(()-> new NotFoundException("Space not found"));
         space.markVacant();
         spaceRepository.save(space);
     }
 
     @Override
     public void markReserved(Long spaceId) {
-        Space space = spaceRepository.findById(spaceId).orElseThrow(() -> new IllegalArgumentException("Space not found"));
+        Space space = spaceRepository.findById(spaceId).orElseThrow(() -> new NotFoundException("Space not found"));
         space.markReserved();
         spaceRepository.save(space);
     }
 
     @Override
     public void markOccupied(Long spaceId) {
-        Space space = spaceRepository.findById(spaceId).orElseThrow(() -> new IllegalArgumentException("Space not found"));
+        Space space = spaceRepository.findById(spaceId).orElseThrow(() -> new NotFoundException("Space not found"));
         space.markOccupied();
         spaceRepository.save(space);
     }
 
     @Override 
     public void markMaintenance(Long spaceId){
-        Space space = spaceRepository.findById(spaceId).orElseThrow(() -> new IllegalArgumentException("Space not found"));
+        Space space = spaceRepository.findById(spaceId).orElseThrow(() -> new NotFoundException("Space not found"));
         space.markMaintenance();
         spaceRepository.save(space);
     }
 
     @Override 
     public void prepareForFutureLease(Long spaceId){
-        Space space = spaceRepository.findById(spaceId).orElseThrow(() -> new IllegalArgumentException("Space not found"));
+        Space space = spaceRepository.findById(spaceId).orElseThrow(() -> new NotFoundException("Space not found"));
         switch (space.getStatus()) {
             case VACANT -> space.markReserved();
             case RESERVED, OCCUPIED -> {
@@ -180,7 +181,7 @@ public class SpaceService implements SpaceAccess{
 
     @Override 
     public void requireBelongsToProperty(Long spaceId, Long propertyId){
-        Space space = spaceRepository.findById(spaceId).orElseThrow(()-> new IllegalArgumentException("Space not  found"));
+        Space space = spaceRepository.findById(spaceId).orElseThrow(()-> new NotFoundException("Space not found"));
         if(!space.getPropertyId().equals(propertyId)){
             throw new AccessDeniedException("Space does not belong to this property");
         }

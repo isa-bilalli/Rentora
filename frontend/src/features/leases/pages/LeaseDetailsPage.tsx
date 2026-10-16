@@ -13,7 +13,7 @@ import {
     Wrench,
 } from "lucide-react";
 
-import { useOrganization } from "../../organizations/OrganizationProvider";
+import { useOrganization } from "../../organizations/useOrganization";
 import { getLeases, endLease, cancelLease, renewLease } from "../api/leasesApi";
 import type { LeaseResponse, RenewLeaseRequest } from "../types";
 import { getTenants } from "../../tenants/api/tenantApi";

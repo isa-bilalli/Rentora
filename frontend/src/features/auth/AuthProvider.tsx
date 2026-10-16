@@ -1,21 +1,12 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { getCurrentUser, login as loginApi, logout as logoutApi } from "./api/authApi";
 
 import { clearAccessToken, refreshAccessToken } from "../../lib/api/client";
 
+import { AuthContext } from "./AuthContext";
 import type { LoginRequest } from "./api/authApi";
 import type { AuthStatus, AuthUser } from "./types";
-
-interface AuthContextValue {
-    user: AuthUser | null;
-    status: AuthStatus;
-    login: (request: LoginRequest) => Promise<void>;
-    logout: () => Promise<void>;
-}
-
-export const AuthContext =
-    createContext<AuthContextValue | undefined>(undefined);
 
 interface AuthProviderProps {
     children: ReactNode;
@@ -28,30 +19,38 @@ export function AuthProvider({
 
     const [status, setStatus] = useState<AuthStatus>("loading");
 
-    const restoreSession = useCallback(async () => {
-        setStatus("loading");
-        try {
-            const token = await refreshAccessToken();
+    // Status starts as "loading", so the restore only sets state once the refresh resolves.
+    useEffect(() => {
+        let cancelled = false;
 
-            if (!token) {
+        async function restoreSession() {
+            try {
+                const token = await refreshAccessToken();
+                if (cancelled) return;
+
+                if (!token) {
+                    setUser(null);
+                    setStatus("unauthenticated");
+                    return;
+                }
+
+                const currentUser = await getCurrentUser();
+                if (cancelled) return;
+                setUser(currentUser);
+                setStatus("authenticated");
+            } catch {
+                if (cancelled) return;
+                clearAccessToken();
                 setUser(null);
                 setStatus("unauthenticated");
-                return;
             }
-
-            const currentUser = await getCurrentUser();
-            setUser(currentUser);
-            setStatus("authenticated");
-        } catch {
-            clearAccessToken();
-            setUser(null);
-            setStatus("unauthenticated");
         }
-    }, []);
 
-    useEffect(() => {
         void restoreSession();
-    }, [restoreSession]);
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     const login = useCallback(
         async (request: LoginRequest) => {
@@ -89,16 +88,4 @@ export function AuthProvider({
             {children}
         </AuthContext.Provider>
     );
-}
-
-export function useAuth() {
-    const context = useContext(AuthContext);
-
-    if (context === undefined) {
-        throw new Error(
-            "useAuth must be used within an AuthProvider",
-        );
-    }
-
-    return context;
 }
