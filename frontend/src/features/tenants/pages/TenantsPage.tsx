@@ -7,7 +7,7 @@ import { formatDate } from "../../../lib/format";
 import { useOrgQuery } from "../../../hooks/useOrgQuery";
 import PageHeader from "../../../components/ui/PageHeader";
 import EmptyState from "../../../components/ui/EmptyState";
-import Badge from "../../../components/ui/Badge";
+import StatusBadge from "../../../components/ui/StatusBadge";
 import {
     getTenantDisplayName,
     type CreateTenantRequest,
@@ -187,9 +187,9 @@ export default function TenantsPage() {
                                             <p className="mt-1 text-xs text-gray-400">Tenant #{tenant.id}</p>
                                         </td>
                                         <td className="px-5 py-4">
-                                            <Badge tone="brand">
+                                            <StatusBadge tone="brand">
                                                 {tenant.type === "INDIVIDUAL" ? "Individual" : "Company"}
-                                            </Badge>
+                                            </StatusBadge>
                                         </td>
                                         <td className="px-5 py-4">
                                             {tenant.email ? (

@@ -1,10 +1,10 @@
 import type { ReactNode } from "react";
 
-export type BadgeTone = "neutral" | "brand" | "success" | "warning" | "danger" | "info";
+export type StatusBadgeTone = "neutral" | "brand" | "success" | "warning" | "danger" | "info";
 
 // The colors the app already uses for statuses. Pages map their own values
 // (lease status, payment status, priority, ...) to one of these tones.
-const toneClasses: Record<BadgeTone, string> = {
+const toneClasses: Record<StatusBadgeTone, string> = {
     neutral: "border-gray-200 bg-gray-100 text-gray-700",
     brand: "border-[#edf3ef] bg-[#edf3ef] text-[#365a4e]",
     success: "border-emerald-200 bg-emerald-50 text-emerald-800",
@@ -13,12 +13,12 @@ const toneClasses: Record<BadgeTone, string> = {
     info: "border-blue-200 bg-blue-50 text-blue-800",
 };
 
-interface BadgeProps {
-    tone?: BadgeTone;
+interface StatusBadgeProps {
+    tone?: StatusBadgeTone;
     children: ReactNode;
 }
 
-export default function Badge({ tone = "neutral", children }: BadgeProps) {
+export default function StatusBadge({ tone = "neutral", children }: StatusBadgeProps) {
     return (
         <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${toneClasses[tone]}`}>
             {children}
