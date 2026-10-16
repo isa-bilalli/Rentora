@@ -1,62 +1,37 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router";
 import { Building2, Mail, Plus, Search, Users } from "lucide-react";
 import { createTenant, getTenants } from "../api/tenantApi";
-import { useOrganization } from "../../organizations/useOrganization";
 import TenantForm from "../components/TenantForm";
 import { formatDate } from "../../../lib/format";
+import { useOrgQuery } from "../../../hooks/useOrgQuery";
+import PageHeader from "../../../components/ui/PageHeader";
+import EmptyState from "../../../components/ui/EmptyState";
+import Badge from "../../../components/ui/Badge";
 import {
     getTenantDisplayName,
     type CreateTenantRequest,
     type TenantResponse,
 } from "../types";
 
+// Stable empty list, so the search memo below doesn't recompute while nothing is loaded.
+const NO_TENANTS: TenantResponse[] = [];
+
 export default function TenantsPage() {
-    const { activeOrganization } = useOrganization();
-    const organizationId = activeOrganization?.id ?? 0;
-    const [tenants, setTenants] = useState<TenantResponse[]>([]);
-    const hasOrganization = Number.isFinite(organizationId) && organizationId > 0;
-    const [loadingTenants, setLoading] = useState(true);
-    const [tenantsError, setLoadError] = useState<string | null>(null);
-    const loading = hasOrganization && loadingTenants;
-    const loadError = hasOrganization
-        ? tenantsError
-        : "Select an organization to view its tenants.";
+    const {
+        organizationId,
+        data,
+        loading,
+        error,
+        setData: setTenants,
+    } = useOrgQuery(getTenants);
+    const tenants = data ?? NO_TENANTS;
+    const loadError = organizationId === undefined
+        ? "Select an organization to view its tenants."
+        : error;
     const [query, setQuery] = useState("");
     const [showCreateForm, setShowCreateForm] = useState(false);
     const [creating, setCreating] = useState(false);
-
-    useEffect(() => {
-        let cancelled = false;
-
-        async function loadTenants() {
-            setLoading(true);
-            setLoadError(null);
-            setTenants([]);
-            try {
-                const result = await getTenants(organizationId);
-                if (!cancelled) setTenants(result);
-            } catch (error) {
-                if (!cancelled) {
-                    setLoadError(
-                        error instanceof Error
-                            ? error.message
-                            : "Unable to load tenants.",
-                    );
-                }
-            } finally {
-                if (!cancelled) setLoading(false);
-            }
-        }
-
-        if (hasOrganization) {
-            void loadTenants();
-        }
-
-        return () => {
-            cancelled = true;
-        };
-    }, [organizationId, hasOrganization]);
 
     const filteredTenants = useMemo(() => {
         const normalizedQuery = query.trim().toLocaleLowerCase();
@@ -77,6 +52,7 @@ export default function TenantsPage() {
     }, [tenants, query]);
 
     async function handleCreate(request: CreateTenantRequest) {
+        if (organizationId === undefined) return;
         setCreating(true);
         try {
             const created = await createTenant(organizationId, request);
@@ -92,28 +68,24 @@ export default function TenantsPage() {
 
     return (
         <main className="mx-auto w-full max-w-7xl space-y-6 p-5 md:p-8">
-            <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-                <div>
-                    <p className="text-sm font-medium text-[#7b8e84]">RENTORA / DIRECTORY</p>
-                    <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[#14302b] sm:text-3xl">
-                        Tenants
-                    </h1>
-                    <p className="mt-2 max-w-2xl text-sm text-gray-500">
-                        Manage the people and companies renting your spaces.
-                    </p>
-                </div>
-                <button
-                    type="button"
-                    onClick={() => setShowCreateForm((current) => !current)}
-                    disabled={organizationId <= 0 || creating}
-                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#14302b] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#20453d] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d4a94f]"
-                >
-                    <Plus className="h-4 w-4" />
-                    {showCreateForm ? "Close form" : "Add tenant"}
-                </button>
-            </header>
+            <PageHeader
+                eyebrow="RENTORA / DIRECTORY"
+                title="Tenants"
+                description="Manage the people and companies renting your spaces."
+                actions={
+                    <button
+                        type="button"
+                        onClick={() => setShowCreateForm((current) => !current)}
+                        disabled={organizationId === undefined || creating}
+                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#14302b] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#20453d] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d4a94f]"
+                    >
+                        <Plus className="h-4 w-4" />
+                        {showCreateForm ? "Close form" : "Add tenant"}
+                    </button>
+                }
+            />
 
-            {showCreateForm && organizationId > 0 && (
+            {showCreateForm && organizationId !== undefined && (
                 <TenantForm
                     submitting={creating}
                     onSubmit={handleCreate}
@@ -174,18 +146,20 @@ export default function TenantsPage() {
                 {loading ? (
                     <div className="p-10 text-center text-sm text-gray-500">Loading tenants...</div>
                 ) : tenants.length === 0 && !loadError ? (
-                    <div className="p-10 text-center">
-                        <Users className="mx-auto h-8 w-8 text-[#8aa096]" />
-                        <h3 className="mt-3 font-semibold text-[#14302b]">No tenants yet</h3>
-                        <p className="mt-1 text-sm text-gray-500">Create your first tenant to use them in a lease.</p>
-                        <button
-                            type="button"
-                            onClick={() => setShowCreateForm(true)}
-                            className="mt-4 inline-flex items-center gap-2 rounded-lg bg-[#14302b] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#20453d]"
-                        >
-                            <Plus className="h-4 w-4" /> Add tenant
-                        </button>
-                    </div>
+                    <EmptyState
+                        icon={Users}
+                        title="No tenants yet"
+                        description="Create your first tenant to use them in a lease."
+                        action={
+                            <button
+                                type="button"
+                                onClick={() => setShowCreateForm(true)}
+                                className="inline-flex items-center gap-2 rounded-lg bg-[#14302b] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#20453d]"
+                            >
+                                <Plus className="h-4 w-4" /> Add tenant
+                            </button>
+                        }
+                    />
                 ) : filteredTenants.length === 0 ? (
                     <div className="p-10 text-center text-sm text-gray-500">No tenants match that search.</div>
                 ) : (
@@ -213,9 +187,9 @@ export default function TenantsPage() {
                                             <p className="mt-1 text-xs text-gray-400">Tenant #{tenant.id}</p>
                                         </td>
                                         <td className="px-5 py-4">
-                                            <span className="inline-flex rounded-full bg-[#edf3ef] px-2.5 py-1 text-xs font-medium text-[#365a4e]">
+                                            <Badge tone="brand">
                                                 {tenant.type === "INDIVIDUAL" ? "Individual" : "Company"}
-                                            </span>
+                                            </Badge>
                                         </td>
                                         <td className="px-5 py-4">
                                             {tenant.email ? (

@@ -3,7 +3,6 @@ package com.isabilalli.rentora.property.application;
 import com.isabilalli.rentora.shared.api.NotFoundException;
 import org.springframework.security.access.AccessDeniedException;
 
-import java.lang.IllegalArgumentException;
 import java.time.LocalDate;
 import java.util.List;
 
