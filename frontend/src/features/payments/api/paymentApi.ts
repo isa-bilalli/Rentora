@@ -7,7 +7,7 @@ export async function getPayments(organizationId: number): Promise<PaymentRespon
     });
 }
 
-export async function recordPayments(organizationId: number, paymentId: number, request: RecordPaymentRequest): Promise<PaymentResponse> {
+export async function recordPayment(organizationId: number, paymentId: number, request: RecordPaymentRequest): Promise<PaymentResponse> {
     return apiRequest<PaymentResponse>(`/api/organizations/${organizationId}/payments/${paymentId}/record`, {
         method: "POST",
         body: JSON.stringify(request),

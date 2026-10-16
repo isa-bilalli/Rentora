@@ -1,4 +1,3 @@
-
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useParams } from "react-router";
 import {
@@ -42,7 +41,7 @@ import type { TenantResponse } from "../../tenants/types";
 
 import {
     getPayments,
-    recordPayments,
+    recordPayment,
     voidPayment,
 } from "../../payments/api/paymentApi";
 import type {
@@ -56,6 +55,21 @@ import CreateLeaseForm from "../../leases/components/CreateLeaseForm";
 import RenewLeaseForm from "../../leases/components/RenewLeaseForm";
 import UpdatePropertyForm from "../components/form/EditPropertyForm";
 import CreateSpaceForm from "../components/form/CreateSpaceForm";
+
+import {
+    createMaintenanceRequest,
+    startProgress,
+    resolveMaintenance,
+    cancelMaintenance,
+    getAllMaintenanceRequests,
+} from "../../maintenance/api/maintenanceApi";
+import CreateMaintenanceForm from "../../maintenance/components/CreateMaintenanceForm";
+import type {
+    CreateMaintenanceRequest,
+    MaintenancePriority,
+    MaintenanceResponse,
+    MaintenanceStatus,
+} from "../../maintenance/types";
 
 import type {
     CreateSpaceRequest,
@@ -178,6 +192,13 @@ export default function PropertyDetailsPage() {
     const [spaces, setSpaces] = useState<SpaceResponse[]>([]);
     const [leases, setLeases] = useState<LeaseResponse[]>([]);
     const [tenants, setTenants] = useState<TenantResponse[]>([]);
+    const [maintenanceRequests, setMaintenanceRequests] = useState<MaintenanceResponse[]>([]);
+    const [maintenanceLoading, setMaintenanceLoading] = useState(true);
+    const [maintenanceError, setMaintenanceError] = useState<string | null>(null);
+    const [showCreateMaintenance, setShowCreateMaintenance] = useState(false);
+    const [creatingMaintenance, setCreatingMaintenance] = useState(false);
+    const [maintenanceActionBusyId, setMaintenanceActionBusyId] = useState<number | null>(null);
+    const [maintenanceActionError, setMaintenanceActionError] = useState<string | null>(null);
     const [payments, setPayments] = useState<PaymentResponse[]>([]);
     const [paymentsLoading, setPaymentsLoading] = useState(true);
     const [paymentsError, setPaymentsError] = useState<string | null>(null);
@@ -433,6 +454,50 @@ export default function PropertyDetailsPage() {
         };
     }, [organizationStatus, activeOrganization?.id]);
 
+    useEffect(() => {
+        if (
+            organizationStatus !== "ready" ||
+            !activeOrganization
+        ) {
+            return;
+        }
+
+        const organizationId = activeOrganization.id;
+        let cancelled = false;
+
+        async function loadMaintenanceRequests() {
+            setMaintenanceLoading(true);
+            setMaintenanceError(null);
+            setMaintenanceRequests([]);
+
+            try {
+                const data = await getAllMaintenanceRequests(organizationId);
+
+                if (!cancelled) {
+                    setMaintenanceRequests(data);
+                }
+            } catch (requestError) {
+                if (!cancelled) {
+                    setMaintenanceError(
+                        requestError instanceof Error
+                            ? requestError.message
+                            : "Failed to load maintenance requests.",
+                    );
+                }
+            } finally {
+                if (!cancelled) {
+                    setMaintenanceLoading(false);
+                }
+            }
+        }
+
+        void loadMaintenanceRequests();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [organizationStatus, activeOrganization?.id]);
+
     async function handleUpdateProperty(
         request: UpdatePropertyRequest,
     ): Promise<void> {
@@ -470,7 +535,7 @@ export default function PropertyDetailsPage() {
         setPaymentActionError(null);
 
         try {
-            const updatedPayment = await recordPayments(
+            const updatedPayment = await recordPayment(
                 activeOrganization.id,
                 paymentId,
                 request,
@@ -519,6 +584,112 @@ export default function PropertyDetailsPage() {
             );
         } finally {
             setPaymentActionBusyId(null);
+        }
+    }
+
+    async function refreshSpacesAfterMaintenance(): Promise<void> {
+        if (!activeOrganization || !property) {
+            return;
+        }
+
+        try {
+            const latestSpaces = await getSpaces(
+                activeOrganization.id,
+                property.id,
+            );
+            setSpaces(latestSpaces);
+        } catch {
+            setMaintenanceActionError(
+                "The maintenance action succeeded, but space statuses could not be refreshed. Reload the page to see the latest statuses.",
+            );
+        }
+    }
+
+    async function handleCreateMaintenance(
+        request: CreateMaintenanceRequest,
+    ): Promise<void> {
+        if (!activeOrganization || !property) {
+            throw new Error(
+                "An active organization and property are required.",
+            );
+        }
+
+        setCreatingMaintenance(true);
+        setMaintenanceActionError(null);
+
+        try {
+            const createdRequest = await createMaintenanceRequest(
+                activeOrganization.id,
+                request,
+            );
+
+            setMaintenanceRequests((currentRequests) => [
+                createdRequest,
+                ...currentRequests,
+            ]);
+            setShowCreateMaintenance(false);
+            await refreshSpacesAfterMaintenance();
+        } finally {
+            setCreatingMaintenance(false);
+        }
+    }
+
+    async function handleMaintenanceAction(
+        maintenance: MaintenanceResponse,
+        action: "start" | "resolve" | "cancel",
+    ): Promise<void> {
+        if (!activeOrganization) {
+            setMaintenanceActionError("An active organization is required.");
+            return;
+        }
+
+        if (action === "cancel") {
+            const confirmed = window.confirm(
+                `Cancel maintenance request #${maintenance.id} (${maintenance.title})?`,
+            );
+            if (!confirmed) {
+                return;
+            }
+        }
+
+        setMaintenanceActionBusyId(maintenance.id);
+        setMaintenanceActionError(null);
+
+        try {
+            let updatedRequest: MaintenanceResponse;
+
+            if (action === "start") {
+                updatedRequest = await startProgress(
+                    activeOrganization.id,
+                    maintenance.id,
+                );
+            } else if (action === "resolve") {
+                updatedRequest = await resolveMaintenance(
+                    activeOrganization.id,
+                    maintenance.id,
+                );
+            } else {
+                updatedRequest = await cancelMaintenance(
+                    activeOrganization.id,
+                    maintenance.id,
+                );
+            }
+
+            setMaintenanceRequests((currentRequests) =>
+                currentRequests.map((item) =>
+                    item.id === updatedRequest.id ? updatedRequest : item,
+                ),
+            );
+
+            await refreshSpacesAfterMaintenance();
+        } catch (requestError) {
+            setMaintenanceActionError(
+                requestError instanceof Error
+                    ? requestError.message
+                    : `Failed to ${action} maintenance request.`,
+            );
+        } finally {
+            setMaintenanceActionBusyId(null);
         }
     }
 
@@ -872,6 +1043,10 @@ export default function PropertyDetailsPage() {
         spaces.map((space) => [space.id, space]),
     );
 
+    const propertyMaintenanceRequests = maintenanceRequests
+        .filter((request) => request.propertyId === property.id)
+        .sort((a, b) => b.reportedAt.localeCompare(a.reportedAt));
+
     const propertyLeaseIds = new Set(
         propertyLeases.map((lease) => lease.id),
     );
@@ -1018,8 +1193,10 @@ export default function PropertyDetailsPage() {
                                     cancelSpaceForm();
                                     setShowCreateLease(false);
                                     setRenewingLeaseId(null);
+                                    setShowCreateMaintenance(false);
                                     setStatusUpdateError(null);
                                     setLeaseActionError(null);
+                                    setMaintenanceActionError(null);
                                 }}
                                 className={`whitespace-nowrap border-b-2 px-3 py-3 text-sm font-medium transition ${
                                     activeTab === tab.id
@@ -1607,10 +1784,185 @@ export default function PropertyDetailsPage() {
                         )}
 
                         {activeTab === "maintenance" && (
-                            <TabPlaceholder
-                                title="Maintenance"
-                                description="Maintenance requests associated with this property's spaces will appear here."
-                            />
+                            <div className="space-y-5">
+                                <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+                                    <div>
+                                        <h2 className="text-lg font-semibold text-[#14302b]">
+                                            Maintenance
+                                        </h2>
+                                        <p className="mt-1 text-sm text-gray-500">
+                                            Track issues and repairs for this property's spaces.
+                                        </p>
+                                    </div>
+
+                                    {!showCreateMaintenance && (
+                                        <button
+                                            type="button"
+                                            disabled={creatingMaintenance || maintenanceActionBusyId !== null}
+                                            onClick={() => {
+                                                setMaintenanceActionError(null);
+                                                setShowCreateMaintenance(true);
+                                            }}
+                                            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#14302b] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#20453d] disabled:cursor-not-allowed disabled:opacity-60"
+                                        >
+                                            <Plus className="h-4 w-4" />
+                                            New request
+                                        </button>
+                                    )}
+                                </div>
+
+                                {maintenanceError && (
+                                    <div
+                                        role="alert"
+                                        className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+                                    >
+                                        Unable to load maintenance requests: {maintenanceError}
+                                    </div>
+                                )}
+
+                                {maintenanceActionError && (
+                                    <div
+                                        role="alert"
+                                        className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+                                    >
+                                        {maintenanceActionError}
+                                    </div>
+                                )}
+
+                                {showCreateMaintenance && (
+                                    <CreateMaintenanceForm
+                                        propertyId={property.id}
+                                        spaces={spaces}
+                                        submitting={creatingMaintenance}
+                                        onSubmit={handleCreateMaintenance}
+                                        onCancel={() => setShowCreateMaintenance(false)}
+                                    />
+                                )}
+
+                                {maintenanceLoading ? (
+                                    <div
+                                        role="status"
+                                        className="rounded-xl border border-[#e1e8e3] bg-white p-8 text-sm text-gray-500"
+                                    >
+                                        Loading maintenance requests...
+                                    </div>
+                                ) : maintenanceError ? null : propertyMaintenanceRequests.length === 0 ? (
+                                    <div className="rounded-xl border border-dashed border-[#d5dfd8] bg-white px-6 py-12 text-center">
+                                        <h3 className="font-semibold text-[#14302b]">
+                                            No maintenance requests
+                                        </h3>
+                                        <p className="mt-1 text-sm text-gray-500">
+                                            Requests for repairs and maintenance on this property's spaces will appear here.
+                                        </p>
+                                        {!showCreateMaintenance && spaces.length > 0 && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowCreateMaintenance(true)}
+                                                className="mt-4 inline-flex items-center gap-2 rounded-lg bg-[#14302b] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#20453d]"
+                                            >
+                                                <Plus className="h-4 w-4" />
+                                                Create first request
+                                            </button>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div className="overflow-x-auto rounded-lg border border-[#e1e8e3]">
+                                        <table className="w-full min-w-262.5 text-left">
+                                            <thead className="bg-[#f8faf8]">
+                                                <tr>
+                                                    <TableHeader>Space</TableHeader>
+                                                    <TableHeader>Request</TableHeader>
+                                                    <TableHeader>Priority</TableHeader>
+                                                    <TableHeader>Status</TableHeader>
+                                                    <TableHeader>Reported</TableHeader>
+                                                    <TableHeader>Resolved</TableHeader>
+                                                    <TableHeader>Actions</TableHeader>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-[#edf0ee]">
+                                                {propertyMaintenanceRequests.map((request) => {
+                                                    const space = spacesById.get(request.spaceId);
+                                                    const actionBusy = maintenanceActionBusyId === request.id;
+
+                                                    return (
+                                                        <tr key={request.id} className="hover:bg-[#f8faf8]">
+                                                            <td className="px-4 py-4 text-sm font-medium text-[#14302b]">
+                                                                {space?.name ?? `Space #${request.spaceId}`}
+                                                            </td>
+                                                            <td className="max-w-85 px-4 py-4">
+                                                                <p className="text-sm font-medium text-[#243b35]">
+                                                                    {request.title}
+                                                                </p>
+                                                                <p className="mt-1 whitespace-pre-wrap text-sm text-gray-500">
+                                                                    {request.description}
+                                                                </p>
+                                                                <p className="mt-1 text-xs text-gray-400">
+                                                                    Request #{request.id}
+                                                                </p>
+                                                            </td>
+                                                            <td className="px-4 py-4">
+                                                                <MaintenancePriorityBadge priority={request.priority} />
+                                                            </td>
+                                                            <td className="px-4 py-4">
+                                                                <MaintenanceStatusBadge status={request.status} />
+                                                            </td>
+                                                            <td className="px-4 py-4 text-sm text-gray-600">
+                                                                {formatDate(request.reportedAt)}
+                                                            </td>
+                                                            <td className="px-4 py-4 text-sm text-gray-600">
+                                                                {request.resolvedAt ? formatDate(request.resolvedAt) : "—"}
+                                                            </td>
+                                                            <td className="px-4 py-4">
+                                                                {request.status === "OPEN" ? (
+                                                                    <div className="flex flex-wrap gap-2">
+                                                                        <button
+                                                                            type="button"
+                                                                            disabled={maintenanceActionBusyId !== null || creatingMaintenance}
+                                                                            onClick={() => void handleMaintenanceAction(request, "start")}
+                                                                            className="rounded-lg border border-[#d5dfd8] bg-white px-3 py-2 text-xs font-medium text-[#14302b] hover:bg-[#f8faf8] disabled:opacity-50"
+                                                                        >
+                                                                            {actionBusy ? "Saving..." : "Start work"}
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            disabled={maintenanceActionBusyId !== null || creatingMaintenance}
+                                                                            onClick={() => void handleMaintenanceAction(request, "cancel")}
+                                                                            className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
+                                                                        >
+                                                                            Cancel
+                                                                        </button>
+                                                                    </div>
+                                                                ) : request.status === "IN_PROGRESS" ? (
+                                                                    <div className="flex flex-wrap gap-2">
+                                                                        <button
+                                                                            type="button"
+                                                                            disabled={maintenanceActionBusyId !== null || creatingMaintenance}
+                                                                            onClick={() => void handleMaintenanceAction(request, "resolve")}
+                                                                            className="rounded-lg border border-[#d5dfd8] bg-[#e8efe9] px-3 py-2 text-xs font-medium text-[#14302b] hover:bg-[#dce8df] disabled:opacity-50"
+                                                                        >
+                                                                            {actionBusy ? "Saving..." : "Resolve"}
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            disabled={maintenanceActionBusyId !== null || creatingMaintenance}
+                                                                            onClick={() => void handleMaintenanceAction(request, "cancel")}
+                                                                            className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
+                                                                        >
+                                                                            Cancel
+                                                                        </button>
+                                                                    </div>
+                                                                ) : (
+                                                                    <span className="text-sm text-gray-400">—</span>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                            </div>
                         )}
                     </div>
                 </section>
@@ -1869,17 +2221,58 @@ function PaymentStatusBadge({
     );
 }
 
-function TabPlaceholder({
-    title,
-    description,
+function MaintenanceStatusBadge({
+    status,
 }: {
-    title: string;
-    description: string;
+    status: MaintenanceStatus;
 }) {
+    const styles: Record<MaintenanceStatus, string> = {
+        OPEN: "bg-amber-50 text-amber-800",
+        IN_PROGRESS: "bg-blue-50 text-blue-700",
+        RESOLVED: "bg-[#e8efe9] text-[#14302b]",
+        CANCELLED: "bg-gray-100 text-gray-600",
+    };
+
+    const labels: Record<MaintenanceStatus, string> = {
+        OPEN: "Open",
+        IN_PROGRESS: "In progress",
+        RESOLVED: "Resolved",
+        CANCELLED: "Cancelled",
+    };
+
     return (
-        <div className="rounded-lg border border-dashed border-[#d5dfd8] px-6 py-12 text-center">
-            <h2 className="font-semibold text-[#14302b]">{title}</h2>
-            <p className="mt-1 text-sm text-gray-500">{description}</p>
-        </div>
+        <span
+            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${styles[status]}`}
+        >
+            {labels[status]}
+        </span>
+    );
+}
+
+function MaintenancePriorityBadge({
+    priority,
+}: {
+    priority: MaintenancePriority;
+}) {
+    const styles: Record<MaintenancePriority, string> = {
+        LOW: "bg-gray-100 text-gray-700",
+        MEDIUM: "bg-blue-50 text-blue-700",
+        HIGH: "bg-amber-50 text-amber-800",
+        URGENT: "bg-red-50 text-red-700",
+    };
+
+    const labels: Record<MaintenancePriority, string> = {
+        LOW: "Low",
+        MEDIUM: "Medium",
+        HIGH: "High",
+        URGENT: "Urgent",
+    };
+
+    return (
+        <span
+            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${styles[priority]}`}
+        >
+            {labels[priority]}
+        </span>
     );
 }

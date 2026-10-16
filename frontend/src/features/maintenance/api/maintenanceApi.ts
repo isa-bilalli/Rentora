@@ -37,18 +37,18 @@ export async function getAllMaintenanceRequests(organizationId: number): Promise
     })
 }
 
-export async function getMaintenanceByProperty(organizationId: number, propertyId: number): Promise<MaintenanceResponse>{
-    return apiRequest<MaintenanceResponse>(`/api/organizations/${organizationId}/maintenance/properties/${propertyId}`, {
+export async function getMaintenanceByProperty(organizationId: number, propertyId: number): Promise<MaintenanceResponse[]> {
+    return apiRequest<MaintenanceResponse[]>(`/api/organizations/${organizationId}/maintenance/properties/${propertyId}`, {
         method: "GET",
         authenticated: true,
-    })
+    });
 }
 
-export async function getMaintenanceByPropertySpace(organizationId: number, propertyId: number, spaceId: number){
-    return apiRequest<MaintenanceResponse>(`/api/organizations/${organizationId}/maintenance/properties/${propertyId}/spaces/${spaceId}`, {
+export async function getMaintenanceByPropertySpace(organizationId: number, propertyId: number, spaceId: number): Promise<MaintenanceResponse[]> {
+    return apiRequest<MaintenanceResponse[]>(`/api/organizations/${organizationId}/maintenance/properties/${propertyId}/spaces/${spaceId}`, {
         method: "GET",
         authenticated: true,
-    })
+    });
 }
 
 export async function getMaintenanceRequest(organizationId: number, maintenanceId: number): Promise<MaintenanceResponse> {
