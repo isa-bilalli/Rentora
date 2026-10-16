@@ -6,16 +6,12 @@ import {
     useMemo,
     useState,
 } from "react";
+import { Outlet } from "react-router";
 
 import { getMyOrganizations } from "./api/organizationApi";
 import type { Organization } from "./types";
 
-import { Outlet } from "react-router";
-
-type OrganizationStatus =
-    | "loading"
-    | "ready"
-    | "error";
+type OrganizationStatus = "loading" | "ready" | "error";
 
 interface OrganizationContextValue {
     organizations: Organization[];
@@ -26,108 +22,81 @@ interface OrganizationContextValue {
 }
 
 export const OrganizationContext =
-    createContext<OrganizationContextValue | undefined>(
-        undefined,
-    );
+    createContext<OrganizationContextValue | undefined>(undefined);
 
-const ACTIVE_ORGANIZATION_KEY =
-    "activeOrganizationId";
+const ACTIVE_ORGANIZATION_KEY = "activeOrganizationId";
 
 export function OrganizationProvider() {
-    const [organizations, setOrganizations] =
-        useState<Organization[]>([]);
-
+    const [organizations, setOrganizations] = useState<Organization[]>([]);
     const [activeOrganization, setActiveOrganizationState] =
         useState<Organization | null>(null);
-
-    const [status, setStatus] =
-        useState<OrganizationStatus>("loading");
-
-    const [error, setError] =
-        useState<string | null>(null);
+    const [status, setStatus] = useState<OrganizationStatus>("loading");
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
+        let cancelled = false;
+
         async function loadOrganizations() {
             try {
                 setStatus("loading");
                 setError(null);
 
-                const result =
-                    await getMyOrganizations();
+                const result = await getMyOrganizations();
+                if (cancelled) return;
 
                 setOrganizations(result);
 
                 if (result.length === 0) {
-                    localStorage.removeItem(
-                        ACTIVE_ORGANIZATION_KEY,
-                    );
-
+                    localStorage.removeItem(ACTIVE_ORGANIZATION_KEY);
                     setActiveOrganizationState(null);
                     setStatus("ready");
-
                     return;
                 }
 
-                const storedId =
-                    Number(
-                        localStorage.getItem(
-                            ACTIVE_ORGANIZATION_KEY,
-                        ),
-                    );
-
-                const storedOrganization =
-                    result.find(
-                        (organization) =>
-                            organization.id === storedId,
-                    );
-
+                const storedValue = localStorage.getItem(ACTIVE_ORGANIZATION_KEY);
+                const storedId = storedValue ? Number(storedValue) : NaN;
                 const selectedOrganization =
-                    storedOrganization ?? result[0];
+                    result.find((organization) => organization.id === storedId) ??
+                    result[0];
 
-                setActiveOrganizationState(
-                    selectedOrganization,
-                );
-
+                setActiveOrganizationState(selectedOrganization);
                 localStorage.setItem(
                     ACTIVE_ORGANIZATION_KEY,
-                    selectedOrganization.id.toString(),
+                    String(selectedOrganization.id),
                 );
-
                 setStatus("ready");
-            } catch (error) {
+            } catch (loadError) {
+                if (cancelled) return;
+
                 setOrganizations([]);
                 setActiveOrganizationState(null);
                 setStatus("error");
-
                 setError(
-                    error instanceof Error
-                        ? error.message
+                    loadError instanceof Error
+                        ? loadError.message
                         : "Failed to load organizations",
                 );
             }
         }
 
         void loadOrganizations();
+        return () => {
+            cancelled = true;
+        };
     }, []);
 
     const setActiveOrganization = useCallback(
         (organizationId: number) => {
-            const organization =
-                organizations.find(
-                    (item) => item.id === organizationId,
-                );
-
-            if (!organization) {
-                return;
-            }
-
-            setActiveOrganizationState(
-                organization,
+            const organization = organizations.find(
+                (item) => item.id === organizationId,
             );
 
+            if (!organization) return;
+
+            setActiveOrganizationState(organization);
             localStorage.setItem(
                 ACTIVE_ORGANIZATION_KEY,
-                organization.id.toString(),
+                String(organization.id),
             );
         },
         [organizations],
@@ -163,8 +132,9 @@ export function OrganizationProvider() {
     if (status === "error") {
         return (
             <OrganizationContext.Provider value={value}>
-                <div className="flex min-h-screen items-center justify-center">
-                    Failed to load organizations.
+                <div className="flex min-h-screen flex-col items-center justify-center gap-2 px-6 text-center">
+                    <p className="font-medium">Failed to load organizations.</p>
+                    {error && <p className="text-sm text-gray-500">{error}</p>}
                 </div>
             </OrganizationContext.Provider>
         );
@@ -178,8 +148,7 @@ export function OrganizationProvider() {
 }
 
 export function useOrganization() {
-    const context =
-        useContext(OrganizationContext);
+    const context = useContext(OrganizationContext);
 
     if (context === undefined) {
         throw new Error(

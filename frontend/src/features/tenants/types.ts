@@ -1,7 +1,9 @@
+export type TenantType = "INDIVIDUAL" | "COMPANY";
+
 export interface TenantResponse {
     id: number;
     organizationId: number;
-    type: string;
+    type: TenantType;
     firstName: string | null;
     lastName: string | null;
     companyName: string | null;
@@ -10,6 +12,17 @@ export interface TenantResponse {
     createdAt: string;
     updatedAt: string;
 }
+
+export interface CreateTenantRequest {
+    type: TenantType;
+    firstName: string | null;
+    lastName: string | null;
+    companyName: string | null;
+    email: string | null;
+    phone: string | null;
+}
+
+export type UpdateTenantRequest = CreateTenantRequest;
 
 export function getTenantDisplayName(tenant: TenantResponse): string {
     const personName = [tenant.firstName, tenant.lastName]
