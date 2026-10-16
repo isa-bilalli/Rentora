@@ -10,6 +10,53 @@ interface RefreshResponse {
     accessToken: string;
 }
 
+export type FieldErrors = Record<string, string>;
+
+export class ApiError extends Error {
+    readonly status: number;
+    readonly fieldErrors: FieldErrors;
+
+    constructor(message: string, status: number, fieldErrors: FieldErrors = {}) {
+        super(message);
+        this.name = "ApiError";
+        this.status = status;
+        this.fieldErrors = fieldErrors;
+    }
+}
+
+// "monthlyRentCents" -> "Monthly rent cents"
+function humanizeField(field: string): string {
+    const words = field.replace(/([A-Z])/g, " $1").toLowerCase();
+    return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+// The backend sends { error: "..." } for most failures and { field: "message", ... } for validation failures.
+function toApiError(status: number, body: unknown): ApiError {
+    if (!body || typeof body !== "object") {
+        return new ApiError("Request failed", status);
+    }
+
+    if (typeof (body as { error?: unknown }).error === "string") {
+        return new ApiError((body as { error: string }).error, status);
+    }
+
+    const entries = Object.entries(body as Record<string, unknown>);
+
+    if (
+        entries.length > 0 &&
+        entries.every(([, value]) => typeof value === "string")
+    ) {
+        const fieldErrors = Object.fromEntries(entries) as FieldErrors;
+        // Pages that don't render field errors still get a readable message.
+        const message = entries
+            .map(([field, value]) => `${humanizeField(field)} ${value}`)
+            .join(". ");
+        return new ApiError(message, status, fieldErrors);
+    }
+
+    return new ApiError("Request failed", status);
+}
+
 let accessToken: string | null = null;
 
 let refreshPromise: Promise<string | null> | null = null;
@@ -120,22 +167,15 @@ export async function apiRequest<T>(
     }
 
     if (!response.ok) {
-        let message = "Request failed";
+        let body: unknown = null;
 
         try {
-            const body = await response.json();
-
-            if (
-                body &&
-                typeof body.error === "string"
-            ) {
-                message = body.error;
-            }
+            body = await response.json();
         } catch {
             // Response did not contain JSON.
         }
 
-        throw new Error(message);
+        throw toApiError(response.status, body);
     }
 
     if (response.status === 204) {
