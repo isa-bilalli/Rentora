@@ -9,6 +9,7 @@ public interface SpaceAccess {
     void markReserved(Long spaceId);
     void markMaintenance(Long spaceId);
     void prepareForFutureLease(Long spaceId);
+    void occupyForStartedLease(Long spaceId);
     void requireBelongsToProperty(Long spaceId, Long propertyId);
     Long countByOrganizationIdAndStatus(Long organizationId, SpaceStatus status);
     Long countByOrganizationId(Long organizationId);

@@ -1,6 +1,8 @@
 package com.isabilalli.rentora.tenant.application;
 
+import com.isabilalli.rentora.lease.api.LeaseStatusAccess;
 import com.isabilalli.rentora.shared.api.BadRequestException;
+import com.isabilalli.rentora.shared.api.ConflictException;
 import com.isabilalli.rentora.shared.api.NotFoundException;
 import com.isabilalli.rentora.auth.application.CurrentUserService;
 import com.isabilalli.rentora.auth.infrastructure.security.AuthenticatedUser;
@@ -24,15 +26,18 @@ public class TenantService implements TenantAccess{
     private final TenantRepository tenantRepository;
     private final CurrentUserService currentUserService;
     private final OrganizationAccessService organizationAccessService;
+    private final LeaseStatusAccess leaseStatusAccess;
 
     public TenantService(
             TenantRepository tenantRepository,
             CurrentUserService currentUserService,
-            OrganizationAccessService organizationAccessService
+            OrganizationAccessService organizationAccessService,
+            LeaseStatusAccess leaseStatusAccess
     ) {
         this.tenantRepository = tenantRepository;
         this.currentUserService = currentUserService;
         this.organizationAccessService = organizationAccessService;
+        this.leaseStatusAccess = leaseStatusAccess;
     }
 
     private boolean isBlank(String value){
@@ -102,6 +107,10 @@ public class TenantService implements TenantAccess{
         Tenant tenant = tenantRepository.findById(tenantId).orElseThrow(()-> new NotFoundException("Tenant not found"));
         if(!tenant.getOrganizationId().equals(organizationId)){
             throw new AccessDeniedException("Tenant does not belong to this organization");
+        }
+        // Leases and their payments are financial history and must outlive the tenant record.
+        if(leaseStatusAccess.hasLeasesForTenant(tenantId)){
+            throw new ConflictException("This tenant has leases and cannot be deleted");
         }
 
         tenantRepository.delete(tenant);

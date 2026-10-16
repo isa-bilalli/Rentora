@@ -120,6 +120,14 @@ public class Payment {
         this.updatedAt=OffsetDateTime.now();
     }
 
+    public void changeAmount(Long amountCents){
+        if(status != PaymentStatus.PENDING){
+            throw new BadRequestException("Only pending payments can change amount");
+        }
+        this.amountCents=amountCents;
+        this.updatedAt=OffsetDateTime.now();
+    }
+
     public void voidPayment(){
         if(status != PaymentStatus.PENDING){
             throw new BadRequestException("Only pending payments can be voided");

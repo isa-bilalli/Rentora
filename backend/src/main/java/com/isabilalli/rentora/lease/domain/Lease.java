@@ -142,9 +142,16 @@ public class Lease {
         this.updatedAt = OffsetDateTime.now();
     }
 
-    public void end(){
+    // Ending before the scheduled end date makes effectiveDate the lease's last day.
+    public void end(LocalDate effectiveDate){
         if(status != LeaseStatus.ACTIVE){
             throw new BadRequestException("Only active leases can be ended");
+        }
+        if(effectiveDate.isBefore(endDate)){
+            if(!effectiveDate.isAfter(startDate)){
+                throw new BadRequestException("This lease has not started yet; cancel it instead");
+            }
+            this.endDate = effectiveDate;
         }
         this.status = LeaseStatus.ENDED;
         this.updatedAt = OffsetDateTime.now();

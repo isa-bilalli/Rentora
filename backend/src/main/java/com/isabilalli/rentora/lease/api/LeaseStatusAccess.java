@@ -15,4 +15,8 @@ public interface LeaseStatusAccess {
             Long spaceId,
             LocalDate today
     );
+
+    boolean hasLeasesForTenant(Long tenantId);
+
+    boolean hasLeasesForSpace(Long spaceId);
 }

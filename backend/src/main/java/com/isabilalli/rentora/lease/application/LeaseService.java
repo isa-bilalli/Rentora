@@ -17,7 +17,10 @@ import com.isabilalli.rentora.lease.api.dto.LeaseResponse;
 import com.isabilalli.rentora.lease.api.dto.RenewLeaseRequest;
 import com.isabilalli.rentora.lease.api.dto.UpdateLeaseRequest;
 import com.isabilalli.rentora.lease.api.dto.CurrentSpaceRentSummary;
+import com.isabilalli.rentora.lease.api.event.LeaseCancelledEvent;
 import com.isabilalli.rentora.lease.api.event.LeaseCreatedEvent;
+import com.isabilalli.rentora.lease.api.event.LeaseEndedEvent;
+import com.isabilalli.rentora.lease.api.event.LeaseUpdatedEvent;
 import com.isabilalli.rentora.lease.infrastructure.LeaseRepository;
 import com.isabilalli.rentora.organization.application.OrganizationAccessService;
 import com.isabilalli.rentora.property.api.SpaceAccess;
@@ -114,6 +117,7 @@ public class LeaseService implements LeaseAccess {
         }
         lease.update(finalStartDate, finalEndDate, request.monthlyRentCents(), request.securityDepositCents());
         Lease savedLease = leaseRepository.save(lease);
+        eventPublisher.publishEvent(new LeaseUpdatedEvent(savedLease.getOrganizationId(), savedLease.getId(), savedLease.getStartDate(), savedLease.getEndDate(), savedLease.getMonthlyRentCents()));
         
         return LeaseResponse.from(savedLease);
     }
@@ -123,8 +127,9 @@ public class LeaseService implements LeaseAccess {
         organizationAuthorization(organizationId);
         Lease lease = leaseValidation(leaseId, organizationId);
 
-        lease.end();
+        lease.end(LocalDate.now());
         Lease savedLease = leaseRepository.save(lease);
+        eventPublisher.publishEvent(new LeaseEndedEvent(savedLease.getId(), savedLease.getEndDate()));
 
         syncSpaceStatus(lease.getSpaceId(), lease.getId());
         return LeaseResponse.from(savedLease);
@@ -137,6 +142,7 @@ public class LeaseService implements LeaseAccess {
     
         lease.cancel();
         Lease savedLease = leaseRepository.save(lease);
+        eventPublisher.publishEvent(new LeaseCancelledEvent(savedLease.getId()));
 
         syncSpaceStatus(lease.getSpaceId(), lease.getId());
         return LeaseResponse.from(savedLease);
@@ -164,9 +170,19 @@ public class LeaseService implements LeaseAccess {
             return;
         }
 
-        lease.end();
+        lease.end(LocalDate.now());
         leaseRepository.save(lease);
+        eventPublisher.publishEvent(new LeaseEndedEvent(lease.getId(), lease.getEndDate()));
         syncSpaceStatus(lease.getSpaceId(), lease.getId());
+    }
+
+    @Transactional
+    public void activateLease(Long leaseId){
+        Lease lease = leaseRepository.findById(leaseId).orElseThrow(()-> new NotFoundException("Lease not found"));
+        if(lease.getStatus() != LeaseStatus.ACTIVE){
+            return;
+        }
+        spaceAccess.occupyForStartedLease(lease.getSpaceId());
     }
 
     @Transactional 

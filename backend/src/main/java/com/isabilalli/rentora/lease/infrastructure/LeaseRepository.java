@@ -14,6 +14,8 @@ import com.isabilalli.rentora.lease.domain.LeaseStatus;
 
 public interface LeaseRepository extends JpaRepository<Lease, Long> {
     List<Lease> findAllByOrganizationId(Long organizationId);
+    boolean existsByTenantId(Long tenantId);
+    boolean existsBySpaceId(Long spaceId);
     
     @Query("""
         SELECT COUNT(l) > 0
@@ -27,6 +29,7 @@ public interface LeaseRepository extends JpaRepository<Lease, Long> {
     boolean existsOverlappingActiveLease(@Param("spaceId") Long spaceId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("excludeLeaseId") Long excludeLeaseId);
     Optional<Lease> findFirstBySpaceIdAndStatusAndIdNotOrderByStartDateAsc(Long spaceId, LeaseStatus status, Long leaseId);
     List<Lease> findAllByStatusAndEndDateBefore(LeaseStatus status, LocalDate endDate);
+    List<Lease> findAllByStatusAndStartDateLessThanEqualAndEndDateGreaterThanEqual(LeaseStatus status, LocalDate startDate, LocalDate endDate);
     @Query("""
             SELECT COUNT(l)
             FROM Lease l
@@ -49,6 +52,7 @@ public interface LeaseRepository extends JpaRepository<Lease, Long> {
         FROM leases l
         JOIN spaces s ON s.id = l.space_id
         WHERE l.organization_id = :organizationId
+          AND l.status <> 'CANCELLED'
           AND l.start_date <= :endDate
           AND l.end_date >= :startDate
           AND (:propertyId IS NULL OR s.property_id = :propertyId)
@@ -59,6 +63,7 @@ public interface LeaseRepository extends JpaRepository<Lease, Long> {
         FROM leases l
         JOIN spaces s ON s.id = l.space_id
         WHERE l.organization_id = :organizationId
+          AND l.status <> 'CANCELLED'
           AND l.start_date >= :startDate
           AND l.start_date <= :endDate
           AND (:propertyId IS NULL OR s.property_id = :propertyId)
@@ -69,6 +74,7 @@ public interface LeaseRepository extends JpaRepository<Lease, Long> {
         FROM leases l
         JOIN spaces s ON s.id = l.space_id
         WHERE l.organization_id = :organizationId
+          AND l.status <> 'CANCELLED'
           AND l.end_date >= :startDate
           AND l.end_date <= :endDate
           AND (:propertyId IS NULL OR s.property_id = :propertyId)
@@ -79,6 +85,7 @@ public interface LeaseRepository extends JpaRepository<Lease, Long> {
         FROM leases l
         JOIN spaces s ON s.id = l.space_id
         WHERE l.organization_id = :organizationId
+          AND l.status <> 'CANCELLED'
           AND l.renewed_from_lease_id IS NOT NULL
           AND l.start_date >= :startDate
           AND l.start_date <= :endDate

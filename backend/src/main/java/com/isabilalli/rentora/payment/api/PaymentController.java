@@ -58,7 +58,7 @@ public class PaymentController {
     }
     @GetMapping("/status")
     public ResponseEntity<List<PaymentResponse>> getPaymentsByStatus(@PathVariable Long organizationId, @RequestParam PaymentStatus status) {
-        return ResponseEntity.ok(paymentService.getAllPaymentsByStatus(organizationId, status));
+        return ResponseEntity.ok(paymentService.getByStatus(organizationId, status));
     }
     
 }

@@ -3,12 +3,18 @@ package com.isabilalli.rentora.payment.application;
 import com.isabilalli.rentora.shared.api.NotFoundException;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
+import com.isabilalli.rentora.lease.api.event.LeaseCancelledEvent;
 import com.isabilalli.rentora.lease.api.event.LeaseCreatedEvent;
+import com.isabilalli.rentora.lease.api.event.LeaseEndedEvent;
+import com.isabilalli.rentora.lease.api.event.LeaseUpdatedEvent;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
@@ -95,26 +101,33 @@ public class PaymentService implements PaymentAccess {
         return paymentRepository.findAllByLeaseId(leaseId).stream().map(PaymentResponse::from).toList();
     }
 
-    public List<PaymentResponse> getAllPaymentsByStatus(Long organizationId, PaymentStatus status){
-        organizationAuthorization(organizationId);
-        return paymentRepository.findAllByStatus(status).stream().map(PaymentResponse::from).toList();
+
+    // Rent is due every month on the lease's start day, clamped to the month's length.
+    private Set<LocalDate> rentDueDates(LocalDate startDate, LocalDate endDate){
+        Set<LocalDate> dueDates = new LinkedHashSet<>();
+        int dueDay = startDate.getDayOfMonth();
+        LocalDate month = startDate.withDayOfMonth(1);
+
+        while(!month.isAfter(endDate)){
+            int actualDay = Math.min(dueDay, month.lengthOfMonth());
+            LocalDate dueDate = month.withDayOfMonth(actualDay);
+            if (!dueDate.isBefore(startDate) && !dueDate.isAfter(endDate)) {
+                dueDates.add(dueDate);
+            }
+            month = month.plusMonths(1);
+        }
+        return dueDates;
     }
 
     @Override
     public void generateRentObligations(Long organizationId, Long leaseId, LocalDate startDate, LocalDate endDate, Long monthlyRentCents) {
-        List<Payment> existingPayments = paymentRepository.findAllByLeaseId(leaseId);
-        java.util.Set<LocalDate> existingDueDates = existingPayments.stream().map(Payment::getDueDate).collect(java.util.stream.Collectors.toSet());
+        Set<LocalDate> existingDueDates = paymentRepository.findAllByLeaseId(leaseId).stream().map(Payment::getDueDate).collect(Collectors.toSet());
         List<Payment> payments = new ArrayList<>();
-        
-        int dueDay = startDate.getDayOfMonth();
-        LocalDate month = startDate.withDayOfMonth(1);
-    
-        while(!month.isAfter(endDate)){
-            int actualDay = Math.min(dueDay, month.lengthOfMonth());
-            LocalDate dueDate = month.withDayOfMonth(actualDay);
-            if (!dueDate.isBefore(startDate) && !dueDate.isAfter(endDate) && !existingDueDates.contains(dueDate)) {
-            payments.add(new Payment( organizationId, leaseId, dueDate, monthlyRentCents));}
-            month = month.plusMonths(1);
+
+        for (LocalDate dueDate : rentDueDates(startDate, endDate)) {
+            if (!existingDueDates.contains(dueDate)) {
+                payments.add(new Payment(organizationId, leaseId, dueDate, monthlyRentCents));
+            }
         }
         if(!payments.isEmpty()){
             paymentRepository.saveAll(payments);
@@ -124,6 +137,55 @@ public class PaymentService implements PaymentAccess {
     @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
     public void handleLeaseCreated(LeaseCreatedEvent event) {
         generateRentObligations(event.organizationId(), event.leaseId(), event.startDate(), event.endDate(), event.monthlyRentCents());
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
+    public void handleLeaseUpdated(LeaseUpdatedEvent event) {
+        Set<LocalDate> schedule = rentDueDates(event.startDate(), event.endDate());
+        LocalDate today = LocalDate.now();
+        List<Payment> existingPayments = paymentRepository.findAllByLeaseId(event.leaseId());
+
+        // Pending rent the new dates no longer cover was never owed. Paid and voided rows stay as history.
+        List<Payment> obsolete = existingPayments.stream()
+                .filter(payment -> payment.getStatus() == PaymentStatus.PENDING && !schedule.contains(payment.getDueDate()))
+                .toList();
+        paymentRepository.deleteAll(obsolete);
+
+        // A rent change applies from today on; rent that is already due keeps the amount it was billed at.
+        List<Payment> repriced = existingPayments.stream()
+                .filter(payment -> payment.getStatus() == PaymentStatus.PENDING
+                        && schedule.contains(payment.getDueDate())
+                        && !payment.getDueDate().isBefore(today)
+                        && !payment.getAmountCents().equals(event.monthlyRentCents()))
+                .toList();
+        repriced.forEach(payment -> payment.changeAmount(event.monthlyRentCents()));
+        paymentRepository.saveAll(repriced);
+
+        Set<LocalDate> coveredDueDates = existingPayments.stream()
+                .filter(payment -> !obsolete.contains(payment))
+                .map(Payment::getDueDate)
+                .collect(Collectors.toSet());
+        List<Payment> added = schedule.stream()
+                .filter(dueDate -> !coveredDueDates.contains(dueDate))
+                .map(dueDate -> new Payment(event.organizationId(), event.leaseId(), dueDate, event.monthlyRentCents()))
+                .toList();
+        paymentRepository.saveAll(added);
+    }
+
+    // Rent due after an ended lease's last day is no longer owed; arrears up to that day remain.
+    @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
+    public void handleLeaseEnded(LeaseEndedEvent event) {
+        voidAll(paymentRepository.findAllByLeaseIdAndStatusAndDueDateAfter(event.leaseId(), PaymentStatus.PENDING, event.endDate()));
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
+    public void handleLeaseCancelled(LeaseCancelledEvent event) {
+        voidAll(paymentRepository.findAllByLeaseIdAndStatus(event.leaseId(), PaymentStatus.PENDING));
+    }
+
+    private void voidAll(List<Payment> payments){
+        payments.forEach(Payment::voidPayment);
+        paymentRepository.saveAll(payments);
     }
 
     @Override

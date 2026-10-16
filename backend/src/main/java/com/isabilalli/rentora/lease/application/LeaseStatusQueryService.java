@@ -48,4 +48,14 @@ public class LeaseStatusQueryService implements LeaseStatusAccess {
                         today
                 );
     }
+
+    @Override
+    public boolean hasLeasesForTenant(Long tenantId) {
+        return leaseRepository.existsByTenantId(tenantId);
+    }
+
+    @Override
+    public boolean hasLeasesForSpace(Long spaceId) {
+        return leaseRepository.existsBySpaceId(spaceId);
+    }
 }

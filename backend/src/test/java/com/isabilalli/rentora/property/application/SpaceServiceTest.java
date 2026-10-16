@@ -12,6 +12,7 @@ import com.isabilalli.rentora.property.domain.SpaceType;
 import com.isabilalli.rentora.property.infrastructure.PropertyRepository;
 import com.isabilalli.rentora.property.infrastructure.SpaceRepository;
 import com.isabilalli.rentora.shared.api.BadRequestException;
+import com.isabilalli.rentora.shared.api.ConflictException;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -89,6 +90,27 @@ class SpaceServiceTest {
 
         when(spaceRepository.findById(SPACE_ID))
                 .thenReturn(Optional.of(space));
+    }
+
+    @Test
+    void rejectsDeletingSpaceWithLeases() {
+        when(leaseStatusAccess.hasLeasesForSpace(SPACE_ID)).thenReturn(true);
+
+        assertThrows(
+                ConflictException.class,
+                () -> spaceService.deleteSpace(ORGANIZATION_ID, PROPERTY_ID, SPACE_ID)
+        );
+
+        verify(spaceRepository, never()).delete(any(Space.class));
+    }
+
+    @Test
+    void deletesSpaceWithoutLeases() {
+        when(leaseStatusAccess.hasLeasesForSpace(SPACE_ID)).thenReturn(false);
+
+        spaceService.deleteSpace(ORGANIZATION_ID, PROPERTY_ID, SPACE_ID);
+
+        verify(spaceRepository).delete(space);
     }
 
     @Test

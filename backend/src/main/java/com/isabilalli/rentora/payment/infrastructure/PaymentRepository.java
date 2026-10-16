@@ -13,7 +13,8 @@ import com.isabilalli.rentora.payment.domain.PaymentStatus;
 public interface PaymentRepository extends JpaRepository<Payment, Long>{
     List<Payment> findAllByOrganizationId(Long organizationId);
     List<Payment> findAllByLeaseId(Long leaseId);
-    List<Payment> findAllByStatus(PaymentStatus status);
+    List<Payment> findAllByLeaseIdAndStatus(Long leaseId, PaymentStatus status);
+    List<Payment> findAllByLeaseIdAndStatusAndDueDateAfter(Long leaseId, PaymentStatus status, LocalDate date);
     List<Payment> findAllByOrganizationIdAndStatusAndDueDateBefore(Long organizationId, PaymentStatus status, LocalDate date);
     List<Payment> findAllByOrganizationIdAndStatus(Long organizationId, PaymentStatus status);
     @Query(value = """

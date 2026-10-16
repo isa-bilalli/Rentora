@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import com.isabilalli.rentora.auth.application.CurrentUserService;
 import com.isabilalli.rentora.auth.infrastructure.security.AuthenticatedUser;
 import com.isabilalli.rentora.lease.api.LeaseStatusAccess;
+import com.isabilalli.rentora.shared.api.ConflictException;
 import com.isabilalli.rentora.organization.application.OrganizationAccessService;
 import com.isabilalli.rentora.property.api.SpaceAccess;
 import com.isabilalli.rentora.property.api.dto.CreateSpaceRequest;
@@ -124,6 +125,10 @@ public class SpaceService implements SpaceAccess{
     public void deleteSpace(Long organizationId, Long propertyId, Long spaceId){
         getAuthorizedProperty(organizationId, propertyId);
         Space space = validateSpace(spaceId, propertyId);
+        // Leases and their payments are financial history and must outlive the space record.
+        if(leaseStatusAccess.hasLeasesForSpace(spaceId)){
+            throw new ConflictException("This space has leases and cannot be deleted");
+        }
 
         spaceRepository.delete(space);
     }
@@ -163,6 +168,16 @@ public class SpaceService implements SpaceAccess{
         Space space = spaceRepository.findById(spaceId).orElseThrow(() -> new NotFoundException("Space not found"));
         space.markMaintenance();
         spaceRepository.save(space);
+    }
+
+    // Idempotent: run daily for every lease covering today, so it only moves spaces that drifted.
+    @Override
+    public void occupyForStartedLease(Long spaceId){
+        Space space = spaceRepository.findById(spaceId).orElseThrow(() -> new NotFoundException("Space not found"));
+        if (space.getStatus() == SpaceStatus.RESERVED || space.getStatus() == SpaceStatus.VACANT) {
+            space.markOccupied();
+            spaceRepository.save(space);
+        }
     }
 
     @Override 
