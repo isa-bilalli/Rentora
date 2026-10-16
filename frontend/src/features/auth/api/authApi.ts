@@ -24,6 +24,29 @@ export async function login(request: LoginRequest,): Promise<LoginResponse> {
     return response;
 }
 
+export interface RegisterRequest {
+    organizationName: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    password: string;
+}
+
+export interface RegisterResponse {
+    userId: number;
+    organizationId: number;
+}
+
+// Creates the user and their organization; it does not log them in.
+export async function register(request: RegisterRequest): Promise<RegisterResponse> {
+    return apiRequest<RegisterResponse>("/api/auth/register",
+        {
+            method: "POST",
+            body: JSON.stringify(request),
+        },
+    );
+}
+
 export async function getCurrentUser(): Promise<AuthUser> {
     return apiRequest<AuthUser>("/api/auth/me",
         {

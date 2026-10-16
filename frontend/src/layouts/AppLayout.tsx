@@ -6,7 +6,7 @@ function AppLayout() {
         <div className="flex min-h-screen">
             <Sidebar />
 
-            <main className="min-w-0 flex-1">
+            <main className="min-w-0 flex-1 bg-[#f7f9f7]">
                 <Outlet />
             </main>
         </div>
