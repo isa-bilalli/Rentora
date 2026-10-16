@@ -37,28 +37,37 @@ export default function DashboardPage() {
         useState<string | null>(null);
  
     useEffect(() => {
+        let cancelled = false;
         async function loadDashboard() {
-            try {
-                setLoading(true);
+            if (!activeOrganization) {
+                setDashboard(null);
                 setError(null);
-                if (!activeOrganization) {
-                    return;
-                }
-                const data = await getDashboard(activeOrganization.id);
-                setDashboard(data);
-            } catch (error) {
-                setError(
-                    error instanceof Error
-                        ? error.message
-                        : "Failed to load dashboard",
-                );
-            } finally {
                 setLoading(false);
+                return;
+            }
+            setLoading(true);
+            setError(null);
+            setDashboard(null);
+            try {
+                const data = await getDashboard(activeOrganization.id);
+                if (!cancelled) {
+                    setDashboard(data);
+                }
+            } catch (error) {
+                if (!cancelled) {
+                    setError(error instanceof Error ? error.message : "Failed to load dashboard")
+                }
+            } finally {
+                if (!cancelled) {
+                    setLoading(false);
+                }
             }
         }
- 
         void loadDashboard();
-    }, []);
+        return () => {
+            cancelled = true;
+        };
+    }, [activeOrganization?.id]);
  
     if (loading) {
         return (

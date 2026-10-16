@@ -1,6 +1,5 @@
 import { apiRequest } from "../../../lib/api/client";
 import type { DashboardResponse } from "../types";
-import type { Organization } from "../../organizations/types";
 
 export async function getDashboard(
     organizationId: number,

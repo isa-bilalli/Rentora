@@ -15,7 +15,7 @@ interface FinancialOverviewProps {
 }
  
 // Change this to the currency your backend uses.
-const CURRENCY = "USD";
+const CURRENCY = "EUR";
  
 function formatMoney(cents: number) {
     return new Intl.NumberFormat(undefined, {
