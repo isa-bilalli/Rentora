@@ -20,6 +20,7 @@ import { getTenants } from "../../tenants/api/tenantApi";
 import { getTenantDisplayName, type TenantResponse } from "../../tenants/types";
 import { getPropertySummaries, getSpaces } from "../../properties/api/propertyApi";
 import { formatDateTime, formatLongDate, formatMoney } from "../../../lib/format";
+import { moneyInputFromCents, parseMoneyToCents } from "../../../lib/money";
 
 type PropertySummary = Awaited<ReturnType<typeof getPropertySummaries>>[number];
 type SpaceResponse = Awaited<ReturnType<typeof getSpaces>>[number];
@@ -42,29 +43,6 @@ function addOneYear(value: string): string {
     const date = new Date(`${value}T12:00:00`);
     date.setFullYear(date.getFullYear() + 1);
     return toLocalDateString(date);
-}
-
-function moneyInputFromCents(cents: number): string {
-    return (cents / 100).toFixed(2);
-}
-
-function parseMoneyToCents(value: string): number | null {
-    if (!value.trim()) return null;
-
-    const amount = Number(value);
-
-    if (!Number.isFinite(amount) || amount < 0) return null;
-
-    const cents = Math.round(amount * 100);
-
-    if (
-        !Number.isSafeInteger(cents) ||
-        Math.abs(amount * 100 - cents) > 1e-7
-    ) {
-        return null;
-    }
-
-    return cents;
 }
 
 function getDisplayStatus(lease: LeaseResponse): string {

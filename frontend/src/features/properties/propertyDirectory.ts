@@ -7,6 +7,24 @@ export interface PropertyDirectory {
     spaceById: Map<number, SpaceResponse>;
 }
 
+export interface PropertyWithSpaces {
+    id: number;
+    name: string;
+    spaces: SpaceResponse[];
+}
+
+// Properties A–Z, each with its spaces, for forms that pick a property and then a space.
+export function listPropertiesWithSpaces({ propertyById, spaceById }: PropertyDirectory): PropertyWithSpaces[] {
+    const spaces = [...spaceById.values()];
+    return [...propertyById.values()]
+        .map((property) => ({
+            id: property.id,
+            name: property.name,
+            spaces: spaces.filter((space) => space.propertyId === property.id),
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+}
+
 // There is no organization-wide spaces endpoint, so this makes one request per property.
 export async function loadPropertyDirectory(organizationId: number): Promise<PropertyDirectory> {
     const properties = await getProperties(organizationId);

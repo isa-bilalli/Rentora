@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
-import { CreditCard, X } from "lucide-react";
+import { CreditCard } from "lucide-react";
 import { getPayments } from "../api/paymentApi";
 import type { PaymentResponse } from "../types";
 import {
@@ -19,6 +19,7 @@ import { formatDate, formatDateTime, formatMoney } from "../../../lib/format";
 import { daysBetween, todayLocalDateString } from "../../../lib/dates";
 import PageHeader from "../../../components/ui/PageHeader";
 import EmptyState from "../../../components/ui/EmptyState";
+import StatusNotice from "../../../components/ui/StatusNotice";
 
 interface PaymentRow {
     payment: PaymentResponse;
@@ -186,25 +187,7 @@ export default function PaymentsPage() {
                 })}
             </div>
 
-            {/* Always rendered so screen readers announce new messages; invisible and out of the layout while empty. */}
-            <div
-                role="status"
-                className={notice ? "flex items-start justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800" : "sr-only"}
-            >
-                {notice && (
-                    <>
-                        <span>{notice}</span>
-                        <button
-                            type="button"
-                            onClick={() => setNotice(null)}
-                            aria-label="Dismiss message"
-                            className="-m-1 rounded-md p-1 text-emerald-700 hover:bg-emerald-100 focus-visible:outline-2 focus-visible:outline-[#d4a94f]"
-                        >
-                            <X className="h-4 w-4" aria-hidden="true" />
-                        </button>
-                    </>
-                )}
-            </div>
+            <StatusNotice message={notice} onDismiss={() => setNotice(null)} />
 
             {paymentActions.actionError && (
                 <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">

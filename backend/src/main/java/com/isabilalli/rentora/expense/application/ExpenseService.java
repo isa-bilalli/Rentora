@@ -108,7 +108,7 @@ public class ExpenseService implements ExpenseAccess {
 
     public List<ExpenseResponse> getExpensesByPaidStatus(Long organizationId, boolean paid){
         organizationAuthorization(organizationId);
-        return expenseRepository.findAllByOrganizationIdAndPaid(organizationId, paid, ExpenseStatus.RECORDED).stream().map(ExpenseResponse::from).toList();
+        return expenseRepository.findAllByOrganizationIdAndPaidAndStatus(organizationId, paid, ExpenseStatus.RECORDED).stream().map(ExpenseResponse::from).toList();
     }
 
     @Override 

@@ -13,7 +13,8 @@ import com.isabilalli.rentora.expense.domain.ExpenseStatus;
 public interface ExpenseRepository extends JpaRepository<Expense, Long>{
     List<Expense> findAllByOrganizationId(Long organizationId);
     List<Expense> findAllByPropertyId(Long propertyId);
-    List<Expense> findAllByOrganizationIdAndPaid(Long oranizationId, boolean paid, ExpenseStatus status);
+    // Spring Data builds this query from the method name, so every filter must appear in it.
+    List<Expense> findAllByOrganizationIdAndPaidAndStatus(Long organizationId, boolean paid, ExpenseStatus status);
     @Query("""
         SELECT COALESCE(SUM(e.amountCents), 0)
         FROM Expense e
