@@ -5,13 +5,14 @@ export interface MaintenanceResponse {
     id: number,
     organizationId: number,
     propertyId: number,
-    spaceId: number,
+    // null when the request is about the whole property rather than one space.
+    spaceId: number | null,
     title: string,
-    description: string,
+    description: string | null,
     priority: MaintenancePriority,
     status: MaintenanceStatus
     reportedAt: string,
-    resolvedAt: string,
+    resolvedAt: string | null,
     reportedByUserId: number,
     createdAt: string,
     updatedAt: string,

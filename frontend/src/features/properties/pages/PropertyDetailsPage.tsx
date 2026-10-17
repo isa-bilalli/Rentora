@@ -1762,21 +1762,23 @@ export default function PropertyDetailsPage() {
                                             </thead>
                                             <tbody className="divide-y divide-[#edf0ee]">
                                                 {propertyMaintenanceRequests.map((request) => {
-                                                    const space = spacesById.get(request.spaceId);
+                                                    const space = request.spaceId === null ? undefined : spacesById.get(request.spaceId);
                                                     const actionBusy = maintenanceActionBusyId === request.id;
 
                                                     return (
                                                         <tr key={request.id} className="hover:bg-[#f8faf8]">
                                                             <td className="px-4 py-4 text-sm font-medium text-[#14302b]">
-                                                                {space?.name ?? `Space #${request.spaceId}`}
+                                                                {request.spaceId === null ? "Whole property" : (space?.name ?? `Space #${request.spaceId}`)}
                                                             </td>
                                                             <td className="max-w-85 px-4 py-4">
                                                                 <p className="text-sm font-medium text-[#243b35]">
                                                                     {request.title}
                                                                 </p>
-                                                                <p className="mt-1 whitespace-pre-wrap text-sm text-gray-500">
-                                                                    {request.description}
-                                                                </p>
+                                                                {request.description && (
+                                                                    <p className="mt-1 whitespace-pre-wrap text-sm text-gray-500">
+                                                                        {request.description}
+                                                                    </p>
+                                                                )}
                                                                 <p className="mt-1 text-xs text-gray-400">
                                                                     Request #{request.id}
                                                                 </p>

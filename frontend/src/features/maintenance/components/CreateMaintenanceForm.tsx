@@ -7,13 +7,22 @@ import type {
     MaintenancePriority,
 } from "../types";
 
-interface CreateMaintenanceFormProps {
-    propertyId: number;
+export interface MaintenancePropertyOption {
+    id: number;
+    name: string;
     spaces: SpaceResponse[];
+}
+
+type CreateMaintenanceFormProps = {
     submitting: boolean;
     onSubmit: (request: CreateMaintenanceRequest) => Promise<void>;
     onCancel: () => void;
-}
+} & (
+    // On a property's page: the property is fixed.
+    | { propertyId: number; spaces: SpaceResponse[]; properties?: undefined }
+    // On the Maintenance page: the user picks the property first.
+    | { properties: MaintenancePropertyOption[]; propertyId?: undefined; spaces?: undefined }
+);
 
 const priorities: {
     value: MaintenancePriority;
@@ -34,10 +43,19 @@ const labelClass =
 export default function CreateMaintenanceForm({
     propertyId,
     spaces,
+    properties,
     submitting,
     onSubmit,
     onCancel,
 }: CreateMaintenanceFormProps) {
+    const [pickedPropertyId, setPickedPropertyId] = useState("");
+    // With a fixed property these are just propertyId and spaces.
+    const selectedPropertyId = properties ? Number(pickedPropertyId) || null : propertyId;
+    const availableSpaces = properties
+        ? properties.find((option) => option.id === selectedPropertyId)?.spaces ?? []
+        : spaces;
+    const noSpaces = selectedPropertyId !== null && availableSpaces.length === 0;
+
     const [spaceId, setSpaceId] = useState("");
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
@@ -52,6 +70,11 @@ export default function CreateMaintenanceForm({
 
         const trimmedTitle = title.trim();
         const trimmedDescription = description.trim();
+
+        if (selectedPropertyId === null) {
+            setError("Select the property that needs maintenance.");
+            return;
+        }
 
         if (!spaceId) {
             setError("Select the space that needs maintenance.");
@@ -70,7 +93,7 @@ export default function CreateMaintenanceForm({
 
         try {
             await onSubmit({
-                propertyId,
+                propertyId: selectedPropertyId,
                 spaceId: Number(spaceId),
                 title: trimmedTitle,
                 description: trimmedDescription,
@@ -112,7 +135,43 @@ export default function CreateMaintenanceForm({
                 </button>
             </div>
 
-            {spaces.length === 0 ? (
+            {properties && (
+                <div className="mb-4">
+                    <label
+                        htmlFor="maintenance-property"
+                        className={labelClass}
+                    >
+                        Property
+                    </label>
+
+                    <select
+                        id="maintenance-property"
+                        required
+                        value={pickedPropertyId}
+                        onChange={(event) => {
+                            setPickedPropertyId(event.target.value);
+                            setSpaceId("");
+                        }}
+                        disabled={submitting}
+                        className={inputClass}
+                    >
+                        <option value="">
+                            Select a property
+                        </option>
+
+                        {properties.map((option) => (
+                            <option
+                                key={option.id}
+                                value={option.id}
+                            >
+                                {option.name}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+            )}
+
+            {noSpaces ? (
                 <div
                     role="alert"
                     className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"
@@ -137,14 +196,14 @@ export default function CreateMaintenanceForm({
                             onChange={(event) =>
                                 setSpaceId(event.target.value)
                             }
-                            disabled={submitting}
+                            disabled={submitting || selectedPropertyId === null}
                             className={inputClass}
                         >
                             <option value="">
-                                Select a space
+                                {selectedPropertyId === null ? "Select a property first" : "Select a space"}
                             </option>
 
-                            {spaces.map((space) => (
+                            {availableSpaces.map((space) => (
                                 <option
                                     key={space.id}
                                     value={space.id}
@@ -257,7 +316,7 @@ export default function CreateMaintenanceForm({
 
                 <button
                     type="submit"
-                    disabled={submitting || spaces.length === 0}
+                    disabled={submitting || availableSpaces.length === 0}
                     className="inline-flex items-center gap-2 rounded-lg bg-[#14302b] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#20453d] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                     <Plus className="h-4 w-4" />

@@ -1,7 +1,7 @@
 import { getLeases } from "./api/leasesApi";
 import { getTenants } from "../tenants/api/tenantApi";
 import { getTenantDisplayName } from "../tenants/types";
-import { getProperties, getSpaces } from "../properties/api/propertyApi";
+import { loadPropertyDirectory } from "../properties/propertyDirectory";
 import type { LeaseResponse } from "./types";
 import { getLeaseDisplayStatus, type LeaseDisplayStatus } from "./status";
 import { todayLocalDateString } from "../../lib/dates";
@@ -16,19 +16,13 @@ export interface LeaseRow {
 
 // Leases only carry tenant and space IDs, so this also loads tenants, properties and spaces to show names.
 export async function loadLeaseRows(organizationId: number): Promise<LeaseRow[]> {
-    const [leases, tenants, properties] = await Promise.all([
+    const [leases, tenants, { propertyById, spaceById }] = await Promise.all([
         getLeases(organizationId),
         getTenants(organizationId),
-        getProperties(organizationId),
+        loadPropertyDirectory(organizationId),
     ]);
-    // There is no organization-wide spaces endpoint; spaces are listed per property.
-    const spaceLists = await Promise.all(
-        properties.map((property) => getSpaces(organizationId, property.id)),
-    );
 
     const tenantById = new Map(tenants.map((tenant) => [tenant.id, tenant]));
-    const propertyById = new Map(properties.map((property) => [property.id, property]));
-    const spaceById = new Map(spaceLists.flat().map((space) => [space.id, space]));
     const today = todayLocalDateString();
 
     return leases
