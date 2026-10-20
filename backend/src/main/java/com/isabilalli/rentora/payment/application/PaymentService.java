@@ -94,16 +94,16 @@ public class PaymentService implements PaymentAccess {
         }
 
         LocalDate today = LocalDate.now();
-        Sort soonestDueFirst = Sort.by("dueDate", "id");
+        Sort soonestDueFirst = Sort.by(Payment::getDueDate, Payment::getId);
         Page<Payment> result = switch (status) {
             case OVERDUE -> paymentRepository.findByOrganizationIdAndStatusAndDueDateBefore(
                     organizationId, PaymentStatus.PENDING, today, PageRequest.of(page, size, soonestDueFirst));
             case PENDING -> paymentRepository.findByOrganizationIdAndStatusAndDueDateGreaterThanEqual(
                     organizationId, PaymentStatus.PENDING, today, PageRequest.of(page, size, soonestDueFirst));
             case PAID -> paymentRepository.findByOrganizationIdAndStatus(
-                    organizationId, PaymentStatus.PAID, PageRequest.of(page, size, Sort.by("paidAt", "id").descending()));
+                    organizationId, PaymentStatus.PAID, PageRequest.of(page, size, Sort.by(Payment::getPaidAt, Payment::getId).descending()));
             case VOIDED -> paymentRepository.findByOrganizationIdAndStatus(
-                    organizationId, PaymentStatus.VOIDED, PageRequest.of(page, size, Sort.by("dueDate", "id").descending()));
+                    organizationId, PaymentStatus.VOIDED, PageRequest.of(page, size, Sort.by(Payment::getDueDate, Payment::getId).descending()));
         };
         return PageResponse.from(result, PaymentResponse::from);
     }
@@ -143,6 +143,12 @@ public class PaymentService implements PaymentAccess {
     public List<PaymentResponse> getAllPaymentsByOrganizationId(Long organizationId){
         organizationAuthorization(organizationId);
         return paymentRepository.findAllByOrganizationId(organizationId).stream().map(PaymentResponse::from).toList();
+    }
+
+    // The organization is part of the query, so a property of another organization matches nothing.
+    public List<PaymentResponse> getAllPaymentsByPropertyId(Long organizationId, Long propertyId){
+        organizationAuthorization(organizationId);
+        return paymentRepository.findAllByOrganizationIdAndPropertyId(organizationId, propertyId).stream().map(PaymentResponse::from).toList();
     }
 
     public List<PaymentResponse> getAllPaymentsByLeaseId(Long organizationId, Long leaseId){

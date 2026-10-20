@@ -20,6 +20,18 @@ public interface PaymentRepository extends JpaRepository<Payment, Long>{
     List<Payment> findAllByOrganizationIdAndStatusAndDueDateBefore(Long organizationId, PaymentStatus status, LocalDate date);
     List<Payment> findAllByOrganizationIdAndStatus(Long organizationId, PaymentStatus status);
 
+    // One property's payments, found through their leases' spaces, in every status; earliest due first.
+    @Query(value = """
+        SELECT p.*
+        FROM payments p
+        JOIN leases l ON l.id = p.lease_id
+        JOIN spaces s ON s.id = l.space_id
+        WHERE p.organization_id = :organizationId
+          AND s.property_id = :propertyId
+        ORDER BY p.due_date, p.id
+        """, nativeQuery = true)
+    List<Payment> findAllByOrganizationIdAndPropertyId(@Param("organizationId") Long organizationId, @Param("propertyId") Long propertyId);
+
     // Pages of the Payments tabs; the Pageable sets the order.
     Page<Payment> findByOrganizationIdAndStatus(Long organizationId, PaymentStatus status, Pageable pageable);
     Page<Payment> findByOrganizationIdAndStatusAndDueDateBefore(Long organizationId, PaymentStatus status, LocalDate date, Pageable pageable);

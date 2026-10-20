@@ -94,6 +94,12 @@ public class LeaseService implements LeaseAccess {
         return leaseRepository.findAllByOrganizationId(organizationId).stream().map(LeaseResponse::from).toList();
     }
 
+    // The organization is part of the query, so a property of another organization matches nothing.
+    public List<LeaseResponse> findAllByPropertyId(Long organizationId, Long propertyId){
+        organizationAuthorization(organizationId);
+        return leaseRepository.findAllByOrganizationIdAndPropertyId(organizationId, propertyId).stream().map(LeaseResponse::from).toList();
+    }
+
     public LeaseResponse getLease(Long organizationId, Long leaseId){
         organizationAuthorization(organizationId);
         Lease lease = leaseValidation(leaseId, organizationId);

@@ -16,6 +16,17 @@ public interface LeaseRepository extends JpaRepository<Lease, Long> {
     List<Lease> findAllByOrganizationId(Long organizationId);
     boolean existsByTenantId(Long tenantId);
     boolean existsBySpaceId(Long spaceId);
+
+    // One property's leases, found through their spaces, in every status; earliest start first.
+    @Query(value = """
+        SELECT l.*
+        FROM leases l
+        JOIN spaces s ON s.id = l.space_id
+        WHERE l.organization_id = :organizationId
+          AND s.property_id = :propertyId
+        ORDER BY l.start_date, l.id
+        """, nativeQuery = true)
+    List<Lease> findAllByOrganizationIdAndPropertyId(@Param("organizationId") Long organizationId, @Param("propertyId") Long propertyId);
     
     @Query("""
         SELECT COUNT(l) > 0

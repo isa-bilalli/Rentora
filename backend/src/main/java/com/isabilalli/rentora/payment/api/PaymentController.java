@@ -31,8 +31,12 @@ public class PaymentController {
         this.paymentService = paymentService;
     }
 
+    // Every payment, or with ?propertyId= only the payments of leases on that property.
     @GetMapping
-    public ResponseEntity<List<PaymentResponse>> getAllPaymentsByOrganizationId(@PathVariable Long organizationId){
+    public ResponseEntity<List<PaymentResponse>> getAllPaymentsByOrganizationId(@PathVariable Long organizationId, @RequestParam(required = false) Long propertyId){
+        if (propertyId != null) {
+            return ResponseEntity.ok(paymentService.getAllPaymentsByPropertyId(organizationId, propertyId));
+        }
         return ResponseEntity.ok(paymentService.getAllPaymentsByOrganizationId(organizationId));
     }
 

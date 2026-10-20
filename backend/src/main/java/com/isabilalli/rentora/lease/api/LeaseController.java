@@ -31,8 +31,12 @@ public class LeaseController {
         return ResponseEntity.ok(leaseService.createLease(organizationId, request));
     }
 
+    // Every lease, or with ?propertyId= only the leases on that property's spaces.
     @GetMapping
-    public ResponseEntity<List<LeaseResponse>> getAllByOrganizationId(@PathVariable Long organizationId) {
+    public ResponseEntity<List<LeaseResponse>> getAllByOrganizationId(@PathVariable Long organizationId, @RequestParam(required = false) Long propertyId) {
+        if (propertyId != null) {
+            return ResponseEntity.ok(leaseService.findAllByPropertyId(organizationId, propertyId));
+        }
         return ResponseEntity.ok(leaseService.findAllByOrganizationId(organizationId));
     }
     

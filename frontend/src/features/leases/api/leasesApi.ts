@@ -1,8 +1,10 @@
 import { apiRequest } from "../../../lib/api/client"
 import type { CreateLeaseRequest, LeaseResponse, RenewLeaseRequest } from "../types";
 
-export async function getLeases(organizationId: number): Promise<LeaseResponse[]> {
-    return apiRequest<LeaseResponse[]>(`/api/organizations/${organizationId}/leases`, {
+// Every lease in the organization, or only those on one property's spaces.
+export async function getLeases(organizationId: number, propertyId?: number): Promise<LeaseResponse[]> {
+    const query = propertyId === undefined ? "" : `?propertyId=${propertyId}`;
+    return apiRequest<LeaseResponse[]>(`/api/organizations/${organizationId}/leases${query}`, {
             authenticated: true,
         },
     );

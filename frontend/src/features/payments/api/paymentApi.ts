@@ -3,8 +3,10 @@ import type { PageResponse } from "../../../lib/api/page";
 import type { PaymentDisplayStatus } from "../status";
 import type { PaymentResponse, PaymentSummary, RecordPaymentRequest } from "../types";
 
-export async function getPayments(organizationId: number): Promise<PaymentResponse[]> {
-    return apiRequest<PaymentResponse[]>(`/api/organizations/${organizationId}/payments`, {
+// Every payment in the organization, or only those of leases on one property.
+export async function getPayments(organizationId: number, propertyId?: number): Promise<PaymentResponse[]> {
+    const query = propertyId === undefined ? "" : `?propertyId=${propertyId}`;
+    return apiRequest<PaymentResponse[]>(`/api/organizations/${organizationId}/payments${query}`, {
             authenticated: true,
     });
 }
