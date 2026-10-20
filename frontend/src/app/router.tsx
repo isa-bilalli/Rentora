@@ -9,11 +9,14 @@ import PublicOnlyRoute from "../routes/PublicOnlyRoute";
 
 import AppLayout from "../layouts/AppLayout";
 
+import NotFoundPage from "../components/errors/NotFoundPage";
+import RouteErrorBoundary from "../components/errors/RouteErrorBoundary";
+
 import LoginPage from "../features/auth/pages/LoginPage";
 import RegisterPage from "../features/auth/pages/RegisterPage";
 
 import DashboardPage from "../features/dashboard/pages/DashboardPage";
-//import ProfilePage from "../features/profile/pages/ProfilePage";
+import ProfilePage from "../features/profile/pages/ProfilePage";
 import MaintenancePage from "../features/maintenance/pages/MaintenancePage";
 import ReportsPage from "../features/reports/pages/ReportsPage";
 import ExpensesPage from "../features/expenses/pages/ExpensesPage";
@@ -30,6 +33,7 @@ export const router = createBrowserRouter([
     {
         path: "/",
         element: <App />,
+        errorElement: <RouteErrorBoundary />,
         children: [
             {
                 index: true,
@@ -60,56 +64,70 @@ export const router = createBrowserRouter([
                                 element: <AppLayout />,
                                 children: [
                                     {
-                                        index: true,
-                                        element: (<Navigate to="dashboard" replace/>),
-                                    },
-                                    {
-                                        path: "dashboard",
-                                        element: <DashboardPage />,
-                                    },
-                                    {
-                                        path: "properties",
-                                        element: <PropertiesPage />,
-                                    },
-                                    {
-                                        path: "properties/:propertyId",
-                                        element: (<PropertyDetailsPage />),
-                                    },
-                                    {
-                                        path: "properties/new",
-                                        element: <CreatePropertyPage />,
-                                    },
-                                    {
-                                        path: "tenants",
-                                        element: <TenantsPage />,
-                                    },
-                                    {
-                                        path: "tenants/:tenantId",
-                                        element: (<TenantDetailsPage />),
-                                    },
-                                    {
-                                        path: "leases",
-                                        element: <LeasesPage />,
-                                    },
-                                    {
-                                        path: "leases/:leaseId",
-                                        element: (<LeaseDetailsPage />),
-                                    },
-                                    {
-                                        path: "payments",
-                                        element: <PaymentsPage />,
-                                    },
-                                    {
-                                        path: "expenses",
-                                        element: <ExpensesPage />,
-                                    },
-                                    {
-                                        path: "maintenance",
-                                        element: <MaintenancePage />,
-                                    },
-                                    {
-                                        path: "reports",
-                                        element: <ReportsPage />,
+                                        // A page that fails shows its error inside the layout, so the sidebar stays usable.
+                                        errorElement: <RouteErrorBoundary withinApp />,
+                                        children: [
+                                            {
+                                                index: true,
+                                                element: (<Navigate to="dashboard" replace/>),
+                                            },
+                                            {
+                                                path: "dashboard",
+                                                element: <DashboardPage />,
+                                            },
+                                            {
+                                                path: "properties",
+                                                element: <PropertiesPage />,
+                                            },
+                                            {
+                                                path: "properties/:propertyId",
+                                                element: (<PropertyDetailsPage />),
+                                            },
+                                            {
+                                                path: "properties/new",
+                                                element: <CreatePropertyPage />,
+                                            },
+                                            {
+                                                path: "tenants",
+                                                element: <TenantsPage />,
+                                            },
+                                            {
+                                                path: "tenants/:tenantId",
+                                                element: (<TenantDetailsPage />),
+                                            },
+                                            {
+                                                path: "leases",
+                                                element: <LeasesPage />,
+                                            },
+                                            {
+                                                path: "leases/:leaseId",
+                                                element: (<LeaseDetailsPage />),
+                                            },
+                                            {
+                                                path: "payments",
+                                                element: <PaymentsPage />,
+                                            },
+                                            {
+                                                path: "expenses",
+                                                element: <ExpensesPage />,
+                                            },
+                                            {
+                                                path: "maintenance",
+                                                element: <MaintenancePage />,
+                                            },
+                                            {
+                                                path: "reports",
+                                                element: <ReportsPage />,
+                                            },
+                                            {
+                                                path: "profile",
+                                                element: <ProfilePage />,
+                                            },
+                                            {
+                                                path: "*",
+                                                element: <NotFoundPage withinApp />,
+                                            },
+                                        ],
                                     },
                                 ],
                             },
@@ -120,7 +138,7 @@ export const router = createBrowserRouter([
 
             {
                 path: "*",
-                element: <h1>404 - Page Not Found</h1>,
+                element: <NotFoundPage />,
             },
         ],
     },
