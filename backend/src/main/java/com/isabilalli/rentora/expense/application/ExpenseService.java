@@ -11,6 +11,7 @@ import com.isabilalli.rentora.expense.domain.Expense;
 import com.isabilalli.rentora.expense.domain.ExpenseStatus;
 import com.isabilalli.rentora.expense.infrastructure.ExpenseRepository;
 import com.isabilalli.rentora.organization.application.OrganizationAccessService;
+import com.isabilalli.rentora.organization.domain.OrganizationRole;
 import com.isabilalli.rentora.property.api.PropertyAccess;
 import com.isabilalli.rentora.property.api.SpaceAccess;
 
@@ -85,7 +86,7 @@ public class ExpenseService implements ExpenseAccess {
 
     @Transactional 
     public ExpenseResponse voidExpense(Long organizationId, Long expenseId){
-        organizationAuthorization(organizationId);
+        organizationAccessService.requireRole(currentUserService.getCurrentUser(), organizationId, OrganizationRole.MANAGER);
         Expense expense = validateExpense(organizationId, expenseId);
         expense.voidExpense();
         return ExpenseResponse.from(expenseRepository.save(expense));

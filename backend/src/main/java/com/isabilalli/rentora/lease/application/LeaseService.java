@@ -23,7 +23,9 @@ import com.isabilalli.rentora.lease.api.event.LeaseEndedEvent;
 import com.isabilalli.rentora.lease.api.event.LeaseUpdatedEvent;
 import com.isabilalli.rentora.lease.infrastructure.LeaseRepository;
 import com.isabilalli.rentora.organization.application.OrganizationAccessService;
+import com.isabilalli.rentora.organization.domain.OrganizationRole;
 import com.isabilalli.rentora.property.api.SpaceAccess;
+import com.isabilalli.rentora.property.domain.SpaceStatus;
 import com.isabilalli.rentora.shared.api.BadRequestException;
 import com.isabilalli.rentora.tenant.api.TenantAccess;
 
@@ -124,7 +126,7 @@ public class LeaseService implements LeaseAccess {
 
     @Transactional 
     public LeaseResponse endLease(Long organizationId, Long leaseId){
-        organizationAuthorization(organizationId);
+        organizationAccessService.requireRole(currentUserService.getCurrentUser(), organizationId, OrganizationRole.MANAGER);
         Lease lease = leaseValidation(leaseId, organizationId);
 
         lease.end(LocalDate.now());
@@ -137,7 +139,7 @@ public class LeaseService implements LeaseAccess {
 
     @Transactional 
     public LeaseResponse cancelLease(Long organizationId, Long leaseId){
-        organizationAuthorization(organizationId);
+        organizationAccessService.requireRole(currentUserService.getCurrentUser(), organizationId, OrganizationRole.MANAGER);
         Lease lease = leaseValidation(leaseId, organizationId);
     
         lease.cancel();
@@ -148,19 +150,19 @@ public class LeaseService implements LeaseAccess {
         return LeaseResponse.from(savedLease);
     }
 
+    // Gives the space the status its remaining active leases call for. Safe to repeat: a space
+    // that already has that status is left as it is.
     private void syncSpaceStatus(Long spaceId, Long excludedLeaseId) {
         Optional<Lease> otherActiveLease=leaseRepository.findFirstBySpaceIdAndStatusAndIdNotOrderByStartDateAsc(spaceId, LeaseStatus.ACTIVE, excludedLeaseId);
+        SpaceStatus status;
         if (otherActiveLease.isEmpty()) {
-            spaceAccess.markVacant(spaceId);
-            return;
-        }
-        Lease lease = otherActiveLease.get();
-
-        if (lease.getStartDate().isAfter(LocalDate.now())) {
-            spaceAccess.markReserved(spaceId);
+            status = SpaceStatus.VACANT;
+        } else if (otherActiveLease.get().getStartDate().isAfter(LocalDate.now())) {
+            status = SpaceStatus.RESERVED;
         } else {
-            spaceAccess.markOccupied(spaceId);
+            status = SpaceStatus.OCCUPIED;
         }
+        spaceAccess.applyLeaseStatus(spaceId, status);
     }
 
     @Transactional

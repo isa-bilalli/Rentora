@@ -9,6 +9,7 @@ import com.isabilalli.rentora.auth.application.LoginService;
 import com.isabilalli.rentora.auth.application.RefreshTokenService;
 import com.isabilalli.rentora.auth.application.UserService;
 import com.isabilalli.rentora.auth.application.exception.InvalidRefreshTokenException;
+import com.isabilalli.rentora.auth.config.CookieProperties;
 import com.isabilalli.rentora.auth.domain.RefreshToken;
 import com.isabilalli.rentora.auth.domain.User;
 import com.isabilalli.rentora.auth.infrastructure.security.AuthenticatedUser;
@@ -31,31 +32,28 @@ import org.springframework.web.bind.annotation.GetMapping;
 @RestController 
 @RequestMapping("/api/auth") 
 public class LoginController {
+    private static final Duration REFRESH_COOKIE_MAX_AGE = Duration.ofDays(7);
+
     private final CurrentUserService currentUserService;
     private final LoginService loginService;
     private final UserService userService;
     private final RefreshTokenService refreshTokenService;
     private final JwtService jwtService;
+    private final CookieProperties cookieProperties;
 
-    public LoginController(LoginService loginService, CurrentUserService currentUserService, UserService userService, RefreshTokenService refreshTokenService, JwtService jwtService){
+    public LoginController(LoginService loginService, CurrentUserService currentUserService, UserService userService, RefreshTokenService refreshTokenService, JwtService jwtService, CookieProperties cookieProperties){
         this.loginService=loginService;
         this.currentUserService = currentUserService;
         this.userService = userService;
         this.refreshTokenService = refreshTokenService;
         this.jwtService = jwtService;
+        this.cookieProperties = cookieProperties;
     }
 
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request, HttpServletResponse response) {
         LoginService.LoginResult result = loginService.login(request);
-        ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", result.refreshToken())
-            .httpOnly(true)
-            //TRUE IN HTTPS CONFIG
-            .secure(false)
-            .sameSite("Lax")
-            .path("/api/auth")
-            .maxAge(Duration.ofDays(7))
-            .build();
+        ResponseCookie refreshCookie = refreshCookie(result.refreshToken(), REFRESH_COOKIE_MAX_AGE);
         response.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.toString());
         return ResponseEntity.ok(new LoginResponse(result.userId(), result.email(), result.accessToken()));
     }
@@ -77,13 +75,7 @@ public class LoginController {
         User user = userService.findById(tokenEntity.getUserId());
 
         String accessToken = jwtService.generateToken(user.getId(), user.getEmail());
-        ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", rotatedToken.rawToken())
-            .httpOnly(true)
-            .secure(false)
-            .sameSite("Lax")
-            .path("/api/auth")
-            .maxAge(Duration.ofDays(7))
-            .build();
+        ResponseCookie refreshCookie = refreshCookie(rotatedToken.rawToken(), REFRESH_COOKIE_MAX_AGE);
         response.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.toString());
         return ResponseEntity.ok(new RefreshResponse(accessToken));
     }
@@ -93,14 +85,19 @@ public class LoginController {
         if(refreshToken != null && !refreshToken.isBlank()){
             refreshTokenService.revoke(refreshToken);
         }
-        ResponseCookie clearCookie = ResponseCookie.from("refreshToken", "")
-            .httpOnly(true)
-            .secure(false)
-            .sameSite("Lax")
-            .path("/api/auth")
-            .maxAge(0)
-            .build();
+        ResponseCookie clearCookie = refreshCookie("", Duration.ZERO);
         response.addHeader(HttpHeaders.SET_COOKIE, clearCookie.toString());
         return ResponseEntity.noContent().build();
+    }
+
+    // The refresh token cookie: unreadable by scripts, sent only to /api/auth, and HTTPS-only when COOKIE_SECURE is on.
+    private ResponseCookie refreshCookie(String value, Duration maxAge) {
+        return ResponseCookie.from("refreshToken", value)
+            .httpOnly(true)
+            .secure(cookieProperties.secure())
+            .sameSite("Lax")
+            .path("/api/auth")
+            .maxAge(maxAge)
+            .build();
     }
 }

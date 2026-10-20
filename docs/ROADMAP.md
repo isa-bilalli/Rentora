@@ -73,13 +73,14 @@ Small, reviewable steps from the current state to a shippable product.
 - [ ] **30.** Backend endpoints for leases and payments per property. *Review:* two endpoints
 - [ ] **31.** PropertyDetailsPage loads one property's data instead of the whole organization's. *Review:* data loading only
 - [ ] **32.** Move PropertyDetailsPage's state into its tab components, one tab per step. *Review:* refactor, split up
+- [ ] **33.** Sidebar at phone width: below `md` it becomes a drawer opened from a menu button in a top bar, and closes once a link is chosen. Today it stays 256px wide and leaves pages about 120px. *Review:* `AppLayout` and `Sidebar` only
 
 ## Phase 7: Shipping
 
-- [ ] **33.** Tests stop using the dev database (Testcontainers or a test profile). Can be pulled forward at any time. *Review:* test setup
-- [ ] **34.** GitHub Actions: backend tests plus frontend lint and build. *Review:* CI file
-- [ ] **35.** Dockerfiles and docker-compose (Postgres, backend, frontend). *Review:* infrastructure
-- [ ] **36.** Vitest plus first frontend tests (token refresh, formatters). *Review:* test setup
+- [ ] **34.** Tests stop using the dev database (Testcontainers or a test profile). Can be pulled forward at any time. *Review:* test setup
+- [ ] **35.** GitHub Actions: backend tests plus frontend lint and build. *Review:* CI file
+- [ ] **36.** Dockerfiles and docker-compose (Postgres, backend, frontend). *Review:* infrastructure
+- [ ] **37.** Vitest plus first frontend tests (token refresh, formatters). *Review:* test setup
 
 ## Later
 

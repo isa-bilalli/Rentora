@@ -1,13 +1,20 @@
 package com.isabilalli.rentora.payment.application;
 
+import com.isabilalli.rentora.shared.api.BadRequestException;
 import com.isabilalli.rentora.shared.api.NotFoundException;
+import com.isabilalli.rentora.shared.api.PageResponse;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
@@ -22,8 +29,11 @@ import com.isabilalli.rentora.auth.application.CurrentUserService;
 import com.isabilalli.rentora.auth.infrastructure.security.AuthenticatedUser;
 import com.isabilalli.rentora.lease.api.LeaseAccess;
 import com.isabilalli.rentora.organization.application.OrganizationAccessService;
+import com.isabilalli.rentora.organization.domain.OrganizationRole;
 import com.isabilalli.rentora.payment.api.PaymentAccess;
+import com.isabilalli.rentora.payment.api.dto.PaymentDisplayStatus;
 import com.isabilalli.rentora.payment.api.dto.PaymentResponse;
+import com.isabilalli.rentora.payment.api.dto.PaymentStatusTotal;
 import com.isabilalli.rentora.payment.api.dto.RecordPaymentRequest;
 import com.isabilalli.rentora.payment.domain.Payment;
 import com.isabilalli.rentora.payment.domain.PaymentStatus;
@@ -59,7 +69,7 @@ public class PaymentService implements PaymentAccess {
     }
 
     public PaymentResponse voidPayment(Long organizationId, Long paymentId){
-        organizationAuthorization(organizationId);
+        organizationAccessService.requireRole(currentUserService.getCurrentUser(), organizationId, OrganizationRole.MANAGER);
         Payment payment = validatePayment(paymentId, organizationId);
         payment.voidPayment();
         Payment savedPayment = paymentRepository.save(payment);
@@ -69,6 +79,46 @@ public class PaymentService implements PaymentAccess {
     public List<PaymentResponse> getOverduePayments(Long organizationId){
         organizationAuthorization(organizationId);
         return paymentRepository.findAllByOrganizationIdAndStatusAndDueDateBefore(organizationId, PaymentStatus.PENDING, LocalDate.now()).stream().map(PaymentResponse::from).toList();
+    }
+
+    public static final int MAX_PAGE_SIZE = 100;
+
+    // One page of a Payments tab, most urgent first: soonest due while unpaid, latest first once paid or voided.
+    public PageResponse<PaymentResponse> getPaymentPage(Long organizationId, PaymentDisplayStatus status, int page, int size) {
+        organizationAuthorization(organizationId);
+        if (page < 0) {
+            throw new BadRequestException("Page must be 0 or more");
+        }
+        if (size < 1 || size > MAX_PAGE_SIZE) {
+            throw new BadRequestException("Page size must be between 1 and " + MAX_PAGE_SIZE);
+        }
+
+        LocalDate today = LocalDate.now();
+        Sort soonestDueFirst = Sort.by("dueDate", "id");
+        Page<Payment> result = switch (status) {
+            case OVERDUE -> paymentRepository.findByOrganizationIdAndStatusAndDueDateBefore(
+                    organizationId, PaymentStatus.PENDING, today, PageRequest.of(page, size, soonestDueFirst));
+            case PENDING -> paymentRepository.findByOrganizationIdAndStatusAndDueDateGreaterThanEqual(
+                    organizationId, PaymentStatus.PENDING, today, PageRequest.of(page, size, soonestDueFirst));
+            case PAID -> paymentRepository.findByOrganizationIdAndStatus(
+                    organizationId, PaymentStatus.PAID, PageRequest.of(page, size, Sort.by("paidAt", "id").descending()));
+            case VOIDED -> paymentRepository.findByOrganizationIdAndStatus(
+                    organizationId, PaymentStatus.VOIDED, PageRequest.of(page, size, Sort.by("dueDate", "id").descending()));
+        };
+        return PageResponse.from(result, PaymentResponse::from);
+    }
+
+    // Count and total for every Payments tab, over all of the organization's payments. Empty tabs are zeros.
+    public Map<PaymentDisplayStatus, PaymentStatusTotal> getPaymentSummary(Long organizationId) {
+        organizationAuthorization(organizationId);
+        Map<PaymentDisplayStatus, PaymentStatusTotal> totals = new EnumMap<>(PaymentDisplayStatus.class);
+        for (PaymentDisplayStatus status : PaymentDisplayStatus.values()) {
+            totals.put(status, new PaymentStatusTotal(0, 0));
+        }
+        for (PaymentRepository.DisplayStatusTotal row : paymentRepository.totalsByDisplayStatus(organizationId, LocalDate.now())) {
+            totals.put(PaymentDisplayStatus.valueOf(row.getBucket()), new PaymentStatusTotal(row.getPayments(), row.getCents()));
+        }
+        return totals;
     }
 
     public List<PaymentResponse> getByStatus(Long organizationId, PaymentStatus status){

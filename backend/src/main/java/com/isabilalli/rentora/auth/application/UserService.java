@@ -9,6 +9,8 @@ import com.isabilalli.rentora.auth.infrastructure.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.Optional;
+
 @Service
 public class UserService {
 
@@ -36,5 +38,10 @@ public class UserService {
     
     public User findById(Long userId){
         return userRepository.findById(userId).orElseThrow(() -> new NotFoundException("User not found"));
+    }
+
+    // Exact match, as at login.
+    public Optional<User> findByEmail(String email) {
+        return userRepository.findByEmail(email);
     }
 }

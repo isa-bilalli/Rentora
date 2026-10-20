@@ -17,6 +17,7 @@ import RegisterPage from "../features/auth/pages/RegisterPage";
 
 import DashboardPage from "../features/dashboard/pages/DashboardPage";
 import ProfilePage from "../features/profile/pages/ProfilePage";
+import MembersPage from "../features/organizations/pages/MembersPage";
 import MaintenancePage from "../features/maintenance/pages/MaintenancePage";
 import ReportsPage from "../features/reports/pages/ReportsPage";
 import ExpensesPage from "../features/expenses/pages/ExpensesPage";
@@ -118,6 +119,10 @@ export const router = createBrowserRouter([
                                             {
                                                 path: "reports",
                                                 element: <ReportsPage />,
+                                            },
+                                            {
+                                                path: "members",
+                                                element: <MembersPage />,
                                             },
                                             {
                                                 path: "profile",

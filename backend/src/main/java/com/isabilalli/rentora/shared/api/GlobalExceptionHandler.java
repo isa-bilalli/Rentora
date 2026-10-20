@@ -2,6 +2,7 @@ package com.isabilalli.rentora.shared.api;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.NestedExceptionUtils;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -24,6 +25,13 @@ import java.util.Map;
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    // Database rules whose violation deserves its own message; any other gets the generic one.
+    private static final Map<String, String> CONSTRAINT_MESSAGES = Map.of(
+            "leases_no_overlapping_active", "Space already has an overlapping active lease",
+            // Two requests adding the same person at the same moment.
+            "uq_membership_organization_user", "This person is already a member of the organization"
+    );
 
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -72,7 +80,14 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DataIntegrityViolationException.class)
     public Map<String, String> handleDataIntegrityViolationException(DataIntegrityViolationException exception) {
         log.warn("Data integrity violation", exception);
-        return Map.of("error", "The request conflicts with existing data");
+        // The database names the rule in its message, e.g. 'violates exclusion constraint "leases_no_overlapping_active"'.
+        String detail = String.valueOf(NestedExceptionUtils.getMostSpecificCause(exception).getMessage());
+        String message = CONSTRAINT_MESSAGES.entrySet().stream()
+                .filter(entry -> detail.contains("\"" + entry.getKey() + "\""))
+                .map(Map.Entry::getValue)
+                .findFirst()
+                .orElse("The request conflicts with existing data");
+        return Map.of("error", message);
     }
 
     @ResponseStatus(HttpStatus.BAD_REQUEST)

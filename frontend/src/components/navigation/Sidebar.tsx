@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { NavLink, useNavigate } from "react-router";
-import { BarChart3, Building2, CreditCard, FileText, LayoutDashboard, LogOut, PanelLeftClose, PanelLeftOpen, Receipt, UserRound, Users, Wrench } from "lucide-react";
+import { NavLink, useLocation, useNavigate } from "react-router";
+import { BarChart3, Building2, CreditCard, FileText, LayoutDashboard, LogOut, PanelLeftClose, PanelLeftOpen, Receipt, UserCog, UserRound, Users, Wrench } from "lucide-react";
 import { useAuth } from "../../features/auth/useAuth";
+import { useOrganization } from "../../features/organizations/useOrganization";
 import RentoraLight from "../../assets/rentora-wordmark-light.svg";
 
 const navigation = [
@@ -23,7 +24,19 @@ function navLinkClass(isActive: boolean, collapsed: boolean): string {
 export default function Sidebar() {
     const [collapsed, setCollapsed] = useState(false);
     const { logout } = useAuth();
+    const { organizations, activeOrganization, setActiveOrganization } = useOrganization();
     const navigate = useNavigate();
+    const location = useLocation();
+
+    // Lists reload for the new organization by themselves. A details page (e.g. /app/tenants/5)
+    // shows a record of the old one, so it is swapped for its list.
+    function switchOrganization(organizationId: number) {
+        setActiveOrganization(organizationId);
+        const [, , section, detail] = location.pathname.split("/");
+        if (detail) {
+            navigate(`/app/${section}`);
+        }
+    }
 
     async function handleLogout() {
         await logout();
@@ -46,6 +59,30 @@ export default function Sidebar() {
                 {collapsed ? (<PanelLeftOpen className="h-5 w-5" aria-hidden="true" />) : (<PanelLeftClose className="h-5 w-5" aria-hidden="true" />)}
                 </button>
             </div>
+            {!collapsed && activeOrganization && (
+                <div className="border-b border-white/10 px-4 py-3">
+                    {organizations.length > 1 ? (
+                        <>
+                            <label htmlFor="organization-switcher" className="block text-xs font-medium uppercase tracking-wide text-[#e8efe9]/50">Organization</label>
+                            <select
+                                id="organization-switcher"
+                                value={activeOrganization.id}
+                                onChange={(event) => switchOrganization(Number(event.target.value))}
+                                className="mt-1.5 w-full rounded-md border border-white/15 bg-[#1d3d36] px-2.5 py-2 text-sm text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d4a94f]"
+                            >
+                                {organizations.map((organization) => (
+                                    <option key={organization.id} value={organization.id}>{organization.name}</option>
+                                ))}
+                            </select>
+                        </>
+                    ) : (
+                        <>
+                            <p className="text-xs font-medium uppercase tracking-wide text-[#e8efe9]/50">Organization</p>
+                            <p className="mt-1 truncate text-sm font-medium text-white" title={activeOrganization.name}>{activeOrganization.name}</p>
+                        </>
+                    )}
+                </div>
+            )}
             <nav className="flex-1 overflow-y-auto px-3 py-4">
                 <div className="space-y-1">
                     {navigation.map((item) => {
@@ -60,6 +97,10 @@ export default function Sidebar() {
                 </div>
             </nav>
             <div className="space-y-1 border-t border-white/10 p-3">
+                <NavLink to="/app/members" title={collapsed ? "Members" : undefined} aria-label="Members" className={({ isActive }) => navLinkClass(isActive, collapsed)}>
+                    <UserCog className="h-5 w-5 shrink-0" aria-hidden="true" />
+                    {!collapsed && <span>Members</span>}
+                </NavLink>
                 <NavLink to="/app/profile" title={collapsed ? "Profile" : undefined} aria-label="Profile" className={({ isActive }) => navLinkClass(isActive, collapsed)}>
                     <UserRound className="h-5 w-5 shrink-0" aria-hidden="true" />
                     {!collapsed && <span>Profile</span>}

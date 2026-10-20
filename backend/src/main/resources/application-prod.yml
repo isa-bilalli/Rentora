@@ -1,0 +1,10 @@
+# Production settings, on top of application.yml. Turn on with SPRING_PROFILES_ACTIVE=prod.
+
+cors:
+  # Required. Left unset it is empty, and an empty list stops startup.
+  # (A placeholder without a default would not: Spring would keep "${CORS_ALLOWED_ORIGINS}" as the origin.)
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:}
+
+cookie:
+  # The refresh-token cookie is HTTPS-only unless COOKIE_SECURE=false.
+  secure: ${COOKIE_SECURE:true}

@@ -7,6 +7,7 @@ import com.isabilalli.rentora.shared.api.NotFoundException;
 import com.isabilalli.rentora.auth.application.CurrentUserService;
 import com.isabilalli.rentora.auth.infrastructure.security.AuthenticatedUser;
 import com.isabilalli.rentora.organization.application.OrganizationAccessService;
+import com.isabilalli.rentora.organization.domain.OrganizationRole;
 import com.isabilalli.rentora.tenant.api.dto.CreateTenantRequest;
 import com.isabilalli.rentora.tenant.api.dto.TenantResponse;
 import com.isabilalli.rentora.tenant.api.dto.UpdateTenantRequest;
@@ -103,7 +104,7 @@ public class TenantService implements TenantAccess{
     }
 
     public void deleteTenant(Long organizationId, Long tenantId){
-        organizationAuthorization(organizationId);
+        organizationAccessService.requireRole(currentUserService.getCurrentUser(), organizationId, OrganizationRole.MANAGER);
         Tenant tenant = tenantRepository.findById(tenantId).orElseThrow(()-> new NotFoundException("Tenant not found"));
         if(!tenant.getOrganizationId().equals(organizationId)){
             throw new AccessDeniedException("Tenant does not belong to this organization");

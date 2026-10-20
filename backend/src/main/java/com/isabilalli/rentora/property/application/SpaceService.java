@@ -13,6 +13,7 @@ import com.isabilalli.rentora.auth.infrastructure.security.AuthenticatedUser;
 import com.isabilalli.rentora.lease.api.LeaseStatusAccess;
 import com.isabilalli.rentora.shared.api.ConflictException;
 import com.isabilalli.rentora.organization.application.OrganizationAccessService;
+import com.isabilalli.rentora.organization.domain.OrganizationRole;
 import com.isabilalli.rentora.property.api.SpaceAccess;
 import com.isabilalli.rentora.property.api.dto.CreateSpaceRequest;
 import com.isabilalli.rentora.property.api.dto.SpaceResponse;
@@ -122,6 +123,7 @@ public class SpaceService implements SpaceAccess{
     }
 
     public void deleteSpace(Long organizationId, Long propertyId, Long spaceId){
+        organizationAccessService.requireRole(currentUserService.getCurrentUser(), organizationId, OrganizationRole.MANAGER);
         getAuthorizedProperty(organizationId, propertyId);
         Space space = validateSpace(spaceId, propertyId);
         // Leases and their payments are financial history and must outlive the space record.
@@ -177,6 +179,23 @@ public class SpaceService implements SpaceAccess{
             space.markOccupied();
             spaceRepository.save(space);
         }
+    }
+
+    // Idempotent: runs whenever a lease ends or is cancelled, and the space may already have the status its leases call for.
+    // A space under maintenance stays there; only a person takes it out of maintenance.
+    @Override
+    public void applyLeaseStatus(Long spaceId, SpaceStatus status) {
+        Space space = spaceRepository.findById(spaceId).orElseThrow(() -> new NotFoundException("Space not found"));
+        if (space.getStatus() == status || space.getStatus() == SpaceStatus.MAINTENANCE) {
+            return;
+        }
+        switch (status) {
+            case VACANT -> space.markVacant();
+            case RESERVED -> space.markReserved();
+            case OCCUPIED -> space.markOccupied();
+            case MAINTENANCE -> throw new IllegalArgumentException("Leases never put a space into maintenance");
+        }
+        spaceRepository.save(space);
     }
 
     @Override 

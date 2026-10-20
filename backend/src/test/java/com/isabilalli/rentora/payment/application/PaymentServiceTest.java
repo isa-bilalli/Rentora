@@ -7,10 +7,13 @@ import com.isabilalli.rentora.lease.api.event.LeaseCancelledEvent;
 import com.isabilalli.rentora.lease.api.event.LeaseEndedEvent;
 import com.isabilalli.rentora.lease.api.event.LeaseUpdatedEvent;
 import com.isabilalli.rentora.organization.application.OrganizationAccessService;
+import com.isabilalli.rentora.organization.domain.OrganizationRole;
+import com.isabilalli.rentora.payment.api.dto.PaymentDisplayStatus;
 import com.isabilalli.rentora.payment.domain.Payment;
 import com.isabilalli.rentora.payment.domain.PaymentMethod;
 import com.isabilalli.rentora.payment.domain.PaymentStatus;
 import com.isabilalli.rentora.payment.infrastructure.PaymentRepository;
+import com.isabilalli.rentora.shared.api.BadRequestException;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -19,6 +22,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.access.AccessDeniedException;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -27,6 +31,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.*;
 
@@ -77,6 +82,27 @@ class PaymentServiceTest {
 
         verify(organizationAccessService).requireAccess(authenticatedUser, ORGANIZATION_ID);
         verify(paymentRepository).findAllByOrganizationIdAndStatus(ORGANIZATION_ID, PaymentStatus.PENDING);
+    }
+
+    // Voiding needs a manager or owner (docs/ROLES.md); a member is stopped before the payment is touched.
+    @Test
+    void memberCannotVoidAPayment() {
+        when(currentUserService.getCurrentUser()).thenReturn(authenticatedUser);
+        doThrow(new AccessDeniedException("Your role in this organization does not allow this action"))
+                .when(organizationAccessService).requireRole(authenticatedUser, ORGANIZATION_ID, OrganizationRole.MANAGER);
+
+        assertThrows(AccessDeniedException.class, () -> paymentService.voidPayment(ORGANIZATION_ID, 1L));
+
+        verifyNoInteractions(paymentRepository);
+    }
+
+    @Test
+    void pageAndSizeMustBeInRange() {
+        assertThrows(BadRequestException.class, () -> paymentService.getPaymentPage(ORGANIZATION_ID, PaymentDisplayStatus.PAID, -1, 25));
+        assertThrows(BadRequestException.class, () -> paymentService.getPaymentPage(ORGANIZATION_ID, PaymentDisplayStatus.PAID, 0, 0));
+        assertThrows(BadRequestException.class, () -> paymentService.getPaymentPage(ORGANIZATION_ID, PaymentDisplayStatus.PAID, 0, PaymentService.MAX_PAGE_SIZE + 1));
+
+        verifyNoInteractions(paymentRepository);
     }
 
     @Test

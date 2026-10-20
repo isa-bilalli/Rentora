@@ -7,6 +7,8 @@ import com.isabilalli.rentora.organization.domain.OrganizationRole;
 import com.isabilalli.rentora.organization.infrastructure.OrganizationMembershipRepository;
 import org.springframework.stereotype.Service;
 
+import java.util.Optional;
+
 @Service 
 public class OrganizationMembershipService {
 
@@ -35,5 +37,11 @@ public class OrganizationMembershipService {
     
     public boolean isMember(Long userId, Long organizationId){
         return membershipRepository.existsByUser_IdAndOrganization_Id(userId, organizationId);
+    }
+
+    // Empty when the user is not a member of the organization.
+    public Optional<OrganizationRole> findRole(Long userId, Long organizationId) {
+        return membershipRepository.findByUser_IdAndOrganization_Id(userId, organizationId)
+                .map(OrganizationMembership::getRole);
     }
 }

@@ -3,6 +3,8 @@ package com.isabilalli.rentora.payment.infrastructure;
 import java.time.LocalDate;
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -17,6 +19,28 @@ public interface PaymentRepository extends JpaRepository<Payment, Long>{
     List<Payment> findAllByLeaseIdAndStatusAndDueDateAfter(Long leaseId, PaymentStatus status, LocalDate date);
     List<Payment> findAllByOrganizationIdAndStatusAndDueDateBefore(Long organizationId, PaymentStatus status, LocalDate date);
     List<Payment> findAllByOrganizationIdAndStatus(Long organizationId, PaymentStatus status);
+
+    // Pages of the Payments tabs; the Pageable sets the order.
+    Page<Payment> findByOrganizationIdAndStatus(Long organizationId, PaymentStatus status, Pageable pageable);
+    Page<Payment> findByOrganizationIdAndStatusAndDueDateBefore(Long organizationId, PaymentStatus status, LocalDate date, Pageable pageable);
+    Page<Payment> findByOrganizationIdAndStatusAndDueDateGreaterThanEqual(Long organizationId, PaymentStatus status, LocalDate date, Pageable pageable);
+
+    interface DisplayStatusTotal {
+        String getBucket();
+        long getPayments();
+        long getCents();
+    }
+
+    // Count and sum per Payments tab, with pending payments due before today counted as OVERDUE.
+    @Query(value = """
+        SELECT CASE WHEN p.status = 'PENDING' AND p.due_date < :today THEN 'OVERDUE' ELSE p.status END AS bucket,
+               COUNT(*) AS payments,
+               CAST(COALESCE(SUM(p.amount_cents), 0) AS BIGINT) AS cents
+        FROM payments p
+        WHERE p.organization_id = :organizationId
+        GROUP BY 1
+        """, nativeQuery = true)
+    List<DisplayStatusTotal> totalsByDisplayStatus(@Param("organizationId") Long organizationId, @Param("today") LocalDate today);
     @Query(value = """
         SELECT COALESCE(SUM(p.amount_cents), 0)
         FROM payments p
