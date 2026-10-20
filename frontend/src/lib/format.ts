@@ -43,6 +43,28 @@ export function formatMoney(cents: number): string {
     return moneyFormat.format(cents / 100);
 }
 
+const percentFormat = new Intl.NumberFormat(DISPLAY_LOCALE, {
+    maximumFractionDigits: 1,
+});
+
+// 61.08 -> "61.1%". Takes a percentage (0–100), as the report API returns them, not a fraction.
+export function formatPercent(percentage: number): string {
+    return `${percentFormat.format(percentage)}%`;
+}
+
+// 3.516 -> "3.5", 1234 -> "1,234".
+export function formatNumber(value: number): string {
+    return percentFormat.format(value);
+}
+
+// A duration given in hours: "under a minute", "45 min", "5.5 hours" or, from two days up, "3.2 days".
+export function formatHours(hours: number): string {
+    if (hours < 1 / 60) return "under a minute";
+    if (hours < 1) return `${Math.round(hours * 60)} min`;
+    if (hours < 48) return `${formatNumber(hours)} ${hours === 1 ? "hour" : "hours"}`;
+    return `${formatNumber(hours / 24)} days`;
+}
+
 // "16 Oct 2026"
 export function formatDate(value: string | null | undefined): string {
     const date = toDate(value);

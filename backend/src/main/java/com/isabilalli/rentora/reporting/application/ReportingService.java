@@ -69,7 +69,7 @@ public class ReportingService {
     }
 
     public FinancialReportResponse getPropertyFinancialReport(Long organizationId, Long propertyId, FinancialReportRequest request){
-        authorizeOrganization(propertyId);
+        authorizeOrganization(organizationId);
         propertyAccess.requireBelongsToOrganization(propertyId, organizationId);
         ReportRange range = reportRangeResolver.resolve(request.period(), request.referenceDate(), request.from(), request.to());
         Long expectedRent = paymentAccess.sumExpectedRent(organizationId, range.startDate(), range.endDate(), propertyId);

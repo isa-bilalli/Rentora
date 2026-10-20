@@ -3,7 +3,8 @@ import { useCallback, useEffect, useEffectEvent, useState } from "react";
 import { useOrganization } from "../features/organizations/useOrganization";
 
 interface Settled<T> {
-    organizationId: number;
+    // The organization and keys the result was loaded for.
+    requestKey: string;
     data: T | undefined;
     error: string | null;
 }
@@ -18,32 +19,35 @@ export interface OrgQuery<T> {
     setData: (update: (current: T) => T) => void;
 }
 
-// Loads data for the active organization and loads it again whenever the organization changes.
-// A response that arrives after the organization changed is ignored.
+// Loads data for the active organization and loads it again whenever the organization or one of `keys` changes.
+// A response that arrives after either changed is ignored.
 export function useOrgQuery<T>(
     load: (organizationId: number) => Promise<T>,
+    // Anything else that decides what is loaded, e.g. a report's period or a property filter.
+    keys: readonly (string | number | boolean | null | undefined)[] = [],
 ): OrgQuery<T> {
     const { activeOrganization } = useOrganization();
     const organizationId = activeOrganization?.id;
+    const requestKey = organizationId === undefined ? null : JSON.stringify([organizationId, ...keys]);
 
     const [settled, setSettled] = useState<Settled<T> | null>(null);
 
-    // Callers usually pass an inline or imported function; only the organization should trigger a reload.
+    // Callers usually pass an inline or imported function; only the organization and keys should trigger a reload.
     const runLoad = useEffectEvent((id: number) => load(id));
 
     useEffect(() => {
-        if (organizationId === undefined) return;
+        if (organizationId === undefined || requestKey === null) return;
 
         let cancelled = false;
 
         runLoad(organizationId).then(
             (data) => {
-                if (!cancelled) setSettled({ organizationId, data, error: null });
+                if (!cancelled) setSettled({ requestKey, data, error: null });
             },
             (error: unknown) => {
                 if (!cancelled) {
                     setSettled({
-                        organizationId,
+                        requestKey,
                         data: undefined,
                         error: error instanceof Error ? error.message : "Request failed",
                     });
@@ -54,7 +58,7 @@ export function useOrgQuery<T>(
         return () => {
             cancelled = true;
         };
-    }, [organizationId]);
+    }, [organizationId, requestKey]);
 
     const setData = useCallback((update: (current: T) => T) => {
         setSettled((previous) =>
@@ -64,8 +68,8 @@ export function useOrgQuery<T>(
         );
     }, []);
 
-    // Loading is derived rather than stored: the request for this organization simply hasn't settled yet.
-    const current = settled?.organizationId === organizationId ? settled : null;
+    // Loading is derived rather than stored: the request for this organization and these keys simply hasn't settled yet.
+    const current = settled !== null && settled.requestKey === requestKey ? settled : null;
 
     return {
         organizationId,
