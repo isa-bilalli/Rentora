@@ -2,11 +2,13 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { Plus } from "lucide-react";
 
+import { useConfirm } from "../../../../components/confirm/useConfirm";
 import { useOrgQuery } from "../../../../hooks/useOrgQuery";
 import { todayLocalDateString } from "../../../../lib/dates";
 import { formatDate, formatMoney } from "../../../../lib/format";
 import { cancelLease, createLease, endLease, getLeases, renewLease } from "../../../leases/api/leasesApi";
 import CreateLeaseForm from "../../../leases/components/CreateLeaseForm";
+import { leaseActionConfirmation } from "../../../leases/leaseActionConfirmation";
 import LeaseStatusBadge from "../../../leases/components/LeaseStatusBadge";
 import RenewLeaseForm from "../../../leases/components/RenewLeaseForm";
 import { getLeaseDisplayStatus } from "../../../leases/status";
@@ -33,6 +35,7 @@ function newestFirst(a: LeaseResponse, b: LeaseResponse): number {
 export default function PropertyLeasesTab({ propertyId, spaces, onSpacesChanged }: PropertyLeasesTabProps) {
     // Ending and cancelling are for managers and owners (docs/ROLES.md).
     const { canManage } = useRolePermissions();
+    const confirm = useConfirm();
 
     const leasesQuery = useOrgQuery(
         (organizationId) => getLeases(organizationId, { propertyId }),
@@ -106,9 +109,7 @@ export default function PropertyLeasesTab({ propertyId, spaces, onSpacesChanged 
     async function handleEndLease(
         lease: LeaseResponse,
     ): Promise<void> {
-        const confirmed = window.confirm(
-            `End lease #${lease.id}? This will mark the lease as ended.`,
-        );
+        const confirmed = await confirm(leaseActionConfirmation(lease.id, "end"));
 
         if (!confirmed || organizationId === undefined) {
             return;
@@ -134,9 +135,7 @@ export default function PropertyLeasesTab({ propertyId, spaces, onSpacesChanged 
     async function handleCancelLease(
         lease: LeaseResponse,
     ): Promise<void> {
-        const confirmed = window.confirm(
-            `Cancel lease #${lease.id}? This action cannot be undone from this screen.`,
-        );
+        const confirmed = await confirm(leaseActionConfirmation(lease.id, "cancel"));
 
         if (!confirmed || organizationId === undefined) {
             return;

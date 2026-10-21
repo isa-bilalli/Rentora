@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { useConfirm } from "../../components/confirm/useConfirm";
 import { formatMoney } from "../../lib/format";
 import { useOrganization } from "../organizations/useOrganization";
 import { recordPayment as recordPaymentRequest, voidPayment as voidPaymentRequest } from "./api/paymentApi";
@@ -9,6 +10,7 @@ import type { PaymentResponse, RecordPaymentRequest } from "./types";
 // onPaymentUpdated receives the payment as the server returned it, so the page can replace its copy.
 export function usePaymentActions(onPaymentUpdated: (payment: PaymentResponse) => void) {
     const { activeOrganization } = useOrganization();
+    const confirm = useConfirm();
 
     const [recordingPaymentId, setRecordingPaymentId] = useState<number | null>(null);
     const [busyPaymentId, setBusyPaymentId] = useState<number | null>(null);
@@ -50,9 +52,12 @@ export function usePaymentActions(onPaymentUpdated: (payment: PaymentResponse) =
     }
 
     async function voidPayment(payment: PaymentResponse): Promise<void> {
-        const confirmed = window.confirm(
-            `Void payment #${payment.id} for ${formatMoney(payment.amountCents)}? This cannot be undone.`,
-        );
+        const confirmed = await confirm({
+            title: `Void payment #${payment.id}?`,
+            message: `The ${formatMoney(payment.amountCents)} will no longer be owed. This can't be undone.`,
+            confirmLabel: "Void payment",
+            tone: "danger",
+        });
 
         if (!confirmed || !activeOrganization) {
             return;

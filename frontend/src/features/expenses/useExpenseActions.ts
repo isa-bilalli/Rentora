@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { useConfirm } from "../../components/confirm/useConfirm";
 import { formatMoney } from "../../lib/format";
 import { useOrganization } from "../organizations/useOrganization";
 import { markExpensePaid, voidExpense } from "./api/expenseApi";
@@ -11,6 +12,7 @@ export type ExpenseAction = "pay" | "void";
 // so both ask for confirmation first.
 export function useExpenseActions(onUpdated: (expense: ExpenseResponse, action: ExpenseAction) => void) {
     const { activeOrganization } = useOrganization();
+    const confirm = useConfirm();
 
     const [busy, setBusy] = useState<{ expenseId: number; action: ExpenseAction } | null>(null);
     const [actionError, setActionError] = useState<string | null>(null);
@@ -22,12 +24,21 @@ export function useExpenseActions(onUpdated: (expense: ExpenseResponse, action: 
         }
 
         const amount = formatMoney(expense.amountCents);
-        const question = action === "pay"
-            ? `Mark expense #${expense.id} (${amount}) as paid? This can't be undone.`
-            : expense.paid
-                ? `Void expense #${expense.id} (${amount})? It is already marked paid, and once voided it no longer counts. This can't be undone.`
-                : `Void expense #${expense.id} (${amount})? It will no longer count. This can't be undone.`;
-        if (!window.confirm(question)) {
+        const confirmed = await confirm(action === "pay"
+            ? {
+                title: `Mark expense #${expense.id} as paid?`,
+                message: `The ${amount} will be recorded as paid. This can't be undone.`,
+                confirmLabel: "Mark paid",
+            }
+            : {
+                title: `Void expense #${expense.id}?`,
+                message: expense.paid
+                    ? `It is already marked paid, and once voided the ${amount} no longer counts. This can't be undone.`
+                    : `The ${amount} will no longer count. This can't be undone.`,
+                confirmLabel: "Void expense",
+                tone: "danger",
+            });
+        if (!confirmed) {
             return;
         }
 

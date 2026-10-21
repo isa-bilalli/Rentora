@@ -27,6 +27,8 @@ import { spaceTypeLabels } from "../../properties/spaceLabels";
 import { todayLocalDateString } from "../../../lib/dates";
 import { formatDateTime, formatLongDate, formatMoney } from "../../../lib/format";
 import { useRolePermissions } from "../../organizations/useRolePermissions";
+import { useConfirm } from "../../../components/confirm/useConfirm";
+import { leaseActionConfirmation } from "../leaseActionConfirmation";
 
 type LeaseAction = "end" | "cancel" | null;
 
@@ -64,6 +66,7 @@ export default function LeaseDetailsPage() {
     const { activeOrganization } = useOrganization();
     // Ending and cancelling are for managers and owners (docs/ROLES.md).
     const { canManage } = useRolePermissions();
+    const confirm = useConfirm();
     const organizationId = activeOrganization?.id ?? 0;
 
     const { leaseId: leaseIdParam } = useParams();
@@ -198,11 +201,7 @@ export default function LeaseDetailsPage() {
     ) {
         if (!lease || organizationId <= 0) return;
 
-        const confirmed = window.confirm(
-            action === "end"
-                ? `End lease #${lease.id}? This will mark the lease as ended.`
-                : `Cancel lease #${lease.id}? This action cannot be undone from this screen.`,
-        );
+        const confirmed = await confirm(leaseActionConfirmation(lease.id, action));
 
         if (!confirmed) return;
 

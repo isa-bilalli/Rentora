@@ -23,7 +23,6 @@ public class SpaceController {
 
     @PostMapping
     public ResponseEntity<SpaceResponse> createSpace(@PathVariable Long organizationId, @PathVariable Long propertyId, @Valid @RequestBody CreateSpaceRequest request) {
-        System.out.println("CONTROLLER REACHED");
         SpaceResponse response = spaceService.createSpace(organizationId, propertyId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }

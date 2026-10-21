@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { useConfirm } from "../../components/confirm/useConfirm";
 import { useOrganization } from "../organizations/useOrganization";
 import {
     cancelMaintenance,
@@ -21,6 +22,7 @@ export function useMaintenanceActions({
     onUpdated: (request: MaintenanceResponse) => void;
 }) {
     const { activeOrganization } = useOrganization();
+    const confirm = useConfirm();
 
     const [creating, setCreating] = useState(false);
     const [busyRequestId, setBusyRequestId] = useState<number | null>(null);
@@ -50,9 +52,13 @@ export function useMaintenanceActions({
         }
 
         if (action === "cancel") {
-            const confirmed = window.confirm(
-                `Cancel maintenance request #${maintenance.id} (${maintenance.title})?`,
-            );
+            const confirmed = await confirm({
+                title: `Cancel maintenance request #${maintenance.id}?`,
+                message: `"${maintenance.title}" will be marked as cancelled.`,
+                confirmLabel: "Cancel request",
+                cancelLabel: "Keep request",
+                tone: "danger",
+            });
             if (!confirmed) {
                 return;
             }
