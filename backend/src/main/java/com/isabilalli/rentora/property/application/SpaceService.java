@@ -84,6 +84,13 @@ public class SpaceService implements SpaceAccess{
         return SpaceResponse.from(space);
     }
 
+    // Every space across the organization's properties, for pages that show space names next to leases,
+    // payments, expenses or maintenance requests from any property.
+    public List<SpaceResponse> getOrganizationSpaces(Long organizationId){
+        organizationAccessService.requireAccess(currentUserService.getCurrentUser(), organizationId);
+        return spaceRepository.findAllByOrganizationId(organizationId).stream().map(SpaceResponse::from).toList();
+    }
+
     // For pages that know a space but not its property, such as a lease's. The response names the property.
     public SpaceResponse getSpace(Long organizationId, Long spaceId){
         organizationAccessService.requireAccess(currentUserService.getCurrentUser(), organizationId);

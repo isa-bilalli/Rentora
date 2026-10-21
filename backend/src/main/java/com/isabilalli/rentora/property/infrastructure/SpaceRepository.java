@@ -43,4 +43,14 @@ public interface SpaceRepository extends JpaRepository<Space, Long>{
         """)
     Long countSpaces(@Param("organizationId") Long organizationId, @Param("propertyId") Long propertyId);
     List<Space> findAllByPropertyIdIn(Collection<Long> propertyIds);
+    @Query("""
+        SELECT s
+        FROM Space s
+        WHERE s.propertyId IN (
+            SELECT p.id
+            FROM Property p
+            WHERE p.organizationId = :organizationId)
+        ORDER BY s.propertyId, s.id
+    """)
+    List<Space> findAllByOrganizationId(@Param("organizationId") Long organizationId);
 }

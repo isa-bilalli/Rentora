@@ -36,6 +36,13 @@ export async function getSpaces(organizationId: number, propertyId: number): Pro
     );
 }
 
+// Every space across the organization's properties, ordered by property and then space.
+export async function getOrganizationSpaces(organizationId: number): Promise<SpaceResponse[]> {
+    return apiRequest<SpaceResponse[]>(`/api/organizations/${organizationId}/spaces`, {
+        authenticated: true,
+    });
+}
+
 // One space by its ID alone. The response names the space's property.
 export async function getSpace(organizationId: number, spaceId: number): Promise<SpaceResponse> {
     return apiRequest<SpaceResponse>(`/api/organizations/${organizationId}/spaces/${spaceId}`, {
