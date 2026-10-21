@@ -1,3 +1,4 @@
+import { useRolePermissions } from "../../organizations/useRolePermissions";
 import type { PaymentResponse } from "../types";
 
 interface PaymentRowActionsProps {
@@ -11,6 +12,7 @@ interface PaymentRowActionsProps {
 }
 
 // Record / Void buttons for a pending payment; a dash for paid or voided ones.
+// Void is for managers and owners only (docs/ROLES.md).
 export default function PaymentRowActions({
     payment,
     busyPaymentId,
@@ -18,6 +20,8 @@ export default function PaymentRowActions({
     onRecord,
     onVoid,
 }: PaymentRowActionsProps) {
+    const { canManage } = useRolePermissions();
+
     if (payment.status !== "PENDING") {
         return <span className="text-sm text-gray-400">—</span>;
     }
@@ -34,16 +38,18 @@ export default function PaymentRowActions({
                     ? "Saving..."
                     : "Record payment"}
             </button>
-            <button
-                type="button"
-                disabled={busyPaymentId !== null}
-                onClick={onVoid}
-                className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-                {busyPaymentId === payment.id && recordingPaymentId !== payment.id
-                    ? "Voiding..."
-                    : "Void"}
-            </button>
+            {canManage && (
+                <button
+                    type="button"
+                    disabled={busyPaymentId !== null}
+                    onClick={onVoid}
+                    className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                    {busyPaymentId === payment.id && recordingPaymentId !== payment.id
+                        ? "Voiding..."
+                        : "Void"}
+                </button>
+            )}
         </div>
     );
 }

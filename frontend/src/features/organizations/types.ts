@@ -1,12 +1,14 @@
+// From most to least access; see docs/ROLES.md.
+export type OrganizationRole = "OWNER" | "MANAGER" | "MEMBER";
+
 export interface Organization {
     id: number;
     name: string;
+    // The current user's role in this organization.
+    role: OrganizationRole;
     createdAt?: string;
     updatedAt?: string;
 }
-
-// From most to least access; see docs/ROLES.md.
-export type OrganizationRole = "OWNER" | "MANAGER" | "MEMBER";
 
 export interface OrganizationMember {
     userId: number;

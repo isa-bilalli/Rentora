@@ -6,6 +6,7 @@ import com.isabilalli.rentora.auth.domain.User;
 import com.isabilalli.rentora.auth.infrastructure.security.AuthenticatedUser;
 import com.isabilalli.rentora.organization.api.dto.AddMemberRequest;
 import com.isabilalli.rentora.organization.api.dto.MemberResponse;
+import com.isabilalli.rentora.organization.api.dto.OrganizationResponse;
 import com.isabilalli.rentora.organization.domain.Organization;
 import com.isabilalli.rentora.organization.domain.OrganizationMembership;
 import com.isabilalli.rentora.organization.domain.OrganizationRole;
@@ -22,6 +23,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.AccessDeniedException;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -130,6 +132,21 @@ class OrganizationServiceTest {
         );
 
         verify(membershipRepository, never()).save(any());
+    }
+
+    // The app uses the role to decide which buttons to show.
+    @Test
+    void myOrganizationsComeWithMyRoleInEach() {
+        when(currentUser.userId()).thenReturn(NEW_MEMBER_ID);
+        when(membershipRepository.findAllByUserId_IdOrderByCreatedAtAsc(NEW_MEMBER_ID)).thenReturn(List.of(
+                new OrganizationMembership(new Organization("Own org"), newMember, OrganizationRole.OWNER),
+                new OrganizationMembership(new Organization("Joined org"), newMember, OrganizationRole.MEMBER)
+        ));
+
+        List<OrganizationResponse> organizations = organizationService.getMyOrganizations();
+
+        assertEquals(List.of("Own org", "Joined org"), organizations.stream().map(OrganizationResponse::name).toList());
+        assertEquals(List.of(OrganizationRole.OWNER, OrganizationRole.MEMBER), organizations.stream().map(OrganizationResponse::role).toList());
     }
 
     @Test

@@ -21,6 +21,7 @@ import { getTenantDisplayName, type TenantResponse } from "../../tenants/types";
 import { getPropertySummaries, getSpaces } from "../../properties/api/propertyApi";
 import { formatDateTime, formatLongDate, formatMoney } from "../../../lib/format";
 import { moneyInputFromCents, parseMoneyToCents } from "../../../lib/money";
+import { useRolePermissions } from "../../organizations/useRolePermissions";
 
 type PropertySummary = Awaited<ReturnType<typeof getPropertySummaries>>[number];
 type SpaceResponse = Awaited<ReturnType<typeof getSpaces>>[number];
@@ -104,6 +105,8 @@ function getErrorMessage(error: unknown, fallback: string): string {
 
 export default function LeaseDetailsPage() {
     const { activeOrganization } = useOrganization();
+    // Ending and cancelling are for managers and owners (docs/ROLES.md).
+    const { canManage } = useRolePermissions();
     const organizationId = activeOrganization?.id ?? 0;
 
     const { leaseId: leaseIdParam } = useParams();
@@ -496,31 +499,35 @@ export default function LeaseDetailsPage() {
                             Renew lease
                         </button>
 
-                        <button
-                            type="button"
-                            onClick={() => void handleLeaseAction("end")}
-                            disabled={
-                                leaseActionBusy !== null || renewSubmitting
-                            }
-                            className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm font-medium text-amber-800 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                            {leaseActionBusy === "end"
-                                ? "Ending..."
-                                : "End lease"}
-                        </button>
+                        {canManage && (
+                            <>
+                                <button
+                                    type="button"
+                                    onClick={() => void handleLeaseAction("end")}
+                                    disabled={
+                                        leaseActionBusy !== null || renewSubmitting
+                                    }
+                                    className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm font-medium text-amber-800 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                    {leaseActionBusy === "end"
+                                        ? "Ending..."
+                                        : "End lease"}
+                                </button>
 
-                        <button
-                            type="button"
-                            onClick={() => void handleLeaseAction("cancel")}
-                            disabled={
-                                leaseActionBusy !== null || renewSubmitting
-                            }
-                            className="rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-medium text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                            {leaseActionBusy === "cancel"
-                                ? "Cancelling..."
-                                : "Cancel lease"}
-                        </button>
+                                <button
+                                    type="button"
+                                    onClick={() => void handleLeaseAction("cancel")}
+                                    disabled={
+                                        leaseActionBusy !== null || renewSubmitting
+                                    }
+                                    className="rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-medium text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                    {leaseActionBusy === "cancel"
+                                        ? "Cancelling..."
+                                        : "Cancel lease"}
+                                </button>
+                            </>
+                        )}
                     </div>
                 )}
             </header>

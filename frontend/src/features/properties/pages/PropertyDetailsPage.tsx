@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 
 import { useOrganization } from "../../organizations/useOrganization";
+import { useRolePermissions } from "../../organizations/useRolePermissions";
 
 import {
     getProperty,
@@ -89,6 +90,8 @@ export default function PropertyDetailsPage() {
         activeOrganization,
         status: organizationStatus,
     } = useOrganization();
+    // Ending and cancelling leases are for managers and owners (docs/ROLES.md).
+    const { canManage } = useRolePermissions();
 
     const activeOrganizationId = activeOrganization?.id;
 
@@ -878,31 +881,35 @@ export default function PropertyDetailsPage() {
                                                                         Renew
                                                                     </button>
 
-                                                                    <button
-                                                                        type="button"
-                                                                        disabled={
-                                                                            leaseActionBusyId !== null ||
-                                                                            renewingLeaseSubmitting ||
-                                                                            creatingLease
-                                                                        }
-                                                                        onClick={() => void handleEndLease(lease)}
-                                                                        className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 hover:bg-amber-100 disabled:opacity-50"
-                                                                    >
-                                                                        {leaseActionBusyId === lease.id ? "Saving..." : "End"}
-                                                                    </button>
+                                                                    {canManage && (
+                                                                        <>
+                                                                            <button
+                                                                                type="button"
+                                                                                disabled={
+                                                                                    leaseActionBusyId !== null ||
+                                                                                    renewingLeaseSubmitting ||
+                                                                                    creatingLease
+                                                                                }
+                                                                                onClick={() => void handleEndLease(lease)}
+                                                                                className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 hover:bg-amber-100 disabled:opacity-50"
+                                                                            >
+                                                                                {leaseActionBusyId === lease.id ? "Saving..." : "End"}
+                                                                            </button>
 
-                                                                    <button
-                                                                        type="button"
-                                                                        disabled={
-                                                                            leaseActionBusyId !== null ||
-                                                                            renewingLeaseSubmitting ||
-                                                                            creatingLease
-                                                                        }
-                                                                        onClick={() => void handleCancelLease(lease)}
-                                                                        className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
-                                                                    >
-                                                                        {leaseActionBusyId === lease.id ? "Saving..." : "Cancel"}
-                                                                    </button>
+                                                                            <button
+                                                                                type="button"
+                                                                                disabled={
+                                                                                    leaseActionBusyId !== null ||
+                                                                                    renewingLeaseSubmitting ||
+                                                                                    creatingLease
+                                                                                }
+                                                                                onClick={() => void handleCancelLease(lease)}
+                                                                                className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
+                                                                            >
+                                                                                {leaseActionBusyId === lease.id ? "Saving..." : "Cancel"}
+                                                                            </button>
+                                                                        </>
+                                                                    )}
                                                                 </div>
                                                             ) : (
                                                                 <span className="text-sm text-gray-400">

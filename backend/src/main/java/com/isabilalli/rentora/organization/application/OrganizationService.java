@@ -45,7 +45,7 @@ public class OrganizationService {
     @Transactional(readOnly = true)
     public List<OrganizationResponse> getMyOrganizations(){
         Long userId = currentUserService.getCurrentUser().userId();
-        return organizationMembershipRepository.findAllByUserId_IdOrderByCreatedAtAsc(userId).stream().map(membership -> new OrganizationResponse(membership.getOrganization().getId(), membership.getOrganization().getName())).toList();
+        return organizationMembershipRepository.findAllByUserId_IdOrderByCreatedAtAsc(userId).stream().map(membership -> new OrganizationResponse(membership.getOrganization().getId(), membership.getOrganization().getName(), membership.getRole())).toList();
     }
 
     // Everyone in the organization can see who else is in it, oldest member first.
