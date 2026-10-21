@@ -10,6 +10,20 @@ export function todayLocalDateString(): string {
     return toLocalDateString(new Date());
 }
 
+// A "YYYY-MM-DD" date moved by whole days or years. The arithmetic runs in UTC, so the browser's time zone
+// and daylight saving can't shift the result. A year after 29 February is 1 March.
+export function addDays(value: string, days: number): string {
+    const date = new Date(`${value}T00:00:00Z`);
+    date.setUTCDate(date.getUTCDate() + days);
+    return date.toISOString().slice(0, 10);
+}
+
+export function addYears(value: string, years: number): string {
+    const date = new Date(`${value}T00:00:00Z`);
+    date.setUTCFullYear(date.getUTCFullYear() + years);
+    return date.toISOString().slice(0, 10);
+}
+
 // Whole days from `from` to `to`, both "YYYY-MM-DD"; negative when `to` is earlier.
 export function daysBetween(from: string, to: string): number {
     // Noon avoids daylight-saving shifts turning a day into 23 or 25 hours.

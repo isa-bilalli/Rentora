@@ -2,6 +2,9 @@
 import { useState, type FormEvent } from "react";
 import { CalendarDays, Save, X } from "lucide-react";
 
+import { addDays, addYears } from "../../../lib/dates";
+import { formatLongDate } from "../../../lib/format";
+import { moneyInputFromCents, parseMoneyToCents } from "../../../lib/money";
 import type { LeaseResponse, RenewLeaseRequest } from "../types";
 
 interface RenewLeaseFormProps {
@@ -9,18 +12,6 @@ interface RenewLeaseFormProps {
     submitting: boolean;
     onSubmit: (request: RenewLeaseRequest) => Promise<void>;
     onCancel: () => void;
-}
-
-function addDays(value: string, days: number): string {
-    const date = new Date(`${value}T00:00:00Z`);
-    date.setUTCDate(date.getUTCDate() + days);
-    return date.toISOString().slice(0, 10);
-}
-
-function addYears(value: string, years: number): string {
-    const date = new Date(`${value}T00:00:00Z`);
-    date.setUTCFullYear(date.getUTCFullYear() + years);
-    return date.toISOString().slice(0, 10);
 }
 
 export default function RenewLeaseForm({
@@ -36,10 +27,10 @@ export default function RenewLeaseForm({
         addYears(minimumStartDate, 1),
     );
     const [monthlyRent, setMonthlyRent] = useState(
-        (lease.monthlyRentCents / 100).toFixed(2),
+        moneyInputFromCents(lease.monthlyRentCents),
     );
     const [securityDeposit, setSecurityDeposit] = useState(
-        (lease.securityDepositCents / 100).toFixed(2),
+        moneyInputFromCents(lease.securityDepositCents),
     );
     const [error, setError] = useState<string | null>(null);
 
@@ -59,29 +50,17 @@ export default function RenewLeaseForm({
             return;
         }
 
-        const rent = Number(monthlyRent);
-        const deposit = Number(securityDeposit);
+        const monthlyRentCents = parseMoneyToCents(monthlyRent);
+        const securityDepositCents = parseMoneyToCents(securityDeposit);
 
-        if (
-            monthlyRent.trim() === "" ||
-            !Number.isFinite(rent) ||
-            rent < 0 ||
-            !Number.isSafeInteger(Math.round(rent * 100)) ||
-            Math.abs(rent * 100 - Math.round(rent * 100)) > 1e-7
-        ) {
+        if (monthlyRentCents === null) {
             setError(
                 "Enter a valid monthly rent with up to two decimal places.",
             );
             return;
         }
 
-        if (
-            securityDeposit.trim() === "" ||
-            !Number.isFinite(deposit) ||
-            deposit < 0 ||
-            !Number.isSafeInteger(Math.round(deposit * 100)) ||
-            Math.abs(deposit * 100 - Math.round(deposit * 100)) > 1e-7
-        ) {
+        if (securityDepositCents === null) {
             setError(
                 "Enter a valid security deposit with up to two decimal places.",
             );
@@ -92,8 +71,8 @@ export default function RenewLeaseForm({
             await onSubmit({
                 startDate,
                 endDate,
-                monthlyRentCents: Math.round(rent * 100),
-                securityDepositCents: Math.round(deposit * 100),
+                monthlyRentCents,
+                securityDepositCents,
             });
         } catch (submitError) {
             setError(
@@ -141,13 +120,13 @@ export default function RenewLeaseForm({
                 <p>
                     Existing lease ends:{" "}
                     <strong className="text-[#14302b]">
-                        {lease.endDate}
+                        {formatLongDate(lease.endDate)}
                     </strong>
                 </p>
                 <p className="mt-1">
                     The renewal begins no earlier than{" "}
                     <strong className="text-[#14302b]">
-                        {minimumStartDate}
+                        {formatLongDate(minimumStartDate)}
                     </strong>.
                 </p>
             </div>
@@ -190,7 +169,7 @@ export default function RenewLeaseForm({
                         id="renew-end-date"
                         type="date"
                         required
-                        min={startDate || undefined}
+                        min={startDate ? addDays(startDate, 1) : undefined}
                         value={endDate}
                         onChange={(event) => setEndDate(event.target.value)}
                         disabled={submitting}

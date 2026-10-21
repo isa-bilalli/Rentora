@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import {
     ArrowLeft,
@@ -16,6 +16,7 @@ import {
 import { useOrganization } from "../../organizations/useOrganization";
 import { getLease, endLease, cancelLease, renewLease } from "../api/leasesApi";
 import LeaseStatusBadge from "../components/LeaseStatusBadge";
+import RenewLeaseForm from "../components/RenewLeaseForm";
 import { getLeaseDisplayStatus } from "../status";
 import type { LeaseResponse, RenewLeaseRequest } from "../types";
 import { getTenant } from "../../tenants/api/tenantApi";
@@ -23,9 +24,8 @@ import { getTenantDisplayName, type TenantResponse } from "../../tenants/types";
 import { getProperty, getSpace } from "../../properties/api/propertyApi";
 import type { PropertyResponse, SpaceResponse } from "../../properties/types";
 import { spaceTypeLabels } from "../../properties/spaceLabels";
-import { toLocalDateString, todayLocalDateString } from "../../../lib/dates";
+import { todayLocalDateString } from "../../../lib/dates";
 import { formatDateTime, formatLongDate, formatMoney } from "../../../lib/format";
-import { moneyInputFromCents, parseMoneyToCents } from "../../../lib/money";
 import { useRolePermissions } from "../../organizations/useRolePermissions";
 
 type LeaseAction = "end" | "cancel" | null;
@@ -35,18 +35,6 @@ async function getSpaceWithProperty(organizationId: number, spaceId: number) {
     const space = await getSpace(organizationId, spaceId);
     const property = await getProperty(organizationId, space.propertyId);
     return { space, property };
-}
-
-function addDays(value: string, days: number): string {
-    const date = new Date(`${value}T12:00:00`);
-    date.setDate(date.getDate() + days);
-    return toLocalDateString(date);
-}
-
-function addOneYear(value: string): string {
-    const date = new Date(`${value}T12:00:00`);
-    date.setFullYear(date.getFullYear() + 1);
-    return toLocalDateString(date);
 }
 
 function DetailField({
@@ -103,12 +91,7 @@ export default function LeaseDetailsPage() {
     >(null);
 
     const [showRenewForm, setShowRenewForm] = useState(false);
-    const [renewStartDate, setRenewStartDate] = useState("");
-    const [renewEndDate, setRenewEndDate] = useState("");
-    const [renewMonthlyRent, setRenewMonthlyRent] = useState("");
-    const [renewSecurityDeposit, setRenewSecurityDeposit] = useState("");
     const [renewSubmitting, setRenewSubmitting] = useState(false);
-    const [renewError, setRenewError] = useState<string | null>(null);
 
     useEffect(() => {
         let cancelled = false;
@@ -188,88 +171,23 @@ export default function LeaseDetailsPage() {
     }, [leaseId, organizationId]);
 
     function openRenewForm() {
-        if (!lease) return;
-
-        const suggestedStart = addDays(lease.endDate, 1);
-
-        setRenewStartDate(suggestedStart);
-        setRenewEndDate(addOneYear(suggestedStart));
-        setRenewMonthlyRent(moneyInputFromCents(lease.monthlyRentCents));
-        setRenewSecurityDeposit(
-            moneyInputFromCents(lease.securityDepositCents),
-        );
-
-        setRenewError(null);
         setLeaseActionError(null);
         setLeaseActionMessage(null);
         setShowRenewForm(true);
     }
 
-    async function handleRenewSubmit(
-        event: FormEvent<HTMLFormElement>,
-    ) {
-        event.preventDefault();
-        setRenewError(null);
-
-        if (!lease || organizationId <= 0) {
-            setRenewError(
-                "Lease details are not available. Reload this page and try again.",
-            );
-            return;
-        }
-
-        if (!renewStartDate || renewStartDate <= lease.endDate) {
-            setRenewError(
-                "The renewal start date must be after the current lease's end date.",
-            );
-            return;
-        }
-
-        if (!renewEndDate || renewEndDate <= renewStartDate) {
-            setRenewError(
-                "The renewal end date must be later than its start date.",
-            );
-            return;
-        }
-
-        const rentCents = parseMoneyToCents(renewMonthlyRent);
-        const depositCents = parseMoneyToCents(renewSecurityDeposit);
-
-        if (rentCents === null) {
-            setRenewError(
-                "Enter a valid monthly rent with up to two decimal places.",
-            );
-            return;
-        }
-
-        if (depositCents === null) {
-            setRenewError(
-                "Enter a valid security deposit with up to two decimal places.",
-            );
-            return;
-        }
-
-        const request: RenewLeaseRequest = {
-            startDate: renewStartDate,
-            endDate: renewEndDate,
-            monthlyRentCents: rentCents,
-            securityDepositCents: depositCents,
-        };
+    // A failed renewal throws back to RenewLeaseForm, which shows the error.
+    async function handleRenew(request: RenewLeaseRequest) {
+        if (!lease) return;
 
         setRenewSubmitting(true);
 
         try {
-            const newLease = await renewLease(
-                organizationId,
-                lease.id,
-                request,
-            );
+            const newLease = await renewLease(organizationId, lease.id, request);
 
+            // The page stays mounted for the new lease, so the form is closed here.
+            setShowRenewForm(false);
             navigate(`/app/leases/${newLease.id}`, { replace: true });
-        } catch (error) {
-            setRenewError(
-                getErrorMessage(error, "Failed to renew this lease."),
-            );
         } finally {
             setRenewSubmitting(false);
         }
@@ -472,182 +390,13 @@ export default function LeaseDetailsPage() {
             )}
 
             {showRenewForm && (
-                <section className="rounded-xl border border-[#d5dfd8] bg-[#f8faf8] p-5">
-                    <div className="mb-5 flex items-start justify-between gap-4">
-                        <div>
-                            <h2 className="font-semibold text-[#14302b]">
-                                Renew lease
-                            </h2>
-
-                            <p className="mt-1 text-sm text-gray-500">
-                                This creates a new lease for the same tenant
-                                and space. Its start date must be after{" "}
-                                {formatLongDate(lease.endDate)}.
-                            </p>
-                        </div>
-
-                        <button
-                            type="button"
-                            onClick={() => setShowRenewForm(false)}
-                            disabled={renewSubmitting}
-                            className="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 hover:bg-white disabled:opacity-50"
-                        >
-                            Close
-                        </button>
-                    </div>
-
-                    <form
-                        onSubmit={handleRenewSubmit}
-                        className="space-y-5"
-                    >
-                        <div className="grid gap-4 sm:grid-cols-2">
-                            <div>
-                                <label
-                                    htmlFor="renew-start-date"
-                                    className="mb-1.5 block text-sm font-medium text-[#243b35]"
-                                >
-                                    New start date
-                                </label>
-
-                                <input
-                                    id="renew-start-date"
-                                    type="date"
-                                    required
-                                    min={addDays(lease.endDate, 1)}
-                                    value={renewStartDate}
-                                    onChange={(event) => {
-                                        setRenewStartDate(
-                                            event.target.value,
-                                        );
-
-                                        if (
-                                            renewEndDate <=
-                                            event.target.value
-                                        ) {
-                                            setRenewEndDate(
-                                                addOneYear(
-                                                    event.target.value,
-                                                ),
-                                            );
-                                        }
-                                    }}
-                                    disabled={renewSubmitting}
-                                    className="w-full rounded-lg border border-[#dce4de] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#14302b] focus:ring-2 focus:ring-[#14302b]/10 disabled:bg-gray-100"
-                                />
-                            </div>
-
-                            <div>
-                                <label
-                                    htmlFor="renew-end-date"
-                                    className="mb-1.5 block text-sm font-medium text-[#243b35]"
-                                >
-                                    New end date
-                                </label>
-
-                                <input
-                                    id="renew-end-date"
-                                    type="date"
-                                    required
-                                    min={
-                                        renewStartDate
-                                            ? addDays(renewStartDate, 1)
-                                            : undefined
-                                    }
-                                    value={renewEndDate}
-                                    onChange={(event) =>
-                                        setRenewEndDate(event.target.value)
-                                    }
-                                    disabled={renewSubmitting}
-                                    className="w-full rounded-lg border border-[#dce4de] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#14302b] focus:ring-2 focus:ring-[#14302b]/10 disabled:bg-gray-100"
-                                />
-                            </div>
-
-                            <div>
-                                <label
-                                    htmlFor="renew-monthly-rent"
-                                    className="mb-1.5 block text-sm font-medium text-[#243b35]"
-                                >
-                                    Monthly rent (€)
-                                </label>
-
-                                <input
-                                    id="renew-monthly-rent"
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
-                                    required
-                                    value={renewMonthlyRent}
-                                    onChange={(event) =>
-                                        setRenewMonthlyRent(
-                                            event.target.value,
-                                        )
-                                    }
-                                    disabled={renewSubmitting}
-                                    className="w-full rounded-lg border border-[#dce4de] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#14302b] focus:ring-2 focus:ring-[#14302b]/10 disabled:bg-gray-100"
-                                />
-                            </div>
-
-                            <div>
-                                <label
-                                    htmlFor="renew-security-deposit"
-                                    className="mb-1.5 block text-sm font-medium text-[#243b35]"
-                                >
-                                    Security deposit (€)
-                                </label>
-
-                                <input
-                                    id="renew-security-deposit"
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
-                                    required
-                                    value={renewSecurityDeposit}
-                                    onChange={(event) =>
-                                        setRenewSecurityDeposit(
-                                            event.target.value,
-                                        )
-                                    }
-                                    disabled={renewSubmitting}
-                                    className="w-full rounded-lg border border-[#dce4de] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#14302b] focus:ring-2 focus:ring-[#14302b]/10 disabled:bg-gray-100"
-                                />
-                            </div>
-                        </div>
-
-                        {renewError && (
-                            <p role="alert" className="text-sm text-red-700">
-                                {renewError}
-                            </p>
-                        )}
-
-                        <div className="flex flex-wrap justify-end gap-3">
-                            <button
-                                type="button"
-                                onClick={() => setShowRenewForm(false)}
-                                disabled={renewSubmitting}
-                                className="rounded-lg border border-[#d5dfd8] bg-white px-4 py-2.5 text-sm font-medium text-[#243b35] hover:bg-gray-50 disabled:opacity-50"
-                            >
-                                Keep current lease
-                            </button>
-
-                            <button
-                                type="submit"
-                                disabled={
-                                    renewSubmitting ||
-                                    leaseActionBusy !== null
-                                }
-                                className="inline-flex items-center gap-2 rounded-lg bg-[#14302b] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#20453d] disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                                {renewSubmitting
-                                    ? "Creating renewal..."
-                                    : "Create renewal"}
-
-                                {!renewSubmitting && (
-                                    <ArrowRight className="h-4 w-4" />
-                                )}
-                            </button>
-                        </div>
-                    </form>
-                </section>
+                <RenewLeaseForm
+                    key={lease.id}
+                    lease={lease}
+                    submitting={renewSubmitting}
+                    onSubmit={handleRenew}
+                    onCancel={() => setShowRenewForm(false)}
+                />
             )}
 
             <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

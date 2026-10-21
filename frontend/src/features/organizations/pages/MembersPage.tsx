@@ -10,9 +10,10 @@ import { formatDate } from "../../../lib/format";
 import { useAuth } from "../../auth/useAuth";
 import { addMember, getMembers } from "../api/organizationApi";
 import AddMemberForm from "../components/AddMemberForm";
-import { isAtLeast, ROLE_LABELS, ROLE_TONES } from "../roles";
+import { ROLE_LABELS, ROLE_TONES } from "../roles";
 import type { AddMemberRequest } from "../types";
 import { useOrganization } from "../useOrganization";
+import { useRolePermissions } from "../useRolePermissions";
 
 // Keyed by organization, so switching organization also clears the form and any confirmation.
 export default function MembersPage() {
@@ -28,9 +29,9 @@ function OrganizationMembers({ organizationName }: { organizationName: string | 
     const [adding, setAdding] = useState(false);
     const [notice, setNotice] = useState<string | null>(null);
 
-    const myRole = members?.find((member) => member.userId === user?.id)?.role;
-    // The backend checks this as well; here it only decides whether to offer the form.
-    const canAdd = myRole !== undefined && isAtLeast(myRole, "MANAGER");
+    // Adding people is for managers and owners. The backend checks this as well; here it only decides
+    // whether to offer the form.
+    const { role, canManage: canAdd } = useRolePermissions();
 
     async function handleAdd(request: AddMemberRequest) {
         if (organizationId === undefined) return;
@@ -130,7 +131,7 @@ function OrganizationMembers({ organizationName }: { organizationName: string | 
                     <li><span className="font-medium text-[#243b35]">Managers</span> can also add people, and delete, void, end or cancel.</li>
                     <li><span className="font-medium text-[#243b35]">Owners</span> can do everything managers can. Ownership comes with creating the organization.</li>
                 </ul>
-                {myRole === "MEMBER" && (
+                {role === "MEMBER" && (
                     <p className="mt-3 text-gray-500">To add someone, ask an owner or manager of this organization.</p>
                 )}
             </section>

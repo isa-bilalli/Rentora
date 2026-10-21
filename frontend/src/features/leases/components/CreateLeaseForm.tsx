@@ -2,6 +2,8 @@
 import { useState, type FormEvent } from "react";
 import { Plus, X } from "lucide-react";
 
+import { addDays, addYears, todayLocalDateString } from "../../../lib/dates";
+import { parseMoneyToCents } from "../../../lib/money";
 import type { CreateLeaseRequest } from "../types";
 import type { TenantResponse } from "../../tenants/types";
 import { getTenantDisplayName } from "../../tenants/types";
@@ -16,20 +18,6 @@ interface CreateLeaseFormProps {
     onCancel: () => void;
 }
 
-function toLocalDateString(date: Date): string {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-
-    return `${year}-${month}-${day}`;
-}
-
-function getDefaultEndDate(): string {
-    const date = new Date();
-    date.setFullYear(date.getFullYear() + 1);
-    return toLocalDateString(date);
-}
-
 export default function CreateLeaseForm({
     tenants,
     spaces,
@@ -39,10 +27,10 @@ export default function CreateLeaseForm({
 }: CreateLeaseFormProps) {
     const [tenantId, setTenantId] = useState("");
     const [spaceId, setSpaceId] = useState("");
-    const [startDate, setStartDate] = useState(() =>
-        toLocalDateString(new Date()),
+    const [startDate, setStartDate] = useState(todayLocalDateString);
+    const [endDate, setEndDate] = useState(() =>
+        addYears(todayLocalDateString(), 1),
     );
-    const [endDate, setEndDate] = useState(getDefaultEndDate);
     const [monthlyRent, setMonthlyRent] = useState("");
     const [securityDeposit, setSecurityDeposit] = useState("0");
     const [error, setError] = useState<string | null>(null);
@@ -61,27 +49,15 @@ export default function CreateLeaseForm({
             return;
         }
 
-        const rent = Number(monthlyRent);
-        const deposit = Number(securityDeposit);
+        const monthlyRentCents = parseMoneyToCents(monthlyRent);
+        const securityDepositCents = parseMoneyToCents(securityDeposit);
 
-        if (
-            monthlyRent.trim() === "" ||
-            !Number.isFinite(rent) ||
-            rent < 0 ||
-            !Number.isSafeInteger(Math.round(rent * 100)) ||
-            Math.abs(rent * 100 - Math.round(rent * 100)) > 1e-7
-        ) {
+        if (monthlyRentCents === null) {
             setError("Enter a valid monthly rent with up to two decimal places.");
             return;
         }
 
-        if (
-            securityDeposit.trim() === "" ||
-            !Number.isFinite(deposit) ||
-            deposit < 0 ||
-            !Number.isSafeInteger(Math.round(deposit * 100)) ||
-            Math.abs(deposit * 100 - Math.round(deposit * 100)) > 1e-7
-        ) {
+        if (securityDepositCents === null) {
             setError("Enter a valid security deposit with up to two decimal places.");
             return;
         }
@@ -92,8 +68,8 @@ export default function CreateLeaseForm({
                 spaceId: Number(spaceId),
                 startDate,
                 endDate,
-                monthlyRentCents: Math.round(rent * 100),
-                securityDepositCents: Math.round(deposit * 100),
+                monthlyRentCents,
+                securityDepositCents,
             });
         } catch (submitError) {
             setError(
@@ -253,7 +229,7 @@ export default function CreateLeaseForm({
                                 id="lease-end-date"
                                 type="date"
                                 required
-                                min={startDate || undefined}
+                                min={startDate ? addDays(startDate, 1) : undefined}
                                 value={endDate}
                                 onChange={(event) =>
                                     setEndDate(event.target.value)
