@@ -100,6 +100,12 @@ public class LeaseService implements LeaseAccess {
         return leaseRepository.findAllByOrganizationIdAndPropertyId(organizationId, propertyId).stream().map(LeaseResponse::from).toList();
     }
 
+    // As with properties, a tenant of another organization matches nothing.
+    public List<LeaseResponse> findAllByTenantId(Long organizationId, Long tenantId){
+        organizationAuthorization(organizationId);
+        return leaseRepository.findAllByOrganizationIdAndTenantIdOrderByStartDateAscIdAsc(organizationId, tenantId).stream().map(LeaseResponse::from).toList();
+    }
+
     public LeaseResponse getLease(Long organizationId, Long leaseId){
         organizationAuthorization(organizationId);
         Lease lease = leaseValidation(leaseId, organizationId);

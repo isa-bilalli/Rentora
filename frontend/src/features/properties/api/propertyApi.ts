@@ -36,6 +36,13 @@ export async function getSpaces(organizationId: number, propertyId: number): Pro
     );
 }
 
+// One space by its ID alone. The response names the space's property.
+export async function getSpace(organizationId: number, spaceId: number): Promise<SpaceResponse> {
+    return apiRequest<SpaceResponse>(`/api/organizations/${organizationId}/spaces/${spaceId}`, {
+        authenticated: true,
+    });
+}
+
 export async function createSpace(organizationId: number, propertyId: number, request: CreateSpaceRequest): Promise<SpaceResponse> {
     return apiRequest<SpaceResponse>(`/api/organizations/${organizationId}/properties/${propertyId}/spaces`, {
             method: "POST",

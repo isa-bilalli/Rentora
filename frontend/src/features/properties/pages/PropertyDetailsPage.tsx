@@ -4,12 +4,10 @@ import {
     ArrowLeft,
     Building2,
     LayoutGrid,
-    Plus,
     Pencil,
 } from "lucide-react";
 
 import { useOrganization } from "../../organizations/useOrganization";
-import { useRolePermissions } from "../../organizations/useRolePermissions";
 
 import {
     getProperty,
@@ -17,36 +15,16 @@ import {
     updateProperty,
 } from "../api/propertyApi";
 
-import {
-    getLeases,
-    createLease,
-    endLease,
-    cancelLease,
-    renewLease,
-} from "../../leases/api/leasesApi";
-
-import type { RenewLeaseRequest } from "../../leases/types";
-
-import type {
-    CreateLeaseRequest,
-    LeaseResponse,
-    LeaseStatus,
-} from "../../leases/types";
-
-import { getTenants } from "../../tenants/api/tenantApi";
-import type { TenantResponse } from "../../tenants/types";
-
-import CreateLeaseForm from "../../leases/components/CreateLeaseForm";
-import RenewLeaseForm from "../../leases/components/RenewLeaseForm";
 import UpdatePropertyForm from "../components/form/EditPropertyForm";
 import SummaryCard from "../components/SummaryCard";
 import PropertyFinancialsTab from "../components/tabs/PropertyFinancialsTab";
+import PropertyLeasesTab from "../components/tabs/PropertyLeasesTab";
 import PropertyMaintenanceTab from "../components/tabs/PropertyMaintenanceTab";
 import PropertySpacesTab from "../components/tabs/PropertySpacesTab";
-import TableHeader from "../components/tabs/TableHeader";
+import { propertyTypeLabels } from "../propertyLabels";
 import { spaceTypeLabels } from "../spaceLabels";
 
-import { formatDate, formatMoney } from "../../../lib/format";
+import { formatDate } from "../../../lib/format";
 
 import type {
     PropertyResponse,
@@ -73,11 +51,11 @@ function getPropertyType(spaces: SpaceResponse[]): string {
     const types = new Set(spaces.map((space) => space.type));
 
     if (types.size === 0) {
-        return "Not classified";
+        return propertyTypeLabels.NOT_CLASSIFIED;
     }
 
     if (types.size > 1) {
-        return "Mixed-use";
+        return propertyTypeLabels.MIXED_USE;
     }
 
     return spaceTypeLabels[spaces[0].type];
@@ -90,8 +68,6 @@ export default function PropertyDetailsPage() {
         activeOrganization,
         status: organizationStatus,
     } = useOrganization();
-    // Ending and cancelling leases are for managers and owners (docs/ROLES.md).
-    const { canManage } = useRolePermissions();
 
     const activeOrganizationId = activeOrganization?.id;
 
@@ -99,8 +75,6 @@ export default function PropertyDetailsPage() {
         useState<PropertyResponse | null>(null);
 
     const [spaces, setSpaces] = useState<SpaceResponse[]>([]);
-    const [leases, setLeases] = useState<LeaseResponse[]>([]);
-    const [tenants, setTenants] = useState<TenantResponse[]>([]);
     const [showEditProperty, setShowEditProperty] = useState(false);
     const [updatingProperty, setUpdatingProperty] = useState(false);
 
@@ -109,29 +83,6 @@ export default function PropertyDetailsPage() {
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-
-    const [leasesLoading, setLeasesLoading] = useState(true);
-    const [leasesError, setLeasesError] =
-        useState<string | null>(null);
-
-    const [tenantsLoading, setTenantsLoading] = useState(true);
-    const [tenantsError, setTenantsError] =
-        useState<string | null>(null);
-
-    const [showCreateLease, setShowCreateLease] = useState(false);
-    const [creatingLease, setCreatingLease] = useState(false);
-
-    const [renewingLeaseId, setRenewingLeaseId] =
-        useState<number | null>(null);
-
-    const [renewingLeaseSubmitting, setRenewingLeaseSubmitting] =
-        useState(false);
-
-    const [leaseActionBusyId, setLeaseActionBusyId] =
-        useState<number | null>(null);
-
-    const [leaseActionError, setLeaseActionError] =
-        useState<string | null>(null);
 
     const parsedPropertyId = Number(propertyId);
 
@@ -198,104 +149,6 @@ export default function PropertyDetailsPage() {
         isValidPropertyId,
     ]);
 
-    useEffect(() => {
-        if (
-            organizationStatus !== "ready" ||
-            activeOrganizationId === undefined
-        ) {
-            return;
-        }
-
-        // An invalid ID is rendered by the property load; there is nothing to fetch.
-        if (!isValidPropertyId) {
-            return;
-        }
-
-        const organizationId = activeOrganizationId;
-        let cancelled = false;
-
-        async function loadLeases() {
-            setLeasesLoading(true);
-            setLeasesError(null);
-            setLeases([]);
-
-            try {
-                const data = await getLeases(organizationId, parsedPropertyId);
-
-                if (!cancelled) {
-                    setLeases(data);
-                }
-            } catch (requestError) {
-                if (!cancelled) {
-                    setLeasesError(
-                        requestError instanceof Error
-                            ? requestError.message
-                            : "Failed to load leases.",
-                    );
-                }
-            } finally {
-                if (!cancelled) {
-                    setLeasesLoading(false);
-                }
-            }
-        }
-
-        void loadLeases();
-
-        return () => {
-            cancelled = true;
-        };
-    }, [
-        organizationStatus,
-        activeOrganizationId,
-        parsedPropertyId,
-        isValidPropertyId,
-    ]);
-
-    useEffect(() => {
-        if (
-            organizationStatus !== "ready" ||
-            activeOrganizationId === undefined
-        ) {
-            return;
-        }
-
-        const organizationId = activeOrganizationId;
-        let cancelled = false;
-
-        async function loadTenants() {
-            setTenantsLoading(true);
-            setTenantsError(null);
-            setTenants([]);
-
-            try {
-                const data = await getTenants(organizationId);
-
-                if (!cancelled) {
-                    setTenants(data);
-                }
-            } catch (requestError) {
-                if (!cancelled) {
-                    setTenantsError(
-                        requestError instanceof Error
-                            ? requestError.message
-                            : "Failed to load tenants.",
-                    );
-                }
-            } finally {
-                if (!cancelled) {
-                    setTenantsLoading(false);
-                }
-            }
-        }
-
-        void loadTenants();
-
-        return () => {
-            cancelled = true;
-        };
-    }, [organizationStatus, activeOrganizationId]);
-
     async function handleUpdateProperty(
         request: UpdatePropertyRequest,
     ): Promise<void> {
@@ -327,164 +180,6 @@ export default function PropertyDetailsPage() {
             return;
         }
         setSpaces(await getSpaces(activeOrganization.id, property.id));
-    }
-
-    async function refreshPropertySpaces(): Promise<void> {
-        if (!activeOrganization || !property) {
-            return;
-        }
-
-        try {
-            const latestSpaces = await getSpaces(
-                activeOrganization.id,
-                property.id,
-            );
-
-            setSpaces(latestSpaces);
-        } catch {
-            setLeaseActionError(
-                "The lease action succeeded, but space statuses could not be refreshed. Reload the page to see the latest statuses.",
-            );
-        }
-    }
-
-    async function handleCreateLease(
-        request: CreateLeaseRequest,
-    ): Promise<void> {
-        if (!activeOrganization || !property) {
-            throw new Error(
-                "An active organization and property are required.",
-            );
-        }
-
-        setCreatingLease(true);
-        setLeaseActionError(null);
-
-        try {
-            const createdLease = await createLease(
-                activeOrganization.id,
-                request,
-            );
-
-            setLeases((currentLeases) =>
-                [createdLease, ...currentLeases].sort(
-                    (a, b) => b.startDate.localeCompare(a.startDate),
-                ),
-            );
-
-            setShowCreateLease(false);
-            await refreshPropertySpaces();
-        } finally {
-            setCreatingLease(false);
-        }
-    }
-
-    async function handleEndLease(
-        lease: LeaseResponse,
-    ): Promise<void> {
-        const confirmed = window.confirm(
-            `End lease #${lease.id}? This will mark the lease as ended.`,
-        );
-
-        if (!confirmed || !activeOrganization) {
-            return;
-        }
-
-        setLeaseActionBusyId(lease.id);
-        setLeaseActionError(null);
-
-        try {
-            const updatedLease = await endLease(
-                activeOrganization.id,
-                lease.id,
-            );
-
-            setLeases((currentLeases) =>
-                currentLeases.map((item) =>
-                    item.id === updatedLease.id ? updatedLease : item,
-                ),
-            );
-
-            await refreshPropertySpaces();
-        } catch (requestError) {
-            setLeaseActionError(
-                requestError instanceof Error
-                    ? requestError.message
-                    : "Failed to end lease.",
-            );
-        } finally {
-            setLeaseActionBusyId(null);
-        }
-    }
-
-    async function handleCancelLease(
-        lease: LeaseResponse,
-    ): Promise<void> {
-        const confirmed = window.confirm(
-            `Cancel lease #${lease.id}? This action cannot be undone from this screen.`,
-        );
-
-        if (!confirmed || !activeOrganization) {
-            return;
-        }
-
-        setLeaseActionBusyId(lease.id);
-        setLeaseActionError(null);
-
-        try {
-            const updatedLease = await cancelLease(
-                activeOrganization.id,
-                lease.id,
-            );
-
-            setLeases((currentLeases) =>
-                currentLeases.map((item) =>
-                    item.id === updatedLease.id ? updatedLease : item,
-                ),
-            );
-
-            await refreshPropertySpaces();
-        } catch (requestError) {
-            setLeaseActionError(
-                requestError instanceof Error
-                    ? requestError.message
-                    : "Failed to cancel lease.",
-            );
-        } finally {
-            setLeaseActionBusyId(null);
-        }
-    }
-
-    async function handleRenewLease(
-        request: RenewLeaseRequest,
-    ): Promise<void> {
-        if (!activeOrganization || renewingLeaseId === null) {
-            throw new Error(
-                "Select an active lease to renew.",
-            );
-        }
-
-        setRenewingLeaseSubmitting(true);
-        setLeaseActionError(null);
-
-        try {
-            const renewedLease = await renewLease(
-                activeOrganization.id,
-                renewingLeaseId,
-                request,
-            );
-
-            setLeases((currentLeases) =>
-                [renewedLease, ...currentLeases].sort(
-                    (a, b) => b.startDate.localeCompare(a.startDate),
-                ),
-            );
-
-            setRenewingLeaseId(null);
-            await refreshPropertySpaces();
-        } finally {
-            setRenewingLeaseSubmitting(false);
-        }
     }
 
     if (organizationStatus === "loading") {
@@ -559,17 +254,6 @@ export default function PropertyDetailsPage() {
     const maintenanceSpaces = spaces.filter(
         (space) => space.status === "MAINTENANCE",
     ).length;
-
-    // Leases are loaded for this property only.
-    const propertyLeases = [...leases]
-        .sort((a, b) => b.startDate.localeCompare(a.startDate));
-
-    const spacesById = new Map(
-        spaces.map((space) => [space.id, space]),
-    );
-
-    const renewingLease =
-        propertyLeases.find((lease) => lease.id === renewingLeaseId) ?? null;
 
     return (
         <div className="min-h-full bg-[#f7f9f7] p-5 sm:p-8">
@@ -672,9 +356,6 @@ export default function PropertyDetailsPage() {
                                 aria-controls="property-tab-panel"
                                 onClick={() => {
                                     setActiveTab(tab.id);
-                                    setShowCreateLease(false);
-                                    setRenewingLeaseId(null);
-                                    setLeaseActionError(null);
                                 }}
                                 className={`whitespace-nowrap border-b-2 px-3 py-3 text-sm font-medium transition ${
                                     activeTab === tab.id
@@ -735,202 +416,17 @@ export default function PropertyDetailsPage() {
                         )}
 
                         {activeTab === "leases" && (
-                            <div className="space-y-5">
-                                <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-                                    <div>
-                                        <h2 className="text-lg font-semibold text-[#14302b]">
-                                            Leases
-                                        </h2>
-                                        <p className="mt-1 text-sm text-gray-500">
-                                            Lease agreements associated with this property's spaces.
-                                        </p>
-                                    </div>
-
-                                    {!showCreateLease && renewingLeaseId === null && (
-                                        <button
-                                            type="button"
-                                            disabled={
-                                                tenantsLoading ||
-                                                Boolean(tenantsError) ||
-                                                creatingLease ||
-                                                leaseActionBusyId !== null
-                                            }
-                                            onClick={() => {
-                                                setLeaseActionError(null);
-                                                setShowCreateLease(true);
-                                            }}
-                                            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#14302b] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#20453d] disabled:cursor-not-allowed disabled:opacity-60"
-                                        >
-                                            <Plus className="h-4 w-4" />
-                                            {tenantsLoading ? "Loading tenants..." : "Create lease"}
-                                        </button>
-                                    )}
-                                </div>
-
-                                {tenantsError && (
-                                    <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                                        Unable to load tenants: {tenantsError}
-                                    </div>
-                                )}
-
-                                {leaseActionError && (
-                                    <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                                        {leaseActionError}
-                                    </div>
-                                )}
-
-                                {showCreateLease && (
-                                    <CreateLeaseForm
-                                        tenants={tenants}
-                                        spaces={spaces}
-                                        submitting={creatingLease}
-                                        onSubmit={handleCreateLease}
-                                        onCancel={() => setShowCreateLease(false)}
-                                    />
-                                )}
-
-                                {renewingLease && (
-                                    <RenewLeaseForm
-                                        key={renewingLease.id}
-                                        lease={renewingLease}
-                                        submitting={renewingLeaseSubmitting}
-                                        onSubmit={handleRenewLease}
-                                        onCancel={() => setRenewingLeaseId(null)}
-                                    />
-                                )}
-
-                                {leasesError && (
-                                    <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                                        Unable to load leases: {leasesError}
-                                    </div>
-                                )}
-
-                                {leasesLoading ? (
-                                    <p className="py-8 text-center text-sm text-gray-500">
-                                        Loading leases...
-                                    </p>
-                                ) : leasesError ? null : propertyLeases.length === 0 ? (
-                                    <div className="rounded-lg border border-dashed border-[#d5dfd8] px-6 py-12 text-center">
-                                        <h3 className="font-semibold text-[#14302b]">
-                                            No leases yet
-                                        </h3>
-                                        <p className="mt-1 text-sm text-gray-500">
-                                            No leases have been recorded for this property's spaces.
-                                        </p>
-                                    </div>
-                                ) : (
-                                    <div className="overflow-x-auto rounded-lg border border-[#e1e8e3]">
-                                        <table className="w-full min-w-287.5 text-left">
-                                            <thead className="bg-[#f8faf8]">
-                                                <tr>
-                                                    <TableHeader>Space</TableHeader>
-                                                    <TableHeader>Tenant ID</TableHeader>
-                                                    <TableHeader>Lease period</TableHeader>
-                                                    <TableHeader>Monthly rent</TableHeader>
-                                                    <TableHeader>Deposit</TableHeader>
-                                                    <TableHeader>Status</TableHeader>
-                                                    <TableHeader>Actions</TableHeader>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-[#edf0ee]">
-                                                {propertyLeases.map((lease) => (
-                                                    <tr key={lease.id} className="hover:bg-[#f8faf8]">
-                                                        <td className="px-4 py-4">
-                                                            <p className="text-sm font-medium text-[#14302b]">
-                                                                {spacesById.get(lease.spaceId)?.name ?? `Space #${lease.spaceId}`}
-                                                            </p>
-                                                            <p className="mt-1 text-xs text-gray-500">
-                                                                Lease #{lease.id}
-                                                            </p>
-                                                        </td>
-                                                        <td className="px-4 py-4 text-sm text-gray-600">
-                                                            #{lease.tenantId}
-                                                        </td>
-                                                        <td className="px-4 py-4 text-sm text-gray-600">
-                                                            <div>{formatDate(lease.startDate)}</div>
-                                                            <div className="mt-1 text-gray-400">
-                                                                to {formatDate(lease.endDate)}
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-4 py-4 text-sm font-medium text-[#243b35]">
-                                                            {formatMoney(lease.monthlyRentCents)}
-                                                        </td>
-                                                        <td className="px-4 py-4 text-sm text-gray-600">
-                                                            {formatMoney(lease.securityDepositCents)}
-                                                        </td>
-                                                        <td className="px-4 py-4">
-                                                            <LeaseStatusBadge status={lease.status} />
-                                                        </td>
-                                                        <td className="px-4 py-4">
-                                                            {lease.status === "ACTIVE" ? (
-                                                                <div className="flex flex-wrap gap-2">
-                                                                    <button
-                                                                        type="button"
-                                                                        disabled={
-                                                                            leaseActionBusyId !== null ||
-                                                                            renewingLeaseSubmitting ||
-                                                                            creatingLease
-                                                                        }
-                                                                        onClick={() => {
-                                                                            setLeaseActionError(null);
-                                                                            setShowCreateLease(false);
-                                                                            setRenewingLeaseId(lease.id);
-                                                                        }}
-                                                                        className="rounded-lg border border-[#d5dfd8] bg-white px-3 py-2 text-xs font-medium text-[#14302b] hover:bg-[#f8faf8] disabled:opacity-50"
-                                                                    >
-                                                                        Renew
-                                                                    </button>
-
-                                                                    {canManage && (
-                                                                        <>
-                                                                            <button
-                                                                                type="button"
-                                                                                disabled={
-                                                                                    leaseActionBusyId !== null ||
-                                                                                    renewingLeaseSubmitting ||
-                                                                                    creatingLease
-                                                                                }
-                                                                                onClick={() => void handleEndLease(lease)}
-                                                                                className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 hover:bg-amber-100 disabled:opacity-50"
-                                                                            >
-                                                                                {leaseActionBusyId === lease.id ? "Saving..." : "End"}
-                                                                            </button>
-
-                                                                            <button
-                                                                                type="button"
-                                                                                disabled={
-                                                                                    leaseActionBusyId !== null ||
-                                                                                    renewingLeaseSubmitting ||
-                                                                                    creatingLease
-                                                                                }
-                                                                                onClick={() => void handleCancelLease(lease)}
-                                                                                className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
-                                                                            >
-                                                                                {leaseActionBusyId === lease.id ? "Saving..." : "Cancel"}
-                                                                            </button>
-                                                                        </>
-                                                                    )}
-                                                                </div>
-                                                            ) : (
-                                                                <span className="text-sm text-gray-400">
-                                                                    —
-                                                                </span>
-                                                            )}
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                )}
-                            </div>
+                            <PropertyLeasesTab
+                                propertyId={property.id}
+                                spaces={spaces}
+                                onSpacesChanged={reloadSpaces}
+                            />
                         )}
 
                         {activeTab === "financials" && (
                             <PropertyFinancialsTab
                                 propertyId={property.id}
                                 spaces={spaces}
-                                leases={leases}
                             />
                         )}
 
@@ -962,31 +458,5 @@ function DetailField({
                 {value}
             </dd>
         </div>
-    );
-}
-
-function LeaseStatusBadge({
-    status,
-}: {
-    status: LeaseStatus;
-}) {
-    const styles: Record<LeaseStatus, string> = {
-        ACTIVE: "bg-[#e8efe9] text-[#14302b]",
-        ENDED: "bg-gray-100 text-gray-600",
-        CANCELLED: "bg-red-50 text-red-700",
-    };
-
-    const labels: Record<LeaseStatus, string> = {
-        ACTIVE: "Active",
-        ENDED: "Ended",
-        CANCELLED: "Cancelled",
-    };
-
-    return (
-        <span
-            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${styles[status]}`}
-        >
-            {labels[status]}
-        </span>
     );
 }

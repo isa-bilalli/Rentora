@@ -6,6 +6,7 @@ import type { CreateLeaseRequest } from "../types";
 import type { TenantResponse } from "../../tenants/types";
 import { getTenantDisplayName } from "../../tenants/types";
 import type { SpaceResponse } from "../../properties/types";
+import { spaceStatusLabels, spaceTypeLabels } from "../../properties/spaceLabels";
 
 interface CreateLeaseFormProps {
     tenants: TenantResponse[];
@@ -212,9 +213,9 @@ export default function CreateLeaseForm({
                                     >
                                         {space.name}
                                         {" — "}
-                                        {space.type.toLowerCase().replace("_", " ")}
+                                        {spaceTypeLabels[space.type]}
                                         {" ("}
-                                        {space.status.toLowerCase()}
+                                        {spaceStatusLabels[space.status]}
                                         {")"}
                                     </option>
                                 ))}

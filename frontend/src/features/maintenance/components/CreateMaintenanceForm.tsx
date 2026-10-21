@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Plus, X } from "lucide-react";
 
 import type { SpaceResponse } from "../../properties/types";
+import { spaceStatusLabels, spaceTypeLabels } from "../../properties/spaceLabels";
 import type {
     CreateMaintenanceRequest,
     MaintenancePriority,
@@ -210,13 +211,9 @@ export default function CreateMaintenanceForm({
                                 >
                                     {space.name}
                                     {" — "}
-                                    {space.type
-                                        .toLowerCase()
-                                        .replace("_", " ")}
+                                    {spaceTypeLabels[space.type]}
                                     {" ("}
-                                    {space.status
-                                        .toLowerCase()
-                                        .replace("_", " ")}
+                                    {spaceStatusLabels[space.status]}
                                     {")"}
                                 </option>
                             ))}

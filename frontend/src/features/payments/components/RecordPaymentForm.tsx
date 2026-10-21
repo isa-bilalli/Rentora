@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Pencil, X } from "lucide-react";
 
 import { formatDate, formatMoney } from "../../../lib/format";
+import { paymentMethodLabels } from "../status";
 import type { PaymentMethod, PaymentResponse, RecordPaymentRequest } from "../types";
 
 function getLocalDateTimeInputValue(): string {
@@ -119,10 +120,11 @@ export default function RecordPaymentForm({
                         className={inputClass}
                     >
                         <option value="">Select payment method</option>
-                        <option value="CASH">Cash</option>
-                        <option value="BANK_TRANSFER">Bank transfer</option>
-                        <option value="CARD">Card</option>
-                        <option value="OTHER">Other</option>
+                        {(Object.keys(paymentMethodLabels) as PaymentMethod[]).map((method) => (
+                            <option key={method} value={method}>
+                                {paymentMethodLabels[method]}
+                            </option>
+                        ))}
                     </select>
                 </div>
             </div>

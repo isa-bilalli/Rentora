@@ -7,6 +7,7 @@ import type {
     SpaceResponse,
     SpaceType,
 } from "../../types";
+import { spaceTypeLabels } from "../../spaceLabels";
 
 interface CreateSpaceFormProps {
     submitting: boolean;
@@ -14,13 +15,6 @@ interface CreateSpaceFormProps {
     onSubmit: (request: CreateSpaceRequest) => Promise<void>;
     onCancel: () => void;
 }
-
-const spaceTypes: { value: SpaceType; label: string }[] = [
-    { value: "RESIDENTIAL", label: "Residential" },
-    { value: "OFFICE", label: "Office" },
-    { value: "RETAIL", label: "Retail" },
-    { value: "OTHER", label: "Other" },
-];
 
 export default function CreateSpaceForm({
     submitting,
@@ -156,9 +150,9 @@ export default function CreateSpaceForm({
                         }
                         className={inputClass}
                     >
-                        {spaceTypes.map((option) => (
-                            <option key={option.value} value={option.value}>
-                                {option.label}
+                        {(Object.keys(spaceTypeLabels) as SpaceType[]).map((spaceType) => (
+                            <option key={spaceType} value={spaceType}>
+                                {spaceTypeLabels[spaceType]}
                             </option>
                         ))}
                     </select>

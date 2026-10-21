@@ -3,17 +3,10 @@ import { LayoutGrid, Pencil, Plus } from "lucide-react";
 
 import { useOrganization } from "../../../organizations/useOrganization";
 import { createSpace, updateSpace, updateSpaceStatus } from "../../api/propertyApi";
-import { spaceTypeLabels } from "../../spaceLabels";
+import { spaceStatusLabels, spaceTypeLabels } from "../../spaceLabels";
 import type { CreateSpaceRequest, SpaceResponse, SpaceStatus } from "../../types";
 import CreateSpaceForm from "../form/CreateSpaceForm";
 import TableHeader from "./TableHeader";
-
-const spaceStatusLabels: Record<SpaceStatus, string> = {
-    VACANT: "Vacant",
-    OCCUPIED: "Occupied",
-    RESERVED: "Reserved",
-    MAINTENANCE: "Maintenance",
-};
 
 const spaceStatusStyles: Record<SpaceStatus, string> = {
     VACANT: "border-gray-200 bg-gray-100 text-gray-700",

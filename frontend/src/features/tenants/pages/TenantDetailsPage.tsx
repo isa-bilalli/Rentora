@@ -19,10 +19,15 @@ import { useOrganization } from "../../organizations/useOrganization";
 import TenantForm from "../components/TenantForm";
 
 import { getLeases } from "../../leases/api/leasesApi";
+import LeaseStatusBadge from "../../leases/components/LeaseStatusBadge";
+import { getLeaseDisplayStatus } from "../../leases/status";
 import type { LeaseResponse } from "../../leases/types";
 
 import { getPayments } from "../../payments/api/paymentApi";
-import type { PaymentResponse, PaymentStatus } from "../../payments/types";
+import PaymentStatusBadge from "../../payments/components/PaymentStatusBadge";
+import { formatPaymentMethod, getPaymentDisplayStatus } from "../../payments/status";
+import type { PaymentResponse } from "../../payments/types";
+import { todayLocalDateString } from "../../../lib/dates";
 import { formatDateTime, formatLongDate, formatMoney } from "../../../lib/format";
 
 import {
@@ -30,98 +35,6 @@ import {
     type TenantResponse,
     type UpdateTenantRequest,
 } from "../types";
-
-function getLocalDateString(): string {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const day = String(now.getDate()).padStart(2, "0");
-
-    return `${year}-${month}-${day}`;
-}
-
-function getLeaseDisplayStatus(
-    lease: LeaseResponse,
-    today: string,
-): string {
-    if (lease.status === "ACTIVE" && lease.startDate > today) {
-        return "UPCOMING";
-    }
-
-    return lease.status;
-}
-
-function LeaseStatusBadge({ status }: { status: string }) {
-    const classes =
-        status === "ACTIVE"
-            ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-            : status === "UPCOMING"
-              ? "border-blue-200 bg-blue-50 text-blue-800"
-              : status === "ENDED"
-                ? "border-gray-200 bg-gray-100 text-gray-700"
-                : "border-red-200 bg-red-50 text-red-800";
-
-    const label =
-        status === "UPCOMING"
-            ? "Upcoming"
-            : status.charAt(0) + status.slice(1).toLowerCase();
-
-    return (
-        <span
-            className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${classes}`}
-        >
-            {label}
-        </span>
-    );
-}
-
-function getPaymentDisplayStatus(
-    payment: PaymentResponse,
-    today: string,
-): PaymentStatus | "OVERDUE" {
-    if (payment.status === "PENDING" && payment.dueDate < today) {
-        return "OVERDUE";
-    }
-
-    return payment.status;
-}
-
-function PaymentStatusBadge({ status }: { status: string }) {
-    const classes =
-        status === "PAID"
-            ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-            : status === "OVERDUE"
-              ? "border-red-200 bg-red-50 text-red-800"
-              : status === "PENDING"
-                ? "border-amber-200 bg-amber-50 text-amber-800"
-                : "border-gray-200 bg-gray-100 text-gray-700";
-
-    const label =
-        status === "OVERDUE"
-            ? "Overdue"
-            : status.charAt(0) + status.slice(1).toLowerCase();
-
-    return (
-        <span
-            className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${classes}`}
-        >
-            {label}
-        </span>
-    );
-}
-
-function formatPaymentMethod(value: string | null): string {
-    if (!value) return "—";
-
-    return value
-        .toLowerCase()
-        .split("_")
-        .map(
-            (part) =>
-                part.charAt(0).toUpperCase() + part.slice(1),
-        )
-        .join(" ");
-}
 
 export default function TenantDetailsPage() {
     const { activeOrganization } = useOrganization();
@@ -200,63 +113,62 @@ export default function TenantDetailsPage() {
         };
     }, [organizationId, tenantId]);
 
-    // Load the tenant's leases, then find payments belonging to those leases.
+    // Load the tenant's leases and payments. The server filters both lists to this tenant,
+    // so they load side by side and one failing doesn't stop the other.
     useEffect(() => {
         let cancelled = false;
 
-        async function loadLeaseHistoryAndPayments() {
+        const problem = !Number.isFinite(tenantId) || tenantId <= 0
+            ? "The tenant ID in this URL is invalid."
+            : !Number.isFinite(organizationId) || organizationId <= 0
+              ? "Select an organization to view lease and payment history."
+              : null;
+
+        async function loadLeases() {
             setLeasesLoading(true);
             setLeasesError(null);
             setLeases([]);
 
+            try {
+                if (problem) throw new Error(problem);
+
+                const tenantLeases = await getLeases(organizationId, { tenantId });
+
+                if (!cancelled) {
+                    setLeases(
+                        [...tenantLeases].sort((a, b) =>
+                            b.startDate.localeCompare(a.startDate),
+                        ),
+                    );
+                }
+            } catch (error) {
+                if (!cancelled) {
+                    setLeasesError(
+                        error instanceof Error
+                            ? error.message
+                            : "Unable to load lease history.",
+                    );
+                }
+            } finally {
+                if (!cancelled) {
+                    setLeasesLoading(false);
+                }
+            }
+        }
+
+        async function loadPayments() {
             setPaymentsLoading(true);
             setPaymentsError(null);
             setPayments([]);
 
             try {
-                if (!Number.isFinite(tenantId) || tenantId <= 0) {
-                    throw new Error(
-                        "The tenant ID in this URL is invalid.",
-                    );
-                }
+                if (problem) throw new Error(problem);
 
-                if (
-                    !Number.isFinite(organizationId) ||
-                    organizationId <= 0
-                ) {
-                    throw new Error(
-                        "Select an organization to view lease and payment history.",
-                    );
-                }
-
-                const organizationLeases =
-                    await getLeases(organizationId);
-
-                const tenantLeases = organizationLeases
-                    .filter((lease) => lease.tenantId === tenantId)
-                    .sort((a, b) =>
-                        b.startDate.localeCompare(a.startDate),
-                    );
+                const tenantPayments = await getPayments(organizationId, { tenantId });
 
                 if (!cancelled) {
-                    setLeases(tenantLeases);
-                }
-
-                const tenantLeaseIds = new Set(
-                    tenantLeases.map((lease) => lease.id),
-                );
-
-                // The payments endpoint returns organization-wide payments.
-                // Filter them to the leases belonging to this tenant.
-                try {
-                    const organizationPayments =
-                        await getPayments(organizationId);
-
-                    const tenantPayments = organizationPayments
-                        .filter((payment) =>
-                            tenantLeaseIds.has(payment.leaseId),
-                        )
-                        .sort((a, b) => {
+                    setPayments(
+                        [...tenantPayments].sort((a, b) => {
                             const dateOrder =
                                 b.dueDate.localeCompare(a.dueDate);
 
@@ -267,41 +179,26 @@ export default function TenantDetailsPage() {
                             return (b.paidAt ?? "").localeCompare(
                                 a.paidAt ?? "",
                             );
-                        });
-
-                    if (!cancelled) {
-                        setPayments(tenantPayments);
-                    }
-                } catch (paymentError) {
-                    if (!cancelled) {
-                        setPaymentsError(
-                            paymentError instanceof Error
-                                ? paymentError.message
-                                : "Unable to load payment history.",
-                        );
-                    }
+                        }),
+                    );
                 }
             } catch (error) {
                 if (!cancelled) {
-                    const message =
+                    setPaymentsError(
                         error instanceof Error
                             ? error.message
-                            : "Unable to load lease history.";
-
-                    setLeasesError(message);
-                    setPaymentsError(
-                        "Payment history could not be associated with this tenant because the lease list failed to load.",
+                            : "Unable to load payment history.",
                     );
                 }
             } finally {
                 if (!cancelled) {
-                    setLeasesLoading(false);
                     setPaymentsLoading(false);
                 }
             }
         }
 
-        void loadLeaseHistoryAndPayments();
+        void loadLeases();
+        void loadPayments();
 
         return () => {
             cancelled = true;
@@ -358,7 +255,7 @@ export default function TenantDetailsPage() {
         );
     }
 
-    const today = getLocalDateString();
+    const today = todayLocalDateString();
 
     const paidPayments = payments.filter(
         (payment) => payment.status === "PAID",

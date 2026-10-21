@@ -22,6 +22,7 @@ import type {
     PropertyResponse,
     SpaceType,
 } from "../types";
+import { spaceTypeLabels } from "../spaceLabels";
 
 interface InitialSpaceDraft {
     id: number;
@@ -30,13 +31,6 @@ interface InitialSpaceDraft {
     floor: string;
     area: string;
 }
-
-const spaceTypes: { value: SpaceType; label: string }[] = [
-    { value: "RESIDENTIAL", label: "Residential" },
-    { value: "OFFICE", label: "Office" },
-    { value: "RETAIL", label: "Retail" },
-    { value: "OTHER", label: "Other" },
-];
 
 const inputClass =
     "w-full rounded-lg border border-[#dce4de] bg-white px-3 py-2.5 text-sm text-[#243b35] outline-none transition placeholder:text-gray-400 focus:border-[#14302b] focus:ring-2 focus:ring-[#14302b]/10 disabled:cursor-not-allowed disabled:bg-gray-100";
@@ -677,12 +671,12 @@ export default function CreatePropertyPage() {
                                                             disabled={submitting || Boolean(createdProperty)}
                                                             className={inputClass}
                                                         >
-                                                            {spaceTypes.map((option) => (
+                                                            {(Object.keys(spaceTypeLabels) as SpaceType[]).map((spaceType) => (
                                                                 <option
-                                                                    key={option.value}
-                                                                    value={option.value}
+                                                                    key={spaceType}
+                                                                    value={spaceType}
                                                                 >
-                                                                    {option.label}
+                                                                    {spaceTypeLabels[spaceType]}
                                                                 </option>
                                                             ))}
                                                         </select>

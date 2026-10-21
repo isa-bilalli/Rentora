@@ -5,6 +5,7 @@ import com.isabilalli.rentora.lease.api.dto.LeaseResponse;
 import com.isabilalli.rentora.lease.api.dto.RenewLeaseRequest;
 import com.isabilalli.rentora.lease.api.dto.UpdateLeaseRequest;
 import com.isabilalli.rentora.lease.application.LeaseService;
+import com.isabilalli.rentora.shared.api.BadRequestException;
 import jakarta.validation.Valid;
 
 import java.util.List;
@@ -31,11 +32,17 @@ public class LeaseController {
         return ResponseEntity.ok(leaseService.createLease(organizationId, request));
     }
 
-    // Every lease, or with ?propertyId= only the leases on that property's spaces.
+    // Every lease, or only one property's (?propertyId=) or one tenant's (?tenantId=).
     @GetMapping
-    public ResponseEntity<List<LeaseResponse>> getAllByOrganizationId(@PathVariable Long organizationId, @RequestParam(required = false) Long propertyId) {
+    public ResponseEntity<List<LeaseResponse>> getAllByOrganizationId(@PathVariable Long organizationId, @RequestParam(required = false) Long propertyId, @RequestParam(required = false) Long tenantId) {
+        if (propertyId != null && tenantId != null) {
+            throw new BadRequestException("Filter by propertyId or by tenantId, not both");
+        }
         if (propertyId != null) {
             return ResponseEntity.ok(leaseService.findAllByPropertyId(organizationId, propertyId));
+        }
+        if (tenantId != null) {
+            return ResponseEntity.ok(leaseService.findAllByTenantId(organizationId, tenantId));
         }
         return ResponseEntity.ok(leaseService.findAllByOrganizationId(organizationId));
     }

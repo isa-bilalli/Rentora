@@ -14,24 +14,27 @@ import {
 } from "lucide-react";
 
 import { useOrganization } from "../../organizations/useOrganization";
-import { getLeases, endLease, cancelLease, renewLease } from "../api/leasesApi";
+import { getLease, endLease, cancelLease, renewLease } from "../api/leasesApi";
+import LeaseStatusBadge from "../components/LeaseStatusBadge";
+import { getLeaseDisplayStatus } from "../status";
 import type { LeaseResponse, RenewLeaseRequest } from "../types";
-import { getTenants } from "../../tenants/api/tenantApi";
+import { getTenant } from "../../tenants/api/tenantApi";
 import { getTenantDisplayName, type TenantResponse } from "../../tenants/types";
-import { getPropertySummaries, getSpaces } from "../../properties/api/propertyApi";
+import { getProperty, getSpace } from "../../properties/api/propertyApi";
+import type { PropertyResponse, SpaceResponse } from "../../properties/types";
+import { spaceTypeLabels } from "../../properties/spaceLabels";
+import { toLocalDateString, todayLocalDateString } from "../../../lib/dates";
 import { formatDateTime, formatLongDate, formatMoney } from "../../../lib/format";
 import { moneyInputFromCents, parseMoneyToCents } from "../../../lib/money";
 import { useRolePermissions } from "../../organizations/useRolePermissions";
 
-type PropertySummary = Awaited<ReturnType<typeof getPropertySummaries>>[number];
-type SpaceResponse = Awaited<ReturnType<typeof getSpaces>>[number];
 type LeaseAction = "end" | "cancel" | null;
 
-function toLocalDateString(date: Date): string {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
+// A lease names only its space, and the space names its property.
+async function getSpaceWithProperty(organizationId: number, spaceId: number) {
+    const space = await getSpace(organizationId, spaceId);
+    const property = await getProperty(organizationId, space.propertyId);
+    return { space, property };
 }
 
 function addDays(value: string, days: number): string {
@@ -44,40 +47,6 @@ function addOneYear(value: string): string {
     const date = new Date(`${value}T12:00:00`);
     date.setFullYear(date.getFullYear() + 1);
     return toLocalDateString(date);
-}
-
-function getDisplayStatus(lease: LeaseResponse): string {
-    const today = toLocalDateString(new Date());
-
-    if (lease.status === "ACTIVE" && lease.startDate > today) {
-        return "UPCOMING";
-    }
-
-    return lease.status;
-}
-
-function LeaseStatusBadge({ status }: { status: string }) {
-    const classes =
-        status === "ACTIVE"
-            ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-            : status === "UPCOMING"
-              ? "border-blue-200 bg-blue-50 text-blue-800"
-              : status === "ENDED"
-                ? "border-gray-200 bg-gray-100 text-gray-700"
-                : "border-red-200 bg-red-50 text-red-800";
-
-    const label =
-        status === "UPCOMING"
-            ? "Upcoming"
-            : status.charAt(0) + status.slice(1).toLowerCase();
-
-    return (
-        <span
-            className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${classes}`}
-        >
-            {label}
-        </span>
-    );
 }
 
 function DetailField({
@@ -115,7 +84,7 @@ export default function LeaseDetailsPage() {
 
     const [lease, setLease] = useState<LeaseResponse | null>(null);
     const [tenant, setTenant] = useState<TenantResponse | null>(null);
-    const [property, setProperty] = useState<PropertySummary | null>(null);
+    const [property, setProperty] = useState<PropertyResponse | null>(null);
     const [space, setSpace] = useState<SpaceResponse | null>(null);
 
     const [loading, setLoading] = useState(true);
@@ -167,91 +136,33 @@ export default function LeaseDetailsPage() {
                     );
                 }
 
-                const [allLeases, allTenants] = await Promise.all([
-                    getLeases(organizationId),
-                    getTenants(organizationId),
+                // A lease that doesn't exist or belongs to another organization comes back as an error.
+                const selectedLease = await getLease(organizationId, leaseId);
+
+                if (cancelled) return;
+
+                setLease(selectedLease);
+
+                // The tenant and the space with its property load together.
+                const [tenantResult, spaceResult] = await Promise.allSettled([
+                    getTenant(organizationId, selectedLease.tenantId),
+                    getSpaceWithProperty(organizationId, selectedLease.spaceId),
                 ]);
 
                 if (cancelled) return;
 
-                const selectedLease = allLeases.find(
-                    (item) => item.id === leaseId,
-                );
-
-                if (!selectedLease) {
-                    throw new Error(
-                        "Lease not found in the selected organization.",
-                    );
+                // Without its tenant the page still works and shows the tenant's ID instead.
+                if (tenantResult.status === "fulfilled") {
+                    setTenant(tenantResult.value);
                 }
 
-                setLease(selectedLease);
-
-                setTenant(
-                    allTenants.find(
-                        (item) => item.id === selectedLease.tenantId,
-                    ) ?? null,
-                );
-
-                // Spaces are retrieved through their parent property.
-                // Search the organization's properties to resolve the space.
-                try {
-                    const properties =
-                        await getPropertySummaries(organizationId);
-
-                    const spaceGroups = await Promise.all(
-                        properties.map(async (candidateProperty) => {
-                            try {
-                                const propertySpaces = await getSpaces(
-                                    organizationId,
-                                    candidateProperty.id,
-                                );
-
-                                return {
-                                    candidateProperty,
-                                    propertySpaces,
-                                };
-                            } catch {
-                                return {
-                                    candidateProperty,
-                                    propertySpaces: [] as SpaceResponse[],
-                                };
-                            }
-                        }),
+                if (spaceResult.status === "fulfilled") {
+                    setSpace(spaceResult.value.space);
+                    setProperty(spaceResult.value.property);
+                } else {
+                    setRelatedDataError(
+                        `The lease loaded, but its space and property could not be loaded (${getErrorMessage(spaceResult.reason, "unknown error")}). The space ID is still shown below.`,
                     );
-
-                    if (cancelled) return;
-
-                    const match = spaceGroups.find(
-                        ({ propertySpaces }) =>
-                            propertySpaces.some(
-                                (candidateSpace) =>
-                                    candidateSpace.id ===
-                                    selectedLease.spaceId,
-                            ),
-                    );
-
-                    const matchingSpace = match?.propertySpaces.find(
-                        (candidateSpace) =>
-                            candidateSpace.id === selectedLease.spaceId,
-                    );
-
-                    if (match && matchingSpace) {
-                        setProperty(match.candidateProperty);
-                        setSpace(matchingSpace);
-                    } else {
-                        setRelatedDataError(
-                            "The lease loaded, but its space could not be matched to a property. The space ID is still shown below.",
-                        );
-                    }
-                } catch (error) {
-                    if (!cancelled) {
-                        setRelatedDataError(
-                            getErrorMessage(
-                                error,
-                                "The lease loaded, but property and space details could not be retrieved.",
-                            ),
-                        );
-                    }
                 }
             } catch (error) {
                 if (!cancelled) {
@@ -438,9 +349,9 @@ export default function LeaseDetailsPage() {
         );
     }
 
-    const displayStatus = getDisplayStatus(lease);
-    const rentHasStarted =
-        lease.startDate <= toLocalDateString(new Date());
+    const today = todayLocalDateString();
+    const displayStatus = getLeaseDisplayStatus(lease, today);
+    const rentHasStarted = lease.startDate <= today;
 
     return (
         <main className="mx-auto w-full max-w-6xl space-y-6 p-5 md:p-8">
@@ -914,16 +825,7 @@ export default function LeaseDetailsPage() {
 
                         <DetailField
                             label="Space type"
-                            value={
-                                space?.type
-                                    ? space.type
-                                          .toLowerCase()
-                                          .replaceAll("_", " ")
-                                          .replace(/^\w/, (letter) =>
-                                              letter.toUpperCase(),
-                                          )
-                                    : "—"
-                            }
+                            value={space ? spaceTypeLabels[space.type] : "—"}
                         />
 
                         {space?.floor !== null &&

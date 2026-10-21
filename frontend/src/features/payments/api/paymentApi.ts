@@ -1,12 +1,12 @@
 import { apiRequest } from "../../../lib/api/client";
+import { listFilterQuery, type ListFilter } from "../../../lib/api/listFilter";
 import type { PageResponse } from "../../../lib/api/page";
 import type { PaymentDisplayStatus } from "../status";
 import type { PaymentResponse, PaymentSummary, RecordPaymentRequest } from "../types";
 
-// Every payment in the organization, or only those of leases on one property.
-export async function getPayments(organizationId: number, propertyId?: number): Promise<PaymentResponse[]> {
-    const query = propertyId === undefined ? "" : `?propertyId=${propertyId}`;
-    return apiRequest<PaymentResponse[]>(`/api/organizations/${organizationId}/payments${query}`, {
+// Every payment in the organization, or only those of one property's or one tenant's leases.
+export async function getPayments(organizationId: number, filter?: ListFilter): Promise<PaymentResponse[]> {
+    return apiRequest<PaymentResponse[]>(`/api/organizations/${organizationId}/payments${listFilterQuery(filter)}`, {
             authenticated: true,
     });
 }

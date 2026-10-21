@@ -1,3 +1,4 @@
+import { propertyTypeLabels } from "../propertyLabels";
 import type { PropertyType } from "../types";
 
 export type PropertyTypeFilter = PropertyType | "ALL";
@@ -8,19 +9,6 @@ interface PropertyFiltersProps {
     propertyType: PropertyTypeFilter;
     onPropertyTypeChange: (value: PropertyTypeFilter) => void;
 }
-
-const typeOptions: {
-    value: PropertyTypeFilter;
-    label: string;
-}[] = [
-    { value: "ALL", label: "All property types" },
-    { value: "RESIDENTIAL", label: "Residential" },
-    { value: "OFFICE", label: "Office" },
-    { value: "RETAIL", label: "Retail" },
-    { value: "MIXED_USE", label: "Mixed-use" },
-    { value: "OTHER", label: "Other" },
-    { value: "NOT_CLASSIFIED", label: "Not classified" },
-];
 
 export default function PropertyFilters({
     search,
@@ -68,12 +56,13 @@ export default function PropertyFilters({
                     }
                     className="w-full rounded-lg border border-[#dce4de] bg-white px-3 py-2.5 text-sm text-[#243b35] outline-none transition focus:border-[#14302b] focus:ring-2 focus:ring-[#14302b]/10"
                 >
-                    {typeOptions.map((option) => (
+                    <option value="ALL">All property types</option>
+                    {(Object.keys(propertyTypeLabels) as PropertyType[]).map((type) => (
                         <option
-                            key={option.value}
-                            value={option.value}
+                            key={type}
+                            value={type}
                         >
-                            {option.label}
+                            {propertyTypeLabels[type]}
                         </option>
                     ))}
                 </select>

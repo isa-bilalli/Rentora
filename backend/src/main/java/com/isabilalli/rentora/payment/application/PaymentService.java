@@ -151,6 +151,12 @@ public class PaymentService implements PaymentAccess {
         return paymentRepository.findAllByOrganizationIdAndPropertyId(organizationId, propertyId).stream().map(PaymentResponse::from).toList();
     }
 
+    // As with properties, a tenant of another organization matches nothing.
+    public List<PaymentResponse> getAllPaymentsByTenantId(Long organizationId, Long tenantId){
+        organizationAuthorization(organizationId);
+        return paymentRepository.findAllByOrganizationIdAndTenantId(organizationId, tenantId).stream().map(PaymentResponse::from).toList();
+    }
+
     public List<PaymentResponse> getAllPaymentsByLeaseId(Long organizationId, Long leaseId){
         organizationAuthorization(organizationId);
         leaseAccess.requireBelongsToOrganization(leaseId, organizationId);

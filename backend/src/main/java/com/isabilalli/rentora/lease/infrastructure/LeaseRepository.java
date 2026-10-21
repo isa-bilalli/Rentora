@@ -27,6 +27,9 @@ public interface LeaseRepository extends JpaRepository<Lease, Long> {
         ORDER BY l.start_date, l.id
         """, nativeQuery = true)
     List<Lease> findAllByOrganizationIdAndPropertyId(@Param("organizationId") Long organizationId, @Param("propertyId") Long propertyId);
+
+    // One tenant's leases, in every status; earliest start first.
+    List<Lease> findAllByOrganizationIdAndTenantIdOrderByStartDateAscIdAsc(Long organizationId, Long tenantId);
     
     @Query("""
         SELECT COUNT(l) > 0

@@ -6,6 +6,7 @@ import com.isabilalli.rentora.payment.api.dto.PaymentStatusTotal;
 import com.isabilalli.rentora.payment.api.dto.RecordPaymentRequest;
 import com.isabilalli.rentora.payment.application.PaymentService;
 import com.isabilalli.rentora.payment.domain.PaymentStatus;
+import com.isabilalli.rentora.shared.api.BadRequestException;
 import com.isabilalli.rentora.shared.api.PageResponse;
 
 import jakarta.validation.Valid;
@@ -31,11 +32,17 @@ public class PaymentController {
         this.paymentService = paymentService;
     }
 
-    // Every payment, or with ?propertyId= only the payments of leases on that property.
+    // Every payment, or only those of one property's (?propertyId=) or one tenant's (?tenantId=) leases.
     @GetMapping
-    public ResponseEntity<List<PaymentResponse>> getAllPaymentsByOrganizationId(@PathVariable Long organizationId, @RequestParam(required = false) Long propertyId){
+    public ResponseEntity<List<PaymentResponse>> getAllPaymentsByOrganizationId(@PathVariable Long organizationId, @RequestParam(required = false) Long propertyId, @RequestParam(required = false) Long tenantId){
+        if (propertyId != null && tenantId != null) {
+            throw new BadRequestException("Filter by propertyId or by tenantId, not both");
+        }
         if (propertyId != null) {
             return ResponseEntity.ok(paymentService.getAllPaymentsByPropertyId(organizationId, propertyId));
+        }
+        if (tenantId != null) {
+            return ResponseEntity.ok(paymentService.getAllPaymentsByTenantId(organizationId, tenantId));
         }
         return ResponseEntity.ok(paymentService.getAllPaymentsByOrganizationId(organizationId));
     }

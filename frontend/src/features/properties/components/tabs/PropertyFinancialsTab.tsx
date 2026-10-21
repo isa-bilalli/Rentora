@@ -1,11 +1,12 @@
 import { useOrgQuery } from "../../../../hooks/useOrgQuery";
 import { todayLocalDateString } from "../../../../lib/dates";
 import { formatDate, formatDateTime, formatMoney } from "../../../../lib/format";
-import type { LeaseResponse } from "../../../leases/types";
+import { getLeases } from "../../../leases/api/leasesApi";
 import { getPayments } from "../../../payments/api/paymentApi";
 import PaymentRowActions from "../../../payments/components/PaymentRowActions";
+import PaymentStatusBadge from "../../../payments/components/PaymentStatusBadge";
 import RecordPaymentForm from "../../../payments/components/RecordPaymentForm";
-import type { PaymentStatus } from "../../../payments/types";
+import { formatPaymentMethod, getPaymentDisplayStatus } from "../../../payments/status";
 import { usePaymentActions } from "../../../payments/usePaymentActions";
 import type { SpaceResponse } from "../../types";
 import SummaryCard from "../SummaryCard";
@@ -14,16 +15,21 @@ import TableHeader from "./TableHeader";
 interface PropertyFinancialsTabProps {
     propertyId: number;
     spaces: SpaceResponse[];
-    // The property's leases, to show which space each payment is for.
-    leases: LeaseResponse[];
 }
 
-// One property's payments and rent totals. The tab loads the payments itself when it opens.
-export default function PropertyFinancialsTab({ propertyId, spaces, leases }: PropertyFinancialsTabProps) {
-    const { data, loading, error, setData } = useOrgQuery(
-        (organizationId) => getPayments(organizationId, propertyId),
+// One property's payments and rent totals. The tab loads the payments itself when it opens,
+// with the property's leases, which say which space each payment is for.
+export default function PropertyFinancialsTab({ propertyId, spaces }: PropertyFinancialsTabProps) {
+    const { data, loading: paymentsLoading, error, setData } = useOrgQuery(
+        (organizationId) => getPayments(organizationId, { propertyId }),
         [propertyId],
     );
+    const leasesQuery = useOrgQuery(
+        (organizationId) => getLeases(organizationId, { propertyId }),
+        [propertyId],
+    );
+    // Without the leases, a payment's space shows as its number, so a failure there is not shown as an error.
+    const loading = paymentsLoading || leasesQuery.loading;
 
     const paymentActions = usePaymentActions((updatedPayment) =>
         setData((currentPayments) =>
@@ -34,7 +40,7 @@ export default function PropertyFinancialsTab({ propertyId, spaces, leases }: Pr
     );
 
     const spacesById = new Map(spaces.map((space) => [space.id, space]));
-    const leasesById = new Map(leases.map((lease) => [lease.id, lease]));
+    const leasesById = new Map((leasesQuery.data ?? []).map((lease) => [lease.id, lease]));
 
     const payments = [...(data ?? [])].sort((a, b) => b.dueDate.localeCompare(a.dueDate));
 
@@ -202,7 +208,7 @@ export default function PropertyFinancialsTab({ propertyId, spaces, leases }: Pr
                                                     </td>
 
                                                     <td className="px-4 py-4">
-                                                        <PaymentStatusBadge status={payment.status} />
+                                                        <PaymentStatusBadge status={getPaymentDisplayStatus(payment, today)} />
                                                     </td>
 
                                                     <td className="px-4 py-4 text-sm text-gray-600">
@@ -210,9 +216,7 @@ export default function PropertyFinancialsTab({ propertyId, spaces, leases }: Pr
                                                     </td>
 
                                                     <td className="px-4 py-4 text-sm text-gray-600">
-                                                        {payment.paymentMethod
-                                                            ? payment.paymentMethod.replace(/_/g, " ").toLowerCase()
-                                                            : "—"}
+                                                        {formatPaymentMethod(payment.paymentMethod)}
                                                     </td>
 
                                                     <td className="px-4 py-4">
@@ -235,31 +239,5 @@ export default function PropertyFinancialsTab({ propertyId, spaces, leases }: Pr
                 </>
             )}
         </div>
-    );
-}
-
-function PaymentStatusBadge({
-    status,
-}: {
-    status: PaymentStatus;
-}) {
-    const styles: Record<PaymentStatus, string> = {
-        PAID: "bg-[#e8efe9] text-[#14302b]",
-        PENDING: "bg-amber-50 text-amber-800",
-        VOIDED: "bg-gray-100 text-gray-600",
-    };
-
-    const labels: Record<PaymentStatus, string> = {
-        PAID: "Paid",
-        PENDING: "Pending",
-        VOIDED: "Voided",
-    };
-
-    return (
-        <span
-            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${styles[status]}`}
-        >
-            {labels[status]}
-        </span>
     );
 }

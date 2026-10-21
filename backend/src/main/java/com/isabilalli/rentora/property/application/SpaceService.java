@@ -84,6 +84,12 @@ public class SpaceService implements SpaceAccess{
         return SpaceResponse.from(space);
     }
 
+    // For pages that know a space but not its property, such as a lease's. The response names the property.
+    public SpaceResponse getSpace(Long organizationId, Long spaceId){
+        organizationAccessService.requireAccess(currentUserService.getCurrentUser(), organizationId);
+        return SpaceResponse.from(findSpaceInOrganization(spaceId, organizationId));
+    }
+
     public SpaceResponse updateSpace(Long organizationId, Long propertyId, Long spaceId , UpdateSpaceRequest request){
         getAuthorizedProperty(organizationId, propertyId);
         Space space = validateSpace(spaceId, propertyId);
@@ -134,13 +140,18 @@ public class SpaceService implements SpaceAccess{
         spaceRepository.delete(space);
     }
 
-    @Override 
+    @Override
     public void requireBelongsToOrganization(Long spaceId, Long organizationId){
+        findSpaceInOrganization(spaceId, organizationId);
+    }
+
+    private Space findSpaceInOrganization(Long spaceId, Long organizationId){
         Space space = spaceRepository.findById(spaceId).orElseThrow(()-> new NotFoundException("Space not found"));
         Property property = propertyRepository.findById(space.getPropertyId()).orElseThrow(()-> new NotFoundException("Property not found"));
         if(!property.getOrganizationId().equals(organizationId)){
             throw new AccessDeniedException("Space does not belong to this organization");
         }
+        return space;
     }
 
     @Override 

@@ -1,13 +1,19 @@
 import { apiRequest } from "../../../lib/api/client"
+import { listFilterQuery, type ListFilter } from "../../../lib/api/listFilter";
 import type { CreateLeaseRequest, LeaseResponse, RenewLeaseRequest } from "../types";
 
-// Every lease in the organization, or only those on one property's spaces.
-export async function getLeases(organizationId: number, propertyId?: number): Promise<LeaseResponse[]> {
-    const query = propertyId === undefined ? "" : `?propertyId=${propertyId}`;
-    return apiRequest<LeaseResponse[]>(`/api/organizations/${organizationId}/leases${query}`, {
+// Every lease in the organization, or only one property's or one tenant's.
+export async function getLeases(organizationId: number, filter?: ListFilter): Promise<LeaseResponse[]> {
+    return apiRequest<LeaseResponse[]>(`/api/organizations/${organizationId}/leases${listFilterQuery(filter)}`, {
             authenticated: true,
         },
     );
+}
+
+export async function getLease(organizationId: number, leaseId: number): Promise<LeaseResponse> {
+    return apiRequest<LeaseResponse>(`/api/organizations/${organizationId}/leases/${leaseId}`, {
+        authenticated: true,
+    });
 }
 
 export async function createLease(organizationId: number, request: CreateLeaseRequest): Promise<LeaseResponse> {

@@ -21,7 +21,7 @@ export const leaseStatusLabel: Record<LeaseDisplayStatus, string> = {
     CANCELLED: "Cancelled",
 };
 
-// Same colors as the lease badge on the lease details page.
+// The lease badge's colors, wherever a lease's status is shown.
 export const leaseStatusTone: Record<LeaseDisplayStatus, StatusBadgeTone> = {
     UPCOMING: "info",
     ACTIVE: "success",

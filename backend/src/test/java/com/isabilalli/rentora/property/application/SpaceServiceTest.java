@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.access.AccessDeniedException;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -111,6 +112,23 @@ class SpaceServiceTest {
         spaceService.deleteSpace(ORGANIZATION_ID, PROPERTY_ID, SPACE_ID);
 
         verify(spaceRepository).delete(space);
+    }
+
+    @Test
+    void getsSpaceByIdWithItsProperty() {
+        SpaceResponse response = spaceService.getSpace(ORGANIZATION_ID, SPACE_ID);
+
+        assertEquals(PROPERTY_ID, response.propertyId());
+        assertEquals("Apartment 1", response.name());
+        verify(organizationAccessService).requireAccess(authenticatedUser, ORGANIZATION_ID);
+    }
+
+    @Test
+    void rejectsGettingSpaceFromAnotherOrganization() {
+        assertThrows(
+                AccessDeniedException.class,
+                () -> spaceService.getSpace(2L, SPACE_ID)
+        );
     }
 
     @Test
