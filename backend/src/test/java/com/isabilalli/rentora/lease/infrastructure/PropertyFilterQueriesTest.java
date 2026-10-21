@@ -1,5 +1,6 @@
 package com.isabilalli.rentora.lease.infrastructure;
 
+import com.isabilalli.rentora.TestcontainersConfiguration;
 import com.isabilalli.rentora.lease.domain.Lease;
 import com.isabilalli.rentora.organization.domain.Organization;
 import com.isabilalli.rentora.organization.infrastructure.OrganizationRepository;
@@ -20,6 +21,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
+import org.springframework.context.annotation.Import;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -27,10 +30,12 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-// The ?propertyId= filters on the lease and payment lists, checked on the configured PostgreSQL database.
-// @DataJpaTest rolls each test back, so nothing it creates is kept.
+// The ?propertyId= filters on the lease and payment lists, checked on the throwaway PostgreSQL from
+// TestcontainersConfiguration. @DataJpaTest also rolls each test back.
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+@Import(TestcontainersConfiguration.class)
+@ActiveProfiles("test")
 class PropertyFilterQueriesTest {
 
     @Autowired

@@ -1,0 +1,7 @@
+# Keeps local settings, installed packages and build output out of the image build.
+.env
+.env.*
+node_modules/
+dist/
+.vscode/
+.idea/

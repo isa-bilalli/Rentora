@@ -1,0 +1,7 @@
+# Keeps local secrets and build output out of the image build.
+.env
+target/
+.mvn/wrapper/maven-wrapper.jar
+.idea/
+.vscode/
+*.iml

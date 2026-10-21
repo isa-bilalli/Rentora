@@ -1,5 +1,6 @@
 package com.isabilalli.rentora.expense.infrastructure;
 
+import com.isabilalli.rentora.TestcontainersConfiguration;
 import com.isabilalli.rentora.expense.domain.Expense;
 import com.isabilalli.rentora.expense.domain.ExpenseCategory;
 import com.isabilalli.rentora.expense.domain.ExpenseStatus;
@@ -13,16 +14,20 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
+import org.springframework.context.annotation.Import;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.time.LocalDate;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-// Derived queries can only be checked against a real database. This runs on the configured PostgreSQL
-// database; @DataJpaTest rolls each test back, so nothing it creates is kept.
+// Derived queries can only be checked against a real database. This runs on the throwaway PostgreSQL
+// from TestcontainersConfiguration; @DataJpaTest also rolls each test back.
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+@Import(TestcontainersConfiguration.class)
+@ActiveProfiles("test")
 class ExpenseRepositoryTest {
 
     @Autowired

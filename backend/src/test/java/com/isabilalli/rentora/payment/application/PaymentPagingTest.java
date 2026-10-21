@@ -1,5 +1,6 @@
 package com.isabilalli.rentora.payment.application;
 
+import com.isabilalli.rentora.TestcontainersConfiguration;
 import com.isabilalli.rentora.auth.application.CurrentUserService;
 import com.isabilalli.rentora.lease.api.LeaseAccess;
 import com.isabilalli.rentora.lease.domain.Lease;
@@ -29,6 +30,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
+import org.springframework.context.annotation.Import;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -39,10 +42,12 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 
-// The Payments page's tabs, read through the real queries on the configured PostgreSQL database.
-// @DataJpaTest rolls each test back, so nothing it creates is kept.
+// The Payments page's tabs, read through the real queries on the throwaway PostgreSQL from
+// TestcontainersConfiguration. @DataJpaTest also rolls each test back.
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+@Import(TestcontainersConfiguration.class)
+@ActiveProfiles("test")
 class PaymentPagingTest {
 
     private static final LocalDate TODAY = LocalDate.now();
