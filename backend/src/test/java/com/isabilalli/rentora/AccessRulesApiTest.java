@@ -105,7 +105,9 @@ class AccessRulesApiTest {
                 "/payments", "/payments/" + paymentIds.get(0), "/payments/summary", "/payments/page?status=PENDING",
                 "/expenses", "/expenses/" + expenseId,
                 "/maintenance", "/maintenance/" + maintenanceId,
-                "/members", "/dashboard");
+                "/members", "/dashboard",
+                "/leases/page", "/leases/summary", "/tenants/page", "/tenants/summary",
+                "/maintenance/page", "/maintenance/summary", "/expenses/page", "/expenses/summary");
 
         assertAll(reads.stream().map(path -> (Executable) () -> assertRefused(outsider, HttpMethod.GET, in(path), null, NOT_A_MEMBER)));
 
@@ -141,6 +143,25 @@ class AccessRulesApiTest {
         );
 
         assertNothingChanged();
+    }
+
+    // The paged lists filter by organization inside their queries, so this checks the queries themselves: the
+    // outsider's own organization, which has nothing in it, lists none of the owner's records.
+    @Test
+    void listsOnlyEverShowTheirOwnOrganizationsRecords() {
+        String theirs = "/organizations/" + outsider.organizationId();
+        List<String> pages = List.of("/leases/page", "/tenants/page", "/maintenance/page", "/expenses/page", "/payments/page?status=PENDING");
+
+        assertAll(pages.stream().map(path -> (Executable) () -> {
+            assertTrue(totalItems(read(owner, in(path))) > 0, "the owner's " + path + " has records to leak");
+            assertEquals(0, totalItems(read(outsider, theirs + path)), path);
+        }));
+        assertAll(
+                () -> assertEquals(List.of(), read(outsider, theirs + "/maintenance/summary").getResponseBody()),
+                () -> assertEquals(List.of(), read(outsider, theirs + "/expenses/summary").getResponseBody()),
+                () -> assertTrue(allZero(read(outsider, theirs + "/leases/summary")), "lease counts"),
+                () -> assertTrue(allZero(read(outsider, theirs + "/tenants/summary")), "tenant counts")
+        );
     }
 
     @Test
@@ -330,6 +351,15 @@ class AccessRulesApiTest {
             request.contentType(MediaType.APPLICATION_JSON).body(body);
         }
         return request.exchange();
+    }
+
+    private static long totalItems(EntityExchangeResult<Object> page) {
+        return number(json(page), "totalItems");
+    }
+
+    // A summary of counts by status or type, every one of them 0.
+    private static boolean allZero(EntityExchangeResult<Object> summary) {
+        return json(summary).values().stream().allMatch(count -> ((Number) count).longValue() == 0);
     }
 
     private static Map<?, ?> json(EntityExchangeResult<?> result) {

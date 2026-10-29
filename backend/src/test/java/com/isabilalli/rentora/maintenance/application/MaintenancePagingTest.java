@@ -21,6 +21,7 @@ import com.isabilalli.rentora.property.domain.SpaceType;
 import com.isabilalli.rentora.property.infrastructure.PropertyRepository;
 import com.isabilalli.rentora.property.infrastructure.SpaceRepository;
 import com.isabilalli.rentora.shared.api.PageResponse;
+import jakarta.persistence.EntityManager;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -32,6 +33,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -61,6 +63,9 @@ class MaintenancePagingTest {
 
     @Autowired
     private SpaceRepository spaceRepository;
+
+    @Autowired
+    private EntityManager entityManager;
 
     private MaintenanceService maintenanceService;
     private Long organizationId;
@@ -128,16 +133,48 @@ class MaintenancePagingTest {
     // Requests without a resolved date come last either way, in the needs-attention order.
     @Test
     void sortsByResolvedWithUnresolvedLast() {
+        OffsetDateTime now = OffsetDateTime.now();
+        resolvedAt(urgentResolvedFirst, now.minusHours(1));
+        resolvedAt(mediumResolvedLater, now);
+
         assertEquals(ids(mediumResolvedLater, urgentResolvedFirst, urgentOpenNewer, urgentOpenOlder, highInProgress, lowOpen, highCancelled),
                 ids(page(null, null, 0, 25, MaintenanceSortField.RESOLVED, Sort.Direction.DESC)));
         assertEquals(ids(urgentResolvedFirst, mediumResolvedLater, urgentOpenNewer, urgentOpenOlder, highInProgress, lowOpen, highCancelled),
                 ids(page(null, null, 0, 25, MaintenanceSortField.RESOLVED, Sort.Direction.ASC)));
     }
 
+    // Resolved at the same moment, two requests keep the needs-attention order: the urgent one first, either way.
+    @Test
+    void requestsResolvedAtTheSameMomentPutWhatNeedsAttentionFirst() {
+        OffsetDateTime sameMoment = OffsetDateTime.now();
+        resolvedAt(urgentResolvedFirst, sameMoment);
+        resolvedAt(mediumResolvedLater, sameMoment);
+
+        assertEquals(ids(urgentResolvedFirst, mediumResolvedLater),
+                ids(page(null, null, 0, 25, MaintenanceSortField.RESOLVED, Sort.Direction.DESC)).subList(0, 2));
+        assertEquals(ids(urgentResolvedFirst, mediumResolvedLater),
+                ids(page(null, null, 0, 25, MaintenanceSortField.RESOLVED, Sort.Direction.ASC)).subList(0, 2));
+    }
+
     @Test
     void sortsByReportedEarliestFirst() {
         assertEquals(ids(lowOpen, urgentOpenOlder, highInProgress, urgentResolvedFirst, mediumResolvedLater, highCancelled, urgentOpenNewer),
                 ids(page(null, null, 0, 25, MaintenanceSortField.REPORTED, Sort.Direction.ASC)));
+    }
+
+    // Requests saved one after another can be reported at the same moment; the ID then keeps the order they were
+    // reported in.
+    @Test
+    void requestsReportedAtTheSameMomentKeepTheOrderTheyWereReportedIn() {
+        // now() is when the test's transaction began, the same for every row.
+        entityManager.createNativeQuery("UPDATE maintenance_requests SET reported_at = now() WHERE organization_id = :organizationId")
+                .setParameter("organizationId", organizationId)
+                .executeUpdate();
+        entityManager.clear();
+
+        List<Long> reportedOrder = ids(lowOpen, urgentOpenOlder, highInProgress, urgentResolvedFirst, mediumResolvedLater, highCancelled, urgentOpenNewer);
+        assertEquals(reportedOrder, ids(page(null, null, 0, 25, MaintenanceSortField.REPORTED, Sort.Direction.ASC)));
+        assertEquals(reportedOrder.reversed(), ids(page(null, null, 0, 25, MaintenanceSortField.REPORTED, Sort.Direction.DESC)));
     }
 
     @Test
@@ -178,6 +215,16 @@ class MaintenancePagingTest {
 
     private Long space(Long propertyId, String name) {
         return spaceRepository.save(new Space(propertyId, name, SpaceType.RESIDENTIAL, 1, new BigDecimal("50.00"), SpaceStatus.VACANT)).getId();
+    }
+
+    // resolve() stamps the clock, and two requests resolved one after another can get the same time, so tests
+    // that depend on which was resolved first set it here.
+    private void resolvedAt(MaintenanceRequest request, OffsetDateTime time) {
+        entityManager.createNativeQuery("UPDATE maintenance_requests SET resolved_at = :time WHERE id = :id")
+                .setParameter("time", time)
+                .setParameter("id", request.getId())
+                .executeUpdate();
+        entityManager.clear();
     }
 
     private MaintenanceRequest report(Long owner, Long propertyId, Long spaceId, MaintenancePriority priority) {

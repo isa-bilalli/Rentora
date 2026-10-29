@@ -1,8 +1,8 @@
 package com.isabilalli.rentora.payment.application;
 
-import com.isabilalli.rentora.shared.api.BadRequestException;
 import com.isabilalli.rentora.shared.api.NotFoundException;
 import com.isabilalli.rentora.shared.api.PageResponse;
+import com.isabilalli.rentora.shared.infrastructure.Paging;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -32,13 +32,16 @@ import com.isabilalli.rentora.organization.application.OrganizationAccessService
 import com.isabilalli.rentora.organization.domain.OrganizationRole;
 import com.isabilalli.rentora.payment.api.PaymentAccess;
 import com.isabilalli.rentora.payment.api.dto.PaymentDisplayStatus;
+import com.isabilalli.rentora.payment.api.dto.PaymentListItem;
 import com.isabilalli.rentora.payment.api.dto.PaymentResponse;
 import com.isabilalli.rentora.payment.api.dto.PaymentSortField;
 import com.isabilalli.rentora.payment.api.dto.PaymentStatusTotal;
 import com.isabilalli.rentora.payment.api.dto.RecordPaymentRequest;
 import com.isabilalli.rentora.payment.domain.Payment;
 import com.isabilalli.rentora.payment.domain.PaymentStatus;
+import com.isabilalli.rentora.payment.infrastructure.PaymentListRow;
 import com.isabilalli.rentora.payment.infrastructure.PaymentRepository;
+import com.isabilalli.rentora.tenant.api.TenantDisplayName;
 
 @Service 
 public class PaymentService implements PaymentAccess {
@@ -82,35 +85,30 @@ public class PaymentService implements PaymentAccess {
         return paymentRepository.findAllByOrganizationIdAndStatusAndDueDateBefore(organizationId, PaymentStatus.PENDING, LocalDate.now()).stream().map(PaymentResponse::from).toList();
     }
 
-    public static final int MAX_PAGE_SIZE = 100;
-
     // One page of a Payments tab. Without a sort, most urgent first: soonest due while unpaid, latest first once
     // paid or voided. With one, by that column, and ties in the tab's own order so rows don't move between pages.
-    public PageResponse<PaymentResponse> getPaymentPage(Long organizationId, PaymentDisplayStatus status, int page, int size, PaymentSortField sort, Sort.Direction direction) {
+    public PageResponse<PaymentListItem> getPaymentPage(Long organizationId, PaymentDisplayStatus status, int page, int size, PaymentSortField sort, Sort.Direction direction) {
         organizationAuthorization(organizationId);
-        if (page < 0) {
-            throw new BadRequestException("Page must be 0 or more");
-        }
-        if (size < 1 || size > MAX_PAGE_SIZE) {
-            throw new BadRequestException("Page size must be between 1 and " + MAX_PAGE_SIZE);
-        }
-
         LocalDate today = LocalDate.now();
         Sort tabOrder = switch (status) {
             case OVERDUE, PENDING -> Sort.by(Payment::getDueDate, Payment::getId);
             case PAID -> Sort.by(Payment::getPaidAt, Payment::getId).descending();
             case VOIDED -> Sort.by(Payment::getDueDate, Payment::getId).descending();
         };
-        PageRequest pageRequest = PageRequest.of(page, size, sort == null ? tabOrder : columnOrder(sort, direction).and(tabOrder));
-        Page<Payment> result = switch (status) {
-            case OVERDUE -> paymentRepository.findByOrganizationIdAndStatusAndDueDateBefore(
-                    organizationId, PaymentStatus.PENDING, today, pageRequest);
-            case PENDING -> paymentRepository.findByOrganizationIdAndStatusAndDueDateGreaterThanEqual(
-                    organizationId, PaymentStatus.PENDING, today, pageRequest);
-            case PAID -> paymentRepository.findByOrganizationIdAndStatus(organizationId, PaymentStatus.PAID, pageRequest);
-            case VOIDED -> paymentRepository.findByOrganizationIdAndStatus(organizationId, PaymentStatus.VOIDED, pageRequest);
+        PageRequest pageRequest = Paging.pageRequest(page, size, sort == null ? tabOrder : columnOrder(sort, direction).and(tabOrder));
+        // OVERDUE and PENDING are both PENDING in the database; the due date tells them apart.
+        PaymentStatus paymentStatus = switch (status) {
+            case OVERDUE, PENDING -> PaymentStatus.PENDING;
+            case PAID -> PaymentStatus.PAID;
+            case VOIDED -> PaymentStatus.VOIDED;
         };
-        return PageResponse.from(result, PaymentResponse::from);
+        Page<PaymentListRow> rows = paymentRepository.findListPage(organizationId, paymentStatus, today,
+                status == PaymentDisplayStatus.OVERDUE, status == PaymentDisplayStatus.PENDING, pageRequest);
+        return PageResponse.from(rows, row -> new PaymentListItem(
+                PaymentResponse.from(row.payment()),
+                TenantDisplayName.of(row.tenantFirstName(), row.tenantLastName(), row.tenantCompanyName(), row.tenantId()),
+                row.propertyName(),
+                row.spaceName()));
     }
 
     private static Sort columnOrder(PaymentSortField sort, Sort.Direction direction) {

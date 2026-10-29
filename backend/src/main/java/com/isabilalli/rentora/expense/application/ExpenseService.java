@@ -14,8 +14,8 @@ import com.isabilalli.rentora.expense.api.dto.UpdateExpenseRequest;
 import com.isabilalli.rentora.expense.domain.Expense;
 import com.isabilalli.rentora.expense.domain.ExpenseStatus;
 import com.isabilalli.rentora.expense.infrastructure.ExpenseRepository;
-import com.isabilalli.rentora.shared.api.BadRequestException;
 import com.isabilalli.rentora.shared.api.PageResponse;
+import com.isabilalli.rentora.shared.infrastructure.Paging;
 import com.isabilalli.rentora.organization.application.OrganizationAccessService;
 import com.isabilalli.rentora.organization.domain.OrganizationRole;
 import com.isabilalli.rentora.property.api.PropertyAccess;
@@ -24,7 +24,6 @@ import com.isabilalli.rentora.property.api.SpaceAccess;
 import java.time.LocalDate;
 import java.util.List;
 
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -78,19 +77,10 @@ public class ExpenseService implements ExpenseAccess {
         return expenseRepository.findAllByOrganizationId(organizationId).stream().map(ExpenseResponse::from).toList();
     }
 
-    public static final int MAX_PAGE_SIZE = 100;
-
     // One page of the Expenses page. state and propertyId narrow it. Newest expense first unless sorted; ties keep
     // that order so rows don't move between pages.
     public PageResponse<ExpenseListItem> getExpensePage(Long organizationId, ExpenseState state, Long propertyId, int page, int size, ExpenseSortField sort, Sort.Direction direction) {
         organizationAuthorization(organizationId);
-        if (page < 0) {
-            throw new BadRequestException("Page must be 0 or more");
-        }
-        if (size < 1 || size > MAX_PAGE_SIZE) {
-            throw new BadRequestException("Page size must be between 1 and " + MAX_PAGE_SIZE);
-        }
-
         // PAID and UNPAID are both RECORDED in the database; the paid flag tells them apart.
         ExpenseStatus status = state == null ? null : state == ExpenseState.VOIDED ? ExpenseStatus.VOIDED : ExpenseStatus.RECORDED;
         Sort newestFirst = Sort.by(Expense::getExpenseDate, Expense::getId).descending();
@@ -104,7 +94,7 @@ public class ExpenseService implements ExpenseAccess {
         }
         return PageResponse.from(
                 expenseRepository.findListPage(organizationId, propertyId, status, state == ExpenseState.PAID, state == ExpenseState.UNPAID,
-                        PageRequest.of(page, size, order)),
+                        Paging.pageRequest(page, size, order)),
                 row -> new ExpenseListItem(ExpenseResponse.from(row.expense()), ExpenseState.of(row.expense()), row.propertyName(), row.spaceName()));
     }
 

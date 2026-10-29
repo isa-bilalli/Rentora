@@ -9,7 +9,7 @@ import com.isabilalli.rentora.organization.application.OrganizationAccessService
 import com.isabilalli.rentora.organization.domain.Organization;
 import com.isabilalli.rentora.organization.infrastructure.OrganizationRepository;
 import com.isabilalli.rentora.payment.api.dto.PaymentDisplayStatus;
-import com.isabilalli.rentora.payment.api.dto.PaymentResponse;
+import com.isabilalli.rentora.payment.api.dto.PaymentListItem;
 import com.isabilalli.rentora.payment.api.dto.PaymentSortField;
 import com.isabilalli.rentora.payment.api.dto.PaymentStatusTotal;
 import com.isabilalli.rentora.payment.domain.Payment;
@@ -103,8 +103,8 @@ class PaymentPagingTest {
         Payment tenDaysLate = pending(TODAY.minusDays(10), 200);
         pending(TODAY, 999);
 
-        PageResponse<PaymentResponse> first = page(PaymentDisplayStatus.OVERDUE, 0, 2);
-        PageResponse<PaymentResponse> second = page(PaymentDisplayStatus.OVERDUE, 1, 2);
+        PageResponse<PaymentListItem> first = page(PaymentDisplayStatus.OVERDUE, 0, 2);
+        PageResponse<PaymentListItem> second = page(PaymentDisplayStatus.OVERDUE, 1, 2);
 
         assertEquals(List.of(fortyDaysLate.getId(), tenDaysLate.getId()), ids(first));
         assertEquals(3, first.totalItems());
@@ -119,7 +119,7 @@ class PaymentPagingTest {
         Payment dueToday = pending(TODAY, 100);
         pending(TODAY.minusDays(1), 100);
 
-        PageResponse<PaymentResponse> page = page(PaymentDisplayStatus.PENDING, 0, 25);
+        PageResponse<PaymentListItem> page = page(PaymentDisplayStatus.PENDING, 0, 25);
 
         assertEquals(List.of(dueToday.getId(), nextMonth.getId()), ids(page));
     }
@@ -129,7 +129,7 @@ class PaymentPagingTest {
         Payment paidLastWeek = paid(TODAY.minusMonths(2), OffsetDateTime.now().minusDays(7));
         Payment paidYesterday = paid(TODAY.minusMonths(1), OffsetDateTime.now().minusDays(1));
 
-        PageResponse<PaymentResponse> page = page(PaymentDisplayStatus.PAID, 0, 25);
+        PageResponse<PaymentListItem> page = page(PaymentDisplayStatus.PAID, 0, 25);
 
         assertEquals(List.of(paidYesterday.getId(), paidLastWeek.getId()), ids(page));
     }
@@ -142,9 +142,9 @@ class PaymentPagingTest {
         Payment tenDaysLate = pending(TODAY.minusDays(10), 200);
         Payment twentyDaysLate = pending(TODAY.minusDays(20), 200);
 
-        PageResponse<PaymentResponse> first = sortedPage(PaymentDisplayStatus.OVERDUE, PaymentSortField.AMOUNT, Sort.Direction.DESC, 0, 2);
-        PageResponse<PaymentResponse> second = sortedPage(PaymentDisplayStatus.OVERDUE, PaymentSortField.AMOUNT, Sort.Direction.DESC, 1, 2);
-        PageResponse<PaymentResponse> ascending = sortedPage(PaymentDisplayStatus.OVERDUE, PaymentSortField.AMOUNT, Sort.Direction.ASC, 0, 25);
+        PageResponse<PaymentListItem> first = sortedPage(PaymentDisplayStatus.OVERDUE, PaymentSortField.AMOUNT, Sort.Direction.DESC, 0, 2);
+        PageResponse<PaymentListItem> second = sortedPage(PaymentDisplayStatus.OVERDUE, PaymentSortField.AMOUNT, Sort.Direction.DESC, 1, 2);
+        PageResponse<PaymentListItem> ascending = sortedPage(PaymentDisplayStatus.OVERDUE, PaymentSortField.AMOUNT, Sort.Direction.ASC, 0, 25);
 
         assertEquals(List.of(fiveDaysLate.getId(), twentyDaysLate.getId()), ids(first));
         assertEquals(List.of(tenDaysLate.getId(), fortyDaysLate.getId()), ids(second));
@@ -157,7 +157,7 @@ class PaymentPagingTest {
         Payment fiveDaysLate = pending(TODAY.minusDays(5), 100);
         Payment tenDaysLate = pending(TODAY.minusDays(10), 100);
 
-        PageResponse<PaymentResponse> page = sortedPage(PaymentDisplayStatus.OVERDUE, PaymentSortField.DUE_DATE, Sort.Direction.DESC, 0, 25);
+        PageResponse<PaymentListItem> page = sortedPage(PaymentDisplayStatus.OVERDUE, PaymentSortField.DUE_DATE, Sort.Direction.DESC, 0, 25);
 
         assertEquals(List.of(fiveDaysLate.getId(), tenDaysLate.getId(), fortyDaysLate.getId()), ids(page));
     }
@@ -167,9 +167,20 @@ class PaymentPagingTest {
         Payment paidYesterday = paid(TODAY.minusMonths(1), OffsetDateTime.now().minusDays(1));
         Payment paidLastWeek = paid(TODAY.minusMonths(2), OffsetDateTime.now().minusDays(7));
 
-        PageResponse<PaymentResponse> page = sortedPage(PaymentDisplayStatus.PAID, PaymentSortField.PAID_AT, Sort.Direction.ASC, 0, 25);
+        PageResponse<PaymentListItem> page = sortedPage(PaymentDisplayStatus.PAID, PaymentSortField.PAID_AT, Sort.Direction.ASC, 0, 25);
 
         assertEquals(List.of(paidLastWeek.getId(), paidYesterday.getId()), ids(page));
+    }
+
+    @Test
+    void rowsCarryTheTenantPropertyAndSpaceNames() {
+        pending(TODAY.plusDays(3), 100);
+
+        PaymentListItem row = page(PaymentDisplayStatus.PENDING, 0, 25).items().getFirst();
+
+        assertEquals("Test Tenant", row.tenantName());
+        assertEquals("Test property", row.propertyName());
+        assertEquals("Unit 1", row.spaceName());
     }
 
     @Test
@@ -199,11 +210,11 @@ class PaymentPagingTest {
         }
     }
 
-    private PageResponse<PaymentResponse> page(PaymentDisplayStatus status, int page, int size) {
+    private PageResponse<PaymentListItem> page(PaymentDisplayStatus status, int page, int size) {
         return paymentService.getPaymentPage(organizationId, status, page, size, null, null);
     }
 
-    private PageResponse<PaymentResponse> sortedPage(PaymentDisplayStatus status, PaymentSortField sort, Sort.Direction direction, int page, int size) {
+    private PageResponse<PaymentListItem> sortedPage(PaymentDisplayStatus status, PaymentSortField sort, Sort.Direction direction, int page, int size) {
         return paymentService.getPaymentPage(organizationId, status, page, size, sort, direction);
     }
 
@@ -217,7 +228,7 @@ class PaymentPagingTest {
         return paymentRepository.saveAndFlush(payment);
     }
 
-    private static List<Long> ids(PageResponse<PaymentResponse> page) {
-        return page.items().stream().map(PaymentResponse::id).toList();
+    private static List<Long> ids(PageResponse<PaymentListItem> page) {
+        return page.items().stream().map(item -> item.payment().id()).toList();
     }
 }

@@ -7,6 +7,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.isabilalli.rentora.auth.application.CurrentUserService;
 import com.isabilalli.rentora.auth.infrastructure.security.AuthenticatedUser;
@@ -66,6 +67,18 @@ public class SpaceService implements SpaceAccess{
         return space;
     }
 
+    // As validateSpace, but the space stays locked until the transaction ends. Leases also write a space's
+    // status, so a lease created or ended meanwhile waits rather than landing between this method's checks
+    // and its write, which would then overwrite the status the lease set.
+    private Space lockSpace(Long spaceId, Long propertyId){
+        Space space = spaceRepository.findByIdForUpdate(spaceId).orElseThrow(()-> new NotFoundException("Space not found"));
+        if(!space.getPropertyId().equals(propertyId)){
+            throw new AccessDeniedException("Space does not belong to this property");
+        }
+        return space;
+    }
+
+    @Transactional
     public SpaceResponse createSpace(Long organizationId, Long propertyId, CreateSpaceRequest request){
         Property property = getAuthorizedProperty(organizationId, propertyId);
         Space space = new Space(property.getId(), request.name(), request.type(), request.floor(), request.area(), SpaceStatus.VACANT);
@@ -97,20 +110,22 @@ public class SpaceService implements SpaceAccess{
         return SpaceResponse.from(findSpaceInOrganization(spaceId, organizationId));
     }
 
+    @Transactional
     public SpaceResponse updateSpace(Long organizationId, Long propertyId, Long spaceId , UpdateSpaceRequest request){
         getAuthorizedProperty(organizationId, propertyId);
-        Space space = validateSpace(spaceId, propertyId);
+        Space space = lockSpace(spaceId, propertyId);
         space.update(request.name(), request.type(), request.floor(), request.area(), request.hasFloor(), request.hasArea());
         Space updatedSpace = spaceRepository.save(space);
         return SpaceResponse.from(updatedSpace);
     }
 
+    @Transactional
     public SpaceResponse updateSpaceStatus(Long organizationId, Long propertyId, Long SpaceId, SpaceStatus status){
         if(status == null){
             throw new BadRequestException("Space status is required");
         }
         getAuthorizedProperty(organizationId, propertyId);
-        Space space = validateSpace(SpaceId, propertyId);
+        Space space = lockSpace(SpaceId, propertyId);
         
         LocalDate today = LocalDate.now();
         boolean hasCurrentLease = leaseStatusAccess.hasCurrentActiveLease(organizationId, SpaceId, today);
@@ -135,6 +150,7 @@ public class SpaceService implements SpaceAccess{
         return SpaceResponse.from(updatedSpace);
     }
 
+    @Transactional
     public void deleteSpace(Long organizationId, Long propertyId, Long spaceId){
         organizationAccessService.requireRole(currentUserService.getCurrentUser(), organizationId, OrganizationRole.MANAGER);
         getAuthorizedProperty(organizationId, propertyId);
@@ -162,6 +178,7 @@ public class SpaceService implements SpaceAccess{
     }
 
     @Override 
+    @Transactional
     public void markVacant(Long spaceId){
         Space space = spaceRepository.findById(spaceId).orElseThrow(()-> new NotFoundException("Space not found"));
         space.markVacant();
@@ -169,6 +186,7 @@ public class SpaceService implements SpaceAccess{
     }
 
     @Override
+    @Transactional
     public void markReserved(Long spaceId) {
         Space space = spaceRepository.findById(spaceId).orElseThrow(() -> new NotFoundException("Space not found"));
         space.markReserved();
@@ -176,6 +194,7 @@ public class SpaceService implements SpaceAccess{
     }
 
     @Override
+    @Transactional
     public void markOccupied(Long spaceId) {
         Space space = spaceRepository.findById(spaceId).orElseThrow(() -> new NotFoundException("Space not found"));
         space.markOccupied();
@@ -183,6 +202,7 @@ public class SpaceService implements SpaceAccess{
     }
 
     @Override 
+    @Transactional
     public void markMaintenance(Long spaceId){
         Space space = spaceRepository.findById(spaceId).orElseThrow(() -> new NotFoundException("Space not found"));
         space.markMaintenance();
@@ -191,6 +211,7 @@ public class SpaceService implements SpaceAccess{
 
     // Idempotent: run daily for every lease covering today, so it only moves spaces that drifted.
     @Override
+    @Transactional
     public void occupyForStartedLease(Long spaceId){
         Space space = spaceRepository.findById(spaceId).orElseThrow(() -> new NotFoundException("Space not found"));
         if (space.getStatus() == SpaceStatus.RESERVED || space.getStatus() == SpaceStatus.VACANT) {
@@ -202,6 +223,7 @@ public class SpaceService implements SpaceAccess{
     // Idempotent: runs whenever a lease ends or is cancelled, and the space may already have the status its leases call for.
     // A space under maintenance stays there; only a person takes it out of maintenance.
     @Override
+    @Transactional
     public void applyLeaseStatus(Long spaceId, SpaceStatus status) {
         Space space = spaceRepository.findById(spaceId).orElseThrow(() -> new NotFoundException("Space not found"));
         if (space.getStatus() == status || space.getStatus() == SpaceStatus.MAINTENANCE) {
@@ -217,6 +239,7 @@ public class SpaceService implements SpaceAccess{
     }
 
     @Override 
+    @Transactional
     public void prepareForFutureLease(Long spaceId){
         Space space = spaceRepository.findById(spaceId).orElseThrow(() -> new NotFoundException("Space not found"));
         switch (space.getStatus()) {

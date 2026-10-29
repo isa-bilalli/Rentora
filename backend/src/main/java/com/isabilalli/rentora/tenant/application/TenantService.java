@@ -5,6 +5,7 @@ import com.isabilalli.rentora.shared.api.BadRequestException;
 import com.isabilalli.rentora.shared.api.ConflictException;
 import com.isabilalli.rentora.shared.api.NotFoundException;
 import com.isabilalli.rentora.shared.api.PageResponse;
+import com.isabilalli.rentora.shared.infrastructure.Paging;
 import com.isabilalli.rentora.shared.infrastructure.LikePattern;
 import com.isabilalli.rentora.auth.application.CurrentUserService;
 import com.isabilalli.rentora.auth.infrastructure.security.AuthenticatedUser;
@@ -24,10 +25,10 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class TenantService implements TenantAccess{
@@ -77,6 +78,7 @@ public class TenantService implements TenantAccess{
         organizationAccessService.requireAccess(currentUser, organizationId);
     }
 
+    @Transactional
     public TenantResponse createTenant(Long organizationId, CreateTenantRequest request){
         organizationAuthorization(organizationId);
         validateTenant(request);
@@ -91,27 +93,15 @@ public class TenantService implements TenantAccess{
         return tenantRepository.findAllByOrganizationId(organizationId).stream().map(TenantResponse::from).toList();
     }
 
-    public static final int MAX_PAGE_SIZE = 100;
-
     // One page of the Tenants page. search matches the name, email, phone, type and number, ignoring case.
-    // Newest added first unless sorted; ties keep that order so rows don't move between pages.
+    // Newest added first, or oldest first when sorted that way. Tenants added together can share a timestamp,
+    // so the ID, which only grows, orders them in the same direction and keeps rows from moving between pages.
     public PageResponse<TenantResponse> getTenantPage(Long organizationId, String search, int page, int size, TenantSortField sort, Sort.Direction direction) {
         organizationAuthorization(organizationId);
-        if (page < 0) {
-            throw new BadRequestException("Page must be 0 or more");
-        }
-        if (size < 1 || size > MAX_PAGE_SIZE) {
-            throw new BadRequestException("Page size must be between 1 and " + MAX_PAGE_SIZE);
-        }
-
-        Sort newestFirst = Sort.by(Tenant::getCreatedAt, Tenant::getId).descending();
-        Sort order = newestFirst;
-        if (sort == TenantSortField.ADDED) {
-            Sort added = Sort.by(Tenant::getCreatedAt);
-            order = (direction.isAscending() ? added.ascending() : added.descending()).and(newestFirst);
-        }
+        Sort added = Sort.by(Tenant::getCreatedAt, Tenant::getId);
+        Sort order = sort == TenantSortField.ADDED && direction.isAscending() ? added.ascending() : added.descending();
         return PageResponse.from(
-                tenantRepository.findPage(organizationId, LikePattern.contains(search), PageRequest.of(page, size, order)),
+                tenantRepository.findPage(organizationId, LikePattern.contains(search), Paging.pageRequest(page, size, order)),
                 TenantResponse::from);
     }
 
@@ -137,6 +127,7 @@ public class TenantService implements TenantAccess{
         return TenantResponse.from(tenant);
     }
     
+    @Transactional
     public TenantResponse updateTenant(Long organizationId, Long tenantId, UpdateTenantRequest request){
         organizationAuthorization(organizationId);
         Tenant tenant = tenantRepository.findById(tenantId).orElseThrow(()-> new NotFoundException("Tenant not found"));
@@ -147,6 +138,7 @@ public class TenantService implements TenantAccess{
         return TenantResponse.from(tenantRepository.save(tenant));
     }
 
+    @Transactional
     public void deleteTenant(Long organizationId, Long tenantId){
         organizationAccessService.requireRole(currentUserService.getCurrentUser(), organizationId, OrganizationRole.MANAGER);
         Tenant tenant = tenantRepository.findById(tenantId).orElseThrow(()-> new NotFoundException("Tenant not found"));

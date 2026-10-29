@@ -1,6 +1,7 @@
 package com.isabilalli.rentora.payment.api;
 
 import com.isabilalli.rentora.payment.api.dto.PaymentDisplayStatus;
+import com.isabilalli.rentora.payment.api.dto.PaymentListItem;
 import com.isabilalli.rentora.payment.api.dto.PaymentResponse;
 import com.isabilalli.rentora.payment.api.dto.PaymentSortField;
 import com.isabilalli.rentora.payment.api.dto.PaymentStatusTotal;
@@ -52,7 +53,7 @@ public class PaymentController {
     // One page of a Payments tab, e.g. ?status=OVERDUE&page=0&size=25. Add &sort=AMOUNT&direction=DESC to order
     // it by a column; without sort, each tab keeps its own order.
     @GetMapping("/page")
-    public ResponseEntity<PageResponse<PaymentResponse>> getPaymentPage(
+    public ResponseEntity<PageResponse<PaymentListItem>> getPaymentPage(
             @PathVariable Long organizationId,
             @RequestParam PaymentDisplayStatus status,
             @RequestParam(defaultValue = "0") int page,

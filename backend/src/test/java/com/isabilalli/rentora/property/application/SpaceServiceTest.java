@@ -89,7 +89,10 @@ class SpaceServiceTest {
         when(property.getOrganizationId()).thenReturn(ORGANIZATION_ID);
         when(property.getOrganizationId()).thenReturn(ORGANIZATION_ID);
 
-        when(spaceRepository.findById(SPACE_ID))
+        // updateSpace and updateSpaceStatus read the space locked, the rest read it plainly; each test uses one.
+        lenient().when(spaceRepository.findById(SPACE_ID))
+                .thenReturn(Optional.of(space));
+        lenient().when(spaceRepository.findByIdForUpdate(SPACE_ID))
                 .thenReturn(Optional.of(space));
     }
 

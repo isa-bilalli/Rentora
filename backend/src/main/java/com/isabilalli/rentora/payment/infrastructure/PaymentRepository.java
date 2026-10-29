@@ -43,10 +43,40 @@ public interface PaymentRepository extends JpaRepository<Payment, Long>{
         """, nativeQuery = true)
     List<Payment> findAllByOrganizationIdAndTenantId(@Param("organizationId") Long organizationId, @Param("tenantId") Long tenantId);
 
-    // Pages of the Payments tabs; the Pageable sets the order.
-    Page<Payment> findByOrganizationIdAndStatus(Long organizationId, PaymentStatus status, Pageable pageable);
-    Page<Payment> findByOrganizationIdAndStatusAndDueDateBefore(Long organizationId, PaymentStatus status, LocalDate date, Pageable pageable);
-    Page<Payment> findByOrganizationIdAndStatusAndDueDateGreaterThanEqual(Long organizationId, PaymentStatus status, LocalDate date, Pageable pageable);
+    // A page of a Payments tab, with the names of each payment's tenant, property and space. onlyOverdue and
+    // onlyUpcoming keep payments due before today, or from today on: how the OVERDUE and PENDING tabs split
+    // pending payments. The Pageable sets the order.
+    @Query(value = """
+        SELECT new com.isabilalli.rentora.payment.infrastructure.PaymentListRow(
+                   p, t.id, t.firstName, t.lastName, t.companyName, pr.name, s.name)
+        FROM Payment p
+        JOIN Lease l ON l.id = p.leaseId
+        JOIN Tenant t ON t.id = l.tenantId
+        JOIN Space s ON s.id = l.spaceId
+        JOIN Property pr ON pr.id = s.propertyId
+        WHERE p.organizationId = :organizationId
+          AND p.status = :status
+          AND (:onlyOverdue = false OR p.dueDate < :today)
+          AND (:onlyUpcoming = false OR p.dueDate >= :today)
+        """, countQuery = """
+        SELECT COUNT(p)
+        FROM Payment p
+        JOIN Lease l ON l.id = p.leaseId
+        JOIN Tenant t ON t.id = l.tenantId
+        JOIN Space s ON s.id = l.spaceId
+        JOIN Property pr ON pr.id = s.propertyId
+        WHERE p.organizationId = :organizationId
+          AND p.status = :status
+          AND (:onlyOverdue = false OR p.dueDate < :today)
+          AND (:onlyUpcoming = false OR p.dueDate >= :today)
+        """)
+    Page<PaymentListRow> findListPage(
+            @Param("organizationId") Long organizationId,
+            @Param("status") PaymentStatus status,
+            @Param("today") LocalDate today,
+            @Param("onlyOverdue") boolean onlyOverdue,
+            @Param("onlyUpcoming") boolean onlyUpcoming,
+            Pageable pageable);
 
     interface DisplayStatusTotal {
         String getBucket();

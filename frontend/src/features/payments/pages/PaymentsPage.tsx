@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { CreditCard } from "lucide-react";
 import { getPaymentPage, getPaymentSummary } from "../api/paymentApi";
-import type { PaymentResponse, PaymentSortField } from "../types";
+import type { PaymentListItem, PaymentSortField } from "../types";
 import {
     formatPaymentMethod,
     getPaymentDisplayStatus,
@@ -13,7 +13,6 @@ import {
 import { usePaymentActions } from "../usePaymentActions";
 import RecordPaymentForm from "../components/RecordPaymentForm";
 import PaymentRowActions from "../components/PaymentRowActions";
-import { loadLeaseRows } from "../../leases/leaseRows";
 import { useOrgQuery } from "../../../hooks/useOrgQuery";
 import { formatDate, formatDateTime, formatMoney } from "../../../lib/format";
 import { daysBetween, todayLocalDateString } from "../../../lib/dates";
@@ -41,14 +40,7 @@ const sortColumns: Record<PaymentSortField, { firstDirection: SortDirection }> =
     PAID_AT: { firstDirection: "desc" },
 };
 
-interface PaymentRow {
-    payment: PaymentResponse;
-    tenantName: string;
-    propertyName: string;
-    spaceName: string;
-}
-
-const NO_ROWS: PaymentRow[] = [];
+const NO_ROWS: PaymentListItem[] = [];
 
 const tabCaption: Record<PaymentDisplayStatus, string> = {
     OVERDUE: "past their due date",
@@ -79,31 +71,17 @@ export default function PaymentsPage() {
         (organizationId) => getPaymentPage(organizationId, selected, page, PAGE_SIZE, sort),
         [selected, page, reloadCount, sort.key, sort.direction],
     );
-    // Payments only carry a lease ID; the lease rows supply the tenant, property and space names.
-    const leaseQuery = useOrgQuery(loadLeaseRows);
 
     const summary = summaryQuery.data;
     const pageData = pageQuery.data;
-    const leaseRows = leaseQuery.data;
     const loadError = pageQuery.organizationId === undefined
         ? "Select an organization to view its payments."
-        : summaryQuery.error ?? pageQuery.error ?? leaseQuery.error;
-    const tableLoading = pageQuery.loading || leaseQuery.loading;
+        : summaryQuery.error ?? pageQuery.error;
+    const tableLoading = pageQuery.loading;
     const noPaymentsAtAll = summary !== undefined && PAYMENT_DISPLAY_STATUSES.every((status) => summary[status].count === 0);
 
-    const rows = useMemo(() => {
-        if (!pageData) return NO_ROWS;
-        const leaseById = new Map((leaseRows ?? []).map((row) => [row.lease.id, row]));
-        return pageData.items.map((payment) => {
-            const lease = leaseById.get(payment.leaseId);
-            return {
-                payment,
-                tenantName: lease?.tenantName ?? `Lease #${payment.leaseId}`,
-                propertyName: lease?.propertyName ?? "Unknown property",
-                spaceName: lease?.spaceName ?? "",
-            };
-        });
-    }, [pageData, leaseRows]);
+    // The server sends each payment with its tenant's, property's and space's names.
+    const rows = pageData?.items ?? NO_ROWS;
 
     // Confirms a record or void, since the payment then leaves the tab it was on.
     const [notice, setNotice] = useState<string | null>(null);
@@ -130,7 +108,7 @@ export default function PaymentsPage() {
         } else {
             pageQuery.setData((current) => ({
                 ...current,
-                items: current.items.filter((payment) => payment.id !== updatedPayment.id),
+                items: current.items.filter((item) => item.payment.id !== updatedPayment.id),
                 totalItems: current.totalItems - 1,
                 totalPages: Math.ceil((current.totalItems - 1) / current.size),
             }));

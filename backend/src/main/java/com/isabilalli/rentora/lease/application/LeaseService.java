@@ -4,15 +4,11 @@ import com.isabilalli.rentora.shared.api.NotFoundException;
 import java.time.LocalDate;
 import java.util.EnumMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -40,7 +36,10 @@ import com.isabilalli.rentora.property.api.SpaceAccess;
 import com.isabilalli.rentora.property.domain.SpaceStatus;
 import com.isabilalli.rentora.shared.api.BadRequestException;
 import com.isabilalli.rentora.shared.api.PageResponse;
+import com.isabilalli.rentora.shared.infrastructure.LikePattern;
+import com.isabilalli.rentora.shared.infrastructure.Paging;
 import com.isabilalli.rentora.tenant.api.TenantAccess;
+import com.isabilalli.rentora.tenant.api.TenantDisplayName;
 
 import org.springframework.transaction.annotation.Transactional;
 
@@ -119,20 +118,11 @@ public class LeaseService implements LeaseAccess {
         return leaseRepository.findAllByOrganizationIdAndTenantIdOrderByStartDateAscIdAsc(organizationId, tenantId).stream().map(LeaseResponse::from).toList();
     }
 
-    public static final int MAX_PAGE_SIZE = 100;
-
     // One page of the Leases page. status and search narrow it; search matches the tenant's name, the property
     // and the space, ignoring case. Without a sort, newest start first; with one, ties keep that order so rows
     // don't move between pages.
     public PageResponse<LeaseListItem> getLeasePage(Long organizationId, LeaseDisplayStatus status, String search, int page, int size, LeaseSortField sort, Sort.Direction direction) {
         organizationAuthorization(organizationId);
-        if (page < 0) {
-            throw new BadRequestException("Page must be 0 or more");
-        }
-        if (size < 1 || size > MAX_PAGE_SIZE) {
-            throw new BadRequestException("Page size must be between 1 and " + MAX_PAGE_SIZE);
-        }
-
         LocalDate today = LocalDate.now();
         // UPCOMING and ACTIVE are both ACTIVE in the database; the start date tells them apart.
         LeaseStatus leaseStatus = status == null ? null : switch (status) {
@@ -145,11 +135,11 @@ public class LeaseService implements LeaseAccess {
         Sort order = sort == null ? newestFirst : columnOrder(sort, direction).and(newestFirst);
         Page<LeaseListRow> rows = leaseRepository.findListPage(
                 organizationId, leaseStatus, today, status == LeaseDisplayStatus.UPCOMING, status == LeaseDisplayStatus.ACTIVE,
-                likePattern(search), PageRequest.of(page, size, order));
+                LikePattern.contains(search), Paging.pageRequest(page, size, order));
         return PageResponse.from(rows, row -> new LeaseListItem(
                 LeaseResponse.from(row.lease()),
                 LeaseDisplayStatus.of(row.lease(), today),
-                tenantName(row),
+                TenantDisplayName.of(row.tenantFirstName(), row.tenantLastName(), row.tenantCompanyName(), row.lease().getTenantId()),
                 row.propertyId(),
                 row.propertyName(),
                 row.spaceName()));
@@ -176,29 +166,6 @@ public class LeaseService implements LeaseAccess {
         return direction.isAscending() ? column.ascending() : column.descending();
     }
 
-    // A lowercase LIKE pattern, with any % or _ (and the escape character !) in the search taken literally.
-    private static String likePattern(String search) {
-        if (search == null || search.isBlank()) {
-            return null;
-        }
-        String escaped = search.trim().toLowerCase(Locale.ROOT).replace("!", "!!").replace("%", "!%").replace("_", "!_");
-        return "%" + escaped + "%";
-    }
-
-    // As the frontend's getTenantDisplayName: the person's name, else the company's, else the tenant's number.
-    private static String tenantName(LeaseListRow row) {
-        String person = Stream.of(row.tenantFirstName(), row.tenantLastName())
-                .filter(part -> part != null && !part.isBlank())
-                .map(String::trim)
-                .collect(Collectors.joining(" "));
-        if (!person.isEmpty()) {
-            return person;
-        }
-        if (row.tenantCompanyName() != null && !row.tenantCompanyName().isBlank()) {
-            return row.tenantCompanyName().trim();
-        }
-        return "Tenant #" + row.lease().getTenantId();
-    }
 
     public LeaseResponse getLease(Long organizationId, Long leaseId){
         organizationAuthorization(organizationId);

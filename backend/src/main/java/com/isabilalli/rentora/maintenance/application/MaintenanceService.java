@@ -14,8 +14,8 @@ import com.isabilalli.rentora.maintenance.domain.MaintenancePriority;
 import com.isabilalli.rentora.maintenance.domain.MaintenanceRequest;
 import com.isabilalli.rentora.maintenance.domain.MaintenanceStatus;
 import com.isabilalli.rentora.maintenance.infrastructure.MaintenanceRepository;
-import com.isabilalli.rentora.shared.api.BadRequestException;
 import com.isabilalli.rentora.shared.api.PageResponse;
+import com.isabilalli.rentora.shared.infrastructure.Paging;
 import com.isabilalli.rentora.organization.application.OrganizationAccessService;
 import com.isabilalli.rentora.property.api.PropertyAccess;
 import com.isabilalli.rentora.property.api.SpaceAccess;
@@ -23,7 +23,6 @@ import com.isabilalli.rentora.property.api.SpaceAccess;
 import java.time.LocalDate;
 import java.util.List;
 
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.JpaSort;
 import org.springframework.security.access.AccessDeniedException;
@@ -79,8 +78,6 @@ public class MaintenanceService implements MaintenanceAccess {
         return maintenanceRepository.findAllByOrganizationId(organizationId).stream().map(MaintenanceResponse::from).toList();
     }
 
-    public static final int MAX_PAGE_SIZE = 100;
-
     // What needs attention first: open and in-progress before resolved and cancelled, then by priority (urgent
     // first), then the most recently reported. The Maintenance page's order, and how ties are broken when a
     // column sorts it. The CASE expressions can't go through the typed Sort, so they're passed as JPQL, each in
@@ -93,27 +90,20 @@ public class MaintenanceService implements MaintenanceAccess {
             .and(Sort.by(MaintenanceRequest::getReportedAt, MaintenanceRequest::getId).descending());
 
     // One page of the Maintenance page. status and priority narrow it. Without a sort, what needs attention
-    // first; with one, ties keep that order so rows don't move between pages. Requests not yet resolved have no
-    // resolved date and come last when sorting by it, whichever way.
+    // first. Sorted by reported, requests reported at the same moment keep the order they were added in, by ID.
+    // Sorted by resolved, ties keep the needs-attention order, and requests not yet resolved have no resolved
+    // date and come last, whichever way. Either way rows don't move between pages.
     public PageResponse<MaintenanceListItem> getMaintenancePage(Long organizationId, MaintenanceStatus status, MaintenancePriority priority, int page, int size, MaintenanceSortField sort, Sort.Direction direction) {
         organizationAuthorization(organizationId);
-        if (page < 0) {
-            throw new BadRequestException("Page must be 0 or more");
-        }
-        if (size < 1 || size > MAX_PAGE_SIZE) {
-            throw new BadRequestException("Page size must be between 1 and " + MAX_PAGE_SIZE);
-        }
-
         Sort order = NEEDS_ATTENTION_FIRST;
         if (sort != null) {
-            Sort.Order column = switch (sort) {
-                case REPORTED -> new Sort.Order(direction, "reportedAt");
-                case RESOLVED -> new Sort.Order(direction, "resolvedAt").nullsLast();
+            order = switch (sort) {
+                case REPORTED -> Sort.by(new Sort.Order(direction, "reportedAt"), new Sort.Order(direction, "id"));
+                case RESOLVED -> Sort.by(new Sort.Order(direction, "resolvedAt").nullsLast()).and(NEEDS_ATTENTION_FIRST);
             };
-            order = Sort.by(column).and(NEEDS_ATTENTION_FIRST);
         }
         return PageResponse.from(
-                maintenanceRepository.findListPage(organizationId, status, priority, PageRequest.of(page, size, order)),
+                maintenanceRepository.findListPage(organizationId, status, priority, Paging.pageRequest(page, size, order)),
                 row -> new MaintenanceListItem(MaintenanceResponse.from(row.request()), row.propertyName(), row.spaceName()));
     }
 

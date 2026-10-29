@@ -2,8 +2,12 @@ package com.isabilalli.rentora.property.infrastructure;
 
 import java.util.List;
 import java.util.Collection;
+import java.util.Optional;
+
+import jakarta.persistence.LockModeType;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -53,4 +57,9 @@ public interface SpaceRepository extends JpaRepository<Space, Long>{
         ORDER BY s.propertyId, s.id
     """)
     List<Space> findAllByOrganizationId(@Param("organizationId") Long organizationId);
+
+    // Locks the space's row until the transaction ends; anyone else writing the space waits until then.
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT s FROM Space s WHERE s.id = :id")
+    Optional<Space> findByIdForUpdate(@Param("id") Long id);
 }

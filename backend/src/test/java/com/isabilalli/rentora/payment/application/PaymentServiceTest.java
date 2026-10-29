@@ -14,6 +14,7 @@ import com.isabilalli.rentora.payment.domain.PaymentMethod;
 import com.isabilalli.rentora.payment.domain.PaymentStatus;
 import com.isabilalli.rentora.payment.infrastructure.PaymentRepository;
 import com.isabilalli.rentora.shared.api.BadRequestException;
+import com.isabilalli.rentora.shared.infrastructure.Paging;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -100,7 +101,7 @@ class PaymentServiceTest {
     void pageAndSizeMustBeInRange() {
         assertThrows(BadRequestException.class, () -> paymentService.getPaymentPage(ORGANIZATION_ID, PaymentDisplayStatus.PAID, -1, 25, null, null));
         assertThrows(BadRequestException.class, () -> paymentService.getPaymentPage(ORGANIZATION_ID, PaymentDisplayStatus.PAID, 0, 0, null, null));
-        assertThrows(BadRequestException.class, () -> paymentService.getPaymentPage(ORGANIZATION_ID, PaymentDisplayStatus.PAID, 0, PaymentService.MAX_PAGE_SIZE + 1, null, null));
+        assertThrows(BadRequestException.class, () -> paymentService.getPaymentPage(ORGANIZATION_ID, PaymentDisplayStatus.PAID, 0, Paging.MAX_PAGE_SIZE + 1, null, null));
 
         verifyNoInteractions(paymentRepository);
     }

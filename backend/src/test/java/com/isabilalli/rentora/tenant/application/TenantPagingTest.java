@@ -12,6 +12,7 @@ import com.isabilalli.rentora.tenant.api.dto.TenantSortField;
 import com.isabilalli.rentora.tenant.domain.Tenant;
 import com.isabilalli.rentora.tenant.domain.TenantType;
 import com.isabilalli.rentora.tenant.infrastructure.TenantRepository;
+import jakarta.persistence.EntityManager;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -43,6 +44,9 @@ class TenantPagingTest {
 
     @Autowired
     private OrganizationRepository organizationRepository;
+
+    @Autowired
+    private EntityManager entityManager;
 
     private TenantService tenantService;
     private Long organizationId;
@@ -87,6 +91,22 @@ class TenantPagingTest {
     void sortsByAddedOldestFirst() {
         assertEquals(ids(aoife, northwind, liam, brightline, sofia),
                 ids(page(null, 0, 25, TenantSortField.ADDED, Sort.Direction.ASC)));
+    }
+
+    // Tenants added together can share a timestamp; the ID then keeps them in the order they were added.
+    @Test
+    void tenantsAddedAtTheSameMomentKeepTheOrderTheyWereAddedIn() {
+        // now() is when the test's transaction began, the same for every row.
+        entityManager.createNativeQuery("UPDATE tenants SET created_at = now() WHERE organization_id = :organizationId")
+                .setParameter("organizationId", organizationId)
+                .executeUpdate();
+        entityManager.clear();
+
+        assertEquals(ids(aoife, northwind, liam, brightline, sofia),
+                ids(page(null, 0, 25, TenantSortField.ADDED, Sort.Direction.ASC)));
+        assertEquals(ids(sofia, brightline, liam, northwind, aoife),
+                ids(page(null, 0, 25, TenantSortField.ADDED, Sort.Direction.DESC)));
+        assertEquals(ids(sofia, brightline, liam, northwind, aoife), ids(page(null)));
     }
 
     @Test
