@@ -1,5 +1,47 @@
 import { apiRequest } from "../../../lib/api/client";
-import type { CreateMaintenanceRequest, MaintenancePriority, MaintenanceResponse, MaintenanceStatus, UpdateMaintenanceRequest } from "../types";
+import type { PageResponse } from "../../../lib/api/page";
+import type { SortState } from "../../../lib/sort";
+import type {
+    CreateMaintenanceRequest,
+    MaintenanceCount,
+    MaintenanceListItem,
+    MaintenancePriority,
+    MaintenanceResponse,
+    MaintenanceSortField,
+    MaintenanceStatus,
+    UpdateMaintenanceRequest,
+} from "../types";
+
+export interface MaintenancePageQuery {
+    // Every status or priority when left out.
+    status?: MaintenanceStatus;
+    priority?: MaintenancePriority;
+    page: number;
+    size: number;
+    // What needs attention first when left out.
+    sort?: SortState<MaintenanceSortField>;
+}
+
+// One page of the Maintenance page, filtered and sorted on the server.
+export async function getMaintenancePage(organizationId: number, { status, priority, page, size, sort }: MaintenancePageQuery): Promise<PageResponse<MaintenanceListItem>> {
+    const query = new URLSearchParams({ page: String(page), size: String(size) });
+    if (status) query.set("status", status);
+    if (priority) query.set("priority", priority);
+    if (sort) {
+        query.set("sort", sort.key);
+        query.set("direction", sort.direction.toUpperCase());
+    }
+    return apiRequest<PageResponse<MaintenanceListItem>>(`/api/organizations/${organizationId}/maintenance/page?${query}`, {
+        authenticated: true,
+    });
+}
+
+// How many requests have each status and priority, for the Maintenance page's filters.
+export async function getMaintenanceSummary(organizationId: number): Promise<MaintenanceCount[]> {
+    return apiRequest<MaintenanceCount[]>(`/api/organizations/${organizationId}/maintenance/summary`, {
+        authenticated: true,
+    });
+}
 
 export async function createMaintenanceRequest(organizationId: number ,request: CreateMaintenanceRequest): Promise<MaintenanceResponse> {
     return apiRequest<MaintenanceResponse>(`/api/organizations/${organizationId}/maintenance`,{

@@ -16,12 +16,14 @@ public class LoginService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final RefreshTokenService refreshTokenService;
+    private final LoginAttemptLimiter loginAttemptLimiter;
 
-    public LoginService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService, RefreshTokenService refreshTokenService){
+    public LoginService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService, RefreshTokenService refreshTokenService, LoginAttemptLimiter loginAttemptLimiter){
         this.userRepository=userRepository;
         this.passwordEncoder=passwordEncoder;
         this.jwtService=jwtService;
         this.refreshTokenService=refreshTokenService;
+        this.loginAttemptLimiter=loginAttemptLimiter;
     }
 
     public record LoginResult(
@@ -31,11 +33,16 @@ public class LoginService {
         String refreshToken
 ) {}
 
-    public LoginResult login(LoginRequest request) {
-        User user = userRepository.findByEmail(request.email()).orElseThrow(() -> new InvalidCredentialsException());
-        if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+    // clientAddress is where the request came from, for the per-address limit on failed logins.
+    public LoginResult login(LoginRequest request, String clientAddress) {
+        // Checked before the password, so a refused attempt can't tell a guess was right.
+        loginAttemptLimiter.checkAllowed(request.email(), clientAddress);
+        User user = userRepository.findByEmail(request.email()).orElse(null);
+        if (user == null || !passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+            loginAttemptLimiter.recordFailure(request.email(), clientAddress);
             throw new InvalidCredentialsException();
         }
+        loginAttemptLimiter.recordSuccess(request.email());
         String accessToken = jwtService.generateToken(user.getId(), user.getEmail());
         RefreshTokenService.IssuedRefreshToken refreshToken = refreshTokenService.issue(user.getId());
         return new LoginResult(user.getId(), user.getEmail(), accessToken, refreshToken.rawToken());

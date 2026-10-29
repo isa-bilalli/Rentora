@@ -16,6 +16,7 @@ import com.isabilalli.rentora.auth.infrastructure.security.AuthenticatedUser;
 import com.isabilalli.rentora.auth.infrastructure.security.JwtService;
 
 import jakarta.validation.Valid;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.ResponseEntity;
 
@@ -51,8 +52,9 @@ public class LoginController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request, HttpServletResponse response) {
-        LoginService.LoginResult result = loginService.login(request);
+    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request, HttpServletRequest httpRequest, HttpServletResponse response) {
+        // Behind the prod nginx this is the visitor's address, taken from X-Forwarded-For (see application-prod.yml).
+        LoginService.LoginResult result = loginService.login(request, httpRequest.getRemoteAddr());
         ResponseCookie refreshCookie = refreshCookie(result.refreshToken(), REFRESH_COOKIE_MAX_AGE);
         response.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.toString());
         return ResponseEntity.ok(new LoginResponse(result.userId(), result.email(), result.accessToken()));

@@ -5,12 +5,17 @@ import com.isabilalli.rentora.auth.application.CurrentUserService;
 import com.isabilalli.rentora.auth.infrastructure.security.AuthenticatedUser;
 import com.isabilalli.rentora.maintenance.api.MaintenanceAccess;
 import com.isabilalli.rentora.maintenance.api.dto.CreateMaintenanceRequest;
+import com.isabilalli.rentora.maintenance.api.dto.MaintenanceCount;
+import com.isabilalli.rentora.maintenance.api.dto.MaintenanceListItem;
+import com.isabilalli.rentora.maintenance.api.dto.MaintenanceSortField;
 import com.isabilalli.rentora.maintenance.api.dto.MaintenanceResponse;
 import com.isabilalli.rentora.maintenance.api.dto.UpdateMaintenanceRequest;
 import com.isabilalli.rentora.maintenance.domain.MaintenancePriority;
 import com.isabilalli.rentora.maintenance.domain.MaintenanceRequest;
 import com.isabilalli.rentora.maintenance.domain.MaintenanceStatus;
 import com.isabilalli.rentora.maintenance.infrastructure.MaintenanceRepository;
+import com.isabilalli.rentora.shared.api.BadRequestException;
+import com.isabilalli.rentora.shared.api.PageResponse;
 import com.isabilalli.rentora.organization.application.OrganizationAccessService;
 import com.isabilalli.rentora.property.api.PropertyAccess;
 import com.isabilalli.rentora.property.api.SpaceAccess;
@@ -18,6 +23,9 @@ import com.isabilalli.rentora.property.api.SpaceAccess;
 import java.time.LocalDate;
 import java.util.List;
 
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.JpaSort;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -69,6 +77,50 @@ public class MaintenanceService implements MaintenanceAccess {
     public List<MaintenanceResponse> getAllMaintenanceRequests(Long organizationId){
         organizationAuthorization(organizationId);
         return maintenanceRepository.findAllByOrganizationId(organizationId).stream().map(MaintenanceResponse::from).toList();
+    }
+
+    public static final int MAX_PAGE_SIZE = 100;
+
+    // What needs attention first: open and in-progress before resolved and cancelled, then by priority (urgent
+    // first), then the most recently reported. The Maintenance page's order, and how ties are broken when a
+    // column sorts it. The CASE expressions can't go through the typed Sort, so they're passed as JPQL, each in
+    // brackets: Spring Data puts the alias ("m.") in front of a sort expression unless it contains a bracket.
+    private static final Sort NEEDS_ATTENTION_FIRST = JpaSort.unsafe(Sort.Direction.ASC,
+                    "(CASE WHEN m.status IN (com.isabilalli.rentora.maintenance.domain.MaintenanceStatus.OPEN, com.isabilalli.rentora.maintenance.domain.MaintenanceStatus.IN_PROGRESS) THEN 0 ELSE 1 END)",
+                    "(CASE WHEN m.priority = com.isabilalli.rentora.maintenance.domain.MaintenancePriority.URGENT THEN 0 "
+                            + "WHEN m.priority = com.isabilalli.rentora.maintenance.domain.MaintenancePriority.HIGH THEN 1 "
+                            + "WHEN m.priority = com.isabilalli.rentora.maintenance.domain.MaintenancePriority.MEDIUM THEN 2 ELSE 3 END)")
+            .and(Sort.by(MaintenanceRequest::getReportedAt, MaintenanceRequest::getId).descending());
+
+    // One page of the Maintenance page. status and priority narrow it. Without a sort, what needs attention
+    // first; with one, ties keep that order so rows don't move between pages. Requests not yet resolved have no
+    // resolved date and come last when sorting by it, whichever way.
+    public PageResponse<MaintenanceListItem> getMaintenancePage(Long organizationId, MaintenanceStatus status, MaintenancePriority priority, int page, int size, MaintenanceSortField sort, Sort.Direction direction) {
+        organizationAuthorization(organizationId);
+        if (page < 0) {
+            throw new BadRequestException("Page must be 0 or more");
+        }
+        if (size < 1 || size > MAX_PAGE_SIZE) {
+            throw new BadRequestException("Page size must be between 1 and " + MAX_PAGE_SIZE);
+        }
+
+        Sort order = NEEDS_ATTENTION_FIRST;
+        if (sort != null) {
+            Sort.Order column = switch (sort) {
+                case REPORTED -> new Sort.Order(direction, "reportedAt");
+                case RESOLVED -> new Sort.Order(direction, "resolvedAt").nullsLast();
+            };
+            order = Sort.by(column).and(NEEDS_ATTENTION_FIRST);
+        }
+        return PageResponse.from(
+                maintenanceRepository.findListPage(organizationId, status, priority, PageRequest.of(page, size, order)),
+                row -> new MaintenanceListItem(MaintenanceResponse.from(row.request()), row.propertyName(), row.spaceName()));
+    }
+
+    // How many requests have each status and priority; pairs without requests are left out.
+    public List<MaintenanceCount> getMaintenanceSummary(Long organizationId) {
+        organizationAuthorization(organizationId);
+        return maintenanceRepository.countsByStatusAndPriority(organizationId);
     }
 
     public List<MaintenanceResponse> getMaintenanceByProperty(Long organizationId, Long propertyId){

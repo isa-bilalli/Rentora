@@ -5,11 +5,17 @@ import com.isabilalli.rentora.auth.application.CurrentUserService;
 import com.isabilalli.rentora.auth.infrastructure.security.AuthenticatedUser;
 import com.isabilalli.rentora.expense.api.ExpenseAccess;
 import com.isabilalli.rentora.expense.api.dto.CreateExpenseRequest;
+import com.isabilalli.rentora.expense.api.dto.ExpenseListItem;
 import com.isabilalli.rentora.expense.api.dto.ExpenseResponse;
+import com.isabilalli.rentora.expense.api.dto.ExpenseSortField;
+import com.isabilalli.rentora.expense.api.dto.ExpenseState;
+import com.isabilalli.rentora.expense.api.dto.ExpenseStateTotal;
 import com.isabilalli.rentora.expense.api.dto.UpdateExpenseRequest;
 import com.isabilalli.rentora.expense.domain.Expense;
 import com.isabilalli.rentora.expense.domain.ExpenseStatus;
 import com.isabilalli.rentora.expense.infrastructure.ExpenseRepository;
+import com.isabilalli.rentora.shared.api.BadRequestException;
+import com.isabilalli.rentora.shared.api.PageResponse;
 import com.isabilalli.rentora.organization.application.OrganizationAccessService;
 import com.isabilalli.rentora.organization.domain.OrganizationRole;
 import com.isabilalli.rentora.property.api.PropertyAccess;
@@ -18,6 +24,8 @@ import com.isabilalli.rentora.property.api.SpaceAccess;
 import java.time.LocalDate;
 import java.util.List;
 
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -68,6 +76,44 @@ public class ExpenseService implements ExpenseAccess {
     public List<ExpenseResponse> getAllExpenses(Long organizationId){
         organizationAuthorization(organizationId);
         return expenseRepository.findAllByOrganizationId(organizationId).stream().map(ExpenseResponse::from).toList();
+    }
+
+    public static final int MAX_PAGE_SIZE = 100;
+
+    // One page of the Expenses page. state and propertyId narrow it. Newest expense first unless sorted; ties keep
+    // that order so rows don't move between pages.
+    public PageResponse<ExpenseListItem> getExpensePage(Long organizationId, ExpenseState state, Long propertyId, int page, int size, ExpenseSortField sort, Sort.Direction direction) {
+        organizationAuthorization(organizationId);
+        if (page < 0) {
+            throw new BadRequestException("Page must be 0 or more");
+        }
+        if (size < 1 || size > MAX_PAGE_SIZE) {
+            throw new BadRequestException("Page size must be between 1 and " + MAX_PAGE_SIZE);
+        }
+
+        // PAID and UNPAID are both RECORDED in the database; the paid flag tells them apart.
+        ExpenseStatus status = state == null ? null : state == ExpenseState.VOIDED ? ExpenseStatus.VOIDED : ExpenseStatus.RECORDED;
+        Sort newestFirst = Sort.by(Expense::getExpenseDate, Expense::getId).descending();
+        Sort order = newestFirst;
+        if (sort != null) {
+            Sort column = switch (sort) {
+                case DATE -> Sort.by(Expense::getExpenseDate);
+                case AMOUNT -> Sort.by(Expense::getAmountCents);
+            };
+            order = (direction.isAscending() ? column.ascending() : column.descending()).and(newestFirst);
+        }
+        return PageResponse.from(
+                expenseRepository.findListPage(organizationId, propertyId, status, state == ExpenseState.PAID, state == ExpenseState.UNPAID,
+                        PageRequest.of(page, size, order)),
+                row -> new ExpenseListItem(ExpenseResponse.from(row.expense()), ExpenseState.of(row.expense()), row.propertyName(), row.spaceName()));
+    }
+
+    // Count and sum per state and property; pairs without expenses are left out.
+    public List<ExpenseStateTotal> getExpenseSummary(Long organizationId) {
+        organizationAuthorization(organizationId);
+        return expenseRepository.totalsByStateAndProperty(organizationId).stream()
+                .map(row -> new ExpenseStateTotal(ExpenseState.valueOf(row.getState()), row.getProperty(), row.getExpenses(), row.getCents()))
+                .toList();
     }
 
     public List<ExpenseResponse> getAllByPropertyId(Long organizationId, Long propertyId){

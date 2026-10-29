@@ -1,16 +1,21 @@
 package com.isabilalli.rentora.maintenance.api;
 
 import com.isabilalli.rentora.maintenance.api.dto.CreateMaintenanceRequest;
+import com.isabilalli.rentora.maintenance.api.dto.MaintenanceCount;
+import com.isabilalli.rentora.maintenance.api.dto.MaintenanceListItem;
+import com.isabilalli.rentora.maintenance.api.dto.MaintenanceSortField;
 import com.isabilalli.rentora.maintenance.api.dto.MaintenanceResponse;
 import com.isabilalli.rentora.maintenance.api.dto.UpdateMaintenanceRequest;
 import com.isabilalli.rentora.maintenance.application.MaintenanceService;
 import com.isabilalli.rentora.maintenance.domain.MaintenancePriority;
 import com.isabilalli.rentora.maintenance.domain.MaintenanceStatus;
+import com.isabilalli.rentora.shared.api.PageResponse;
 
 import jakarta.validation.Valid;
 
 import java.util.List;
 
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -53,6 +58,27 @@ public class MaintenanceController {
         return ResponseEntity.ok(maintenanceService.getAllMaintenanceRequests(organizationId));
     }
  
+    // One page of the Maintenance page, e.g. ?status=OPEN&priority=URGENT&page=0&size=25&sort=RESOLVED&direction=DESC.
+    // Every filter is optional; without sort, what needs attention first.
+    @GetMapping("/page")
+    public ResponseEntity<PageResponse<MaintenanceListItem>> getMaintenancePage(
+            @PathVariable Long organizationId,
+            @RequestParam(required = false) MaintenanceStatus status,
+            @RequestParam(required = false) MaintenancePriority priority,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "25") int size,
+            @RequestParam(required = false) MaintenanceSortField sort,
+            @RequestParam(defaultValue = "DESC") Sort.Direction direction
+    ) {
+        return ResponseEntity.ok(maintenanceService.getMaintenancePage(organizationId, status, priority, page, size, sort, direction));
+    }
+
+    // How many requests have each status and priority, for the Maintenance page's filters.
+    @GetMapping("/summary")
+    public ResponseEntity<List<MaintenanceCount>> getMaintenanceSummary(@PathVariable Long organizationId) {
+        return ResponseEntity.ok(maintenanceService.getMaintenanceSummary(organizationId));
+    }
+
     @GetMapping("/properties/{propertyId}")
     public ResponseEntity<List<MaintenanceResponse>> getMaintenanceByProperty(@PathVariable Long organizationId, @PathVariable Long propertyId) {
         return ResponseEntity.ok(maintenanceService.getMaintenanceByProperty(organizationId, propertyId));

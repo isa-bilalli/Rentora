@@ -1,5 +1,8 @@
 export type TenantType = "INDIVIDUAL" | "COMPANY";
 
+// The Tenants page's sortable columns, as the server names them.
+export type TenantSortField = "ADDED";
+
 export interface TenantResponse {
     id: number;
     organizationId: number;

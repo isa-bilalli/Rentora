@@ -1,15 +1,21 @@
 package com.isabilalli.rentora.lease.api;
 
 import com.isabilalli.rentora.lease.api.dto.CreateLeaseRequest;
+import com.isabilalli.rentora.lease.api.dto.LeaseDisplayStatus;
+import com.isabilalli.rentora.lease.api.dto.LeaseListItem;
 import com.isabilalli.rentora.lease.api.dto.LeaseResponse;
+import com.isabilalli.rentora.lease.api.dto.LeaseSortField;
 import com.isabilalli.rentora.lease.api.dto.RenewLeaseRequest;
 import com.isabilalli.rentora.lease.api.dto.UpdateLeaseRequest;
 import com.isabilalli.rentora.lease.application.LeaseService;
 import com.isabilalli.rentora.shared.api.BadRequestException;
+import com.isabilalli.rentora.shared.api.PageResponse;
 import jakarta.validation.Valid;
 
 import java.util.List;
+import java.util.Map;
 
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -47,6 +53,27 @@ public class LeaseController {
         return ResponseEntity.ok(leaseService.findAllByOrganizationId(organizationId));
     }
     
+    // One page of the Leases page, e.g. ?status=ACTIVE&search=riverside&page=0&size=25&sort=RENT&direction=DESC.
+    // Every filter is optional; without sort, newest start first.
+    @GetMapping("/page")
+    public ResponseEntity<PageResponse<LeaseListItem>> getLeasePage(
+            @PathVariable Long organizationId,
+            @RequestParam(required = false) LeaseDisplayStatus status,
+            @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "25") int size,
+            @RequestParam(required = false) LeaseSortField sort,
+            @RequestParam(defaultValue = "DESC") Sort.Direction direction
+    ) {
+        return ResponseEntity.ok(leaseService.getLeasePage(organizationId, status, search, page, size, sort, direction));
+    }
+
+    // How many leases each status has, for the Leases page's filters.
+    @GetMapping("/summary")
+    public ResponseEntity<Map<LeaseDisplayStatus, Long>> getLeaseSummary(@PathVariable Long organizationId) {
+        return ResponseEntity.ok(leaseService.getLeaseSummary(organizationId));
+    }
+
     @GetMapping("/{leaseId}")
     public ResponseEntity<LeaseResponse> getLease(@PathVariable Long organizationId, @PathVariable Long leaseId) {
         return ResponseEntity.ok(leaseService.getLease(organizationId, leaseId));

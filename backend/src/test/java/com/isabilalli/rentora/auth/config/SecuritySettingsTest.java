@@ -60,6 +60,14 @@ class SecuritySettingsTest {
                 });
     }
 
+    // Behind nginx, otherwise every visitor shares nginx's address and the login limit per address
+    // (LoginAttemptLimiter) would lock everyone out together.
+    @Test
+    void prodTakesTheVisitorsAddressFromTheProxy() {
+        runner.withPropertyValues("spring.profiles.active=prod", "CORS_ALLOWED_ORIGINS=https://app.example.com")
+                .run(context -> assertEquals("native", context.getEnvironment().getProperty("server.forward-headers-strategy")));
+    }
+
     // Otherwise prod would start and then reject every request from the frontend's browser.
     @Test
     void prodStopsStartupWithoutAllowedOrigins() {

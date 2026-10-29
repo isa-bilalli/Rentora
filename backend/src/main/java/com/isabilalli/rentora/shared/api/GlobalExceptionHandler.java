@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.NestedExceptionUtils;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -17,6 +18,7 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 
 import com.isabilalli.rentora.auth.application.exception.InvalidCredentialsException;
 import com.isabilalli.rentora.auth.application.exception.InvalidRefreshTokenException;
+import com.isabilalli.rentora.auth.application.exception.TooManyLoginAttemptsException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -62,6 +64,15 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(InvalidCredentialsException.class)
     public Map<String, String> handleInvalidCredentialsException(InvalidCredentialsException exception) {
         return Map.of("error", exception.getMessage());
+    }
+
+    // Retry-After is in whole seconds, rounded up so a client that waits exactly that long gets in.
+    @ExceptionHandler(TooManyLoginAttemptsException.class)
+    public ResponseEntity<Map<String, String>> handleTooManyLoginAttemptsException(TooManyLoginAttemptsException exception) {
+        long seconds = Math.max(1, (exception.getRetryAfter().toMillis() + 999) / 1000);
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(HttpHeaders.RETRY_AFTER, String.valueOf(seconds))
+                .body(Map.of("error", exception.getMessage()));
     }
 
     @ResponseStatus(HttpStatus.NOT_FOUND)

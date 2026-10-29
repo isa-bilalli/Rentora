@@ -1,8 +1,11 @@
 package com.isabilalli.rentora.maintenance.infrastructure;
 
+import com.isabilalli.rentora.maintenance.api.dto.MaintenanceCount;
 import com.isabilalli.rentora.maintenance.domain.MaintenancePriority;
 import com.isabilalli.rentora.maintenance.domain.MaintenanceRequest;
 import com.isabilalli.rentora.maintenance.domain.MaintenanceStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -17,6 +20,40 @@ public interface MaintenanceRepository extends JpaRepository<MaintenanceRequest,
     List<MaintenanceRequest> findAllBySpaceId(Long spaceId);
     List<MaintenanceRequest> findAllByOrganizationIdAndStatus(Long organizationId, MaintenanceStatus status);
     List<MaintenanceRequest> findAllByOrganizationIdAndPriority(Long organizationId, MaintenancePriority priority);
+
+    // A page of the Maintenance page, with the property's and space's names; status and priority are skipped
+    // when null. The Pageable sets the order.
+    @Query(value = """
+        SELECT new com.isabilalli.rentora.maintenance.infrastructure.MaintenanceListRow(m, p.name, s.name)
+        FROM MaintenanceRequest m
+        JOIN Property p ON p.id = m.propertyId
+        LEFT JOIN Space s ON s.id = m.spaceId
+        WHERE m.organizationId = :organizationId
+          AND (:status IS NULL OR m.status = :status)
+          AND (:priority IS NULL OR m.priority = :priority)
+        """, countQuery = """
+        SELECT COUNT(m)
+        FROM MaintenanceRequest m
+        JOIN Property p ON p.id = m.propertyId
+        LEFT JOIN Space s ON s.id = m.spaceId
+        WHERE m.organizationId = :organizationId
+          AND (:status IS NULL OR m.status = :status)
+          AND (:priority IS NULL OR m.priority = :priority)
+        """)
+    Page<MaintenanceListRow> findListPage(
+            @Param("organizationId") Long organizationId,
+            @Param("status") MaintenanceStatus status,
+            @Param("priority") MaintenancePriority priority,
+            Pageable pageable);
+
+    // How many requests have each status and priority, for the Maintenance page's filters.
+    @Query("""
+        SELECT new com.isabilalli.rentora.maintenance.api.dto.MaintenanceCount(m.status, m.priority, COUNT(m))
+        FROM MaintenanceRequest m
+        WHERE m.organizationId = :organizationId
+        GROUP BY m.status, m.priority
+        """)
+    List<MaintenanceCount> countsByStatusAndPriority(@Param("organizationId") Long organizationId);
     @Query("""
             SELECT COUNT(m)
             FROM MaintenanceRequest m

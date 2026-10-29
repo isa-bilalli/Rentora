@@ -1,71 +1,84 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router";
 import { FileText, Search } from "lucide-react";
-import { loadLeaseRows, type LeaseRow } from "../leaseRows";
+import { getLeasePage, getLeaseSummary } from "../api/leasesApi";
 import {
     LEASE_DISPLAY_STATUSES,
     leaseStatusLabel,
     type LeaseDisplayStatus,
 } from "../status";
+import type { LeaseListItem, LeaseSortField } from "../types";
 import LeaseStatusBadge from "../components/LeaseStatusBadge";
+import { useDebouncedValue } from "../../../hooks/useDebouncedValue";
 import { useOrgQuery } from "../../../hooks/useOrgQuery";
-import { useTableSort } from "../../../hooks/useTableSort";
 import { formatDate, formatMoney } from "../../../lib/format";
-import type { SortColumns, SortState } from "../../../lib/sort";
+import { nextSort, type SortDirection, type SortState } from "../../../lib/sort";
 import PageHeader from "../../../components/ui/PageHeader";
 import EmptyState from "../../../components/ui/EmptyState";
+import Pagination from "../../../components/ui/Pagination";
 import SortableHeader from "../../../components/ui/SortableHeader";
 
 type StatusFilter = LeaseDisplayStatus | "ALL";
 
-const NO_ROWS: LeaseRow[] = [];
+const PAGE_SIZE = 25;
+const NO_ROWS: LeaseListItem[] = [];
 
-type SortKey = "term" | "rent";
+// Newest first: upcoming leases, then the most recently started. The server's order when no sort is sent.
+const initialSort: SortState<LeaseSortField> = { key: "START_DATE", direction: "desc" };
 
-const sortColumns: SortColumns<LeaseRow, SortKey> = {
-    term: { value: (row) => row.lease.startDate, firstDirection: "desc" },
-    rent: { value: (row) => row.lease.monthlyRentCents, firstDirection: "desc" },
+// Latest or largest first on the first click.
+const sortColumns: Record<LeaseSortField, { firstDirection: SortDirection }> = {
+    START_DATE: { firstDirection: "desc" },
+    RENT: { firstDirection: "desc" },
 };
 
-// Newest first: upcoming leases, then the most recently started.
-const initialSort: SortState<SortKey> = { key: "term", direction: "desc" };
-
-function newestFirst(a: LeaseRow, b: LeaseRow): number {
-    return b.lease.startDate.localeCompare(a.lease.startDate) || b.lease.id - a.lease.id;
-}
-
+// The server filters, searches, sorts and pages the leases; this page shows one page at a time.
 export default function LeasesPage() {
-    const { organizationId, data, loading, error } = useOrgQuery(loadLeaseRows);
-    const rows = data ?? NO_ROWS;
-    const loadError = organizationId === undefined
-        ? "Select an organization to view its leases."
-        : error;
     const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
     const [query, setQuery] = useState("");
+    const [page, setPage] = useState(0);
+    const [sort, setSort] = useState(initialSort);
+    // Searching waits for a pause in typing.
+    const search = useDebouncedValue(query.trim(), 300);
 
-    const countByStatus = useMemo(() => {
-        const counts: Record<StatusFilter, number> = { ALL: rows.length, ACTIVE: 0, UPCOMING: 0, ENDED: 0, CANCELLED: 0 };
-        for (const row of rows) counts[row.status] += 1;
-        return counts;
-    }, [rows]);
+    const summaryQuery = useOrgQuery(getLeaseSummary);
+    const pageQuery = useOrgQuery(
+        (organizationId) => getLeasePage(organizationId, {
+            status: statusFilter === "ALL" ? undefined : statusFilter,
+            search: search || undefined,
+            page,
+            size: PAGE_SIZE,
+            sort,
+        }),
+        [statusFilter, search, page, sort.key, sort.direction],
+    );
 
-    const filteredRows = useMemo(() => {
-        const normalizedQuery = query.trim().toLocaleLowerCase();
-        return rows.filter((row) => {
-            if (statusFilter !== "ALL" && row.status !== statusFilter) return false;
-            if (!normalizedQuery) return true;
-            return [row.tenantName, row.propertyName, row.spaceName]
-                .join(" ")
-                .toLocaleLowerCase()
-                .includes(normalizedQuery);
-        });
-    }, [rows, statusFilter, query]);
+    const summary = summaryQuery.data;
+    const pageData = pageQuery.data;
+    const rows = pageData?.items ?? NO_ROWS;
+    const loadError = pageQuery.organizationId === undefined
+        ? "Select an organization to view its leases."
+        : summaryQuery.error ?? pageQuery.error;
+    const totalLeases = summary ? LEASE_DISPLAY_STATUSES.reduce((total, status) => total + summary[status], 0) : undefined;
+    const countOf = (filter: StatusFilter) => (filter === "ALL" ? totalLeases : summary?.[filter]);
 
-    const { sortedRows, directionOf, toggle } = useTableSort(filteredRows, {
-        columns: sortColumns,
-        initial: initialSort,
-        pageOrder: newestFirst,
-    });
+    // Any change to what's shown starts again at the first page.
+    function chooseStatus(filter: StatusFilter) {
+        setStatusFilter(filter);
+        setPage(0);
+    }
+
+    function changeQuery(text: string) {
+        setQuery(text);
+        setPage(0);
+    }
+
+    function toggleSort(field: LeaseSortField) {
+        setSort((current) => nextSort(current, field, sortColumns, initialSort) ?? initialSort);
+        setPage(0);
+    }
+
+    const directionOf = (field: LeaseSortField) => (sort.key === field ? sort.direction : null);
 
     const filters: StatusFilter[] = ["ALL", ...LEASE_DISPLAY_STATUSES];
 
@@ -88,16 +101,19 @@ export default function LeasesPage() {
                     <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by status">
                         {filters.map((filter) => {
                             const selected = statusFilter === filter;
+                            const count = countOf(filter);
                             return (
                                 <button
                                     key={filter}
                                     type="button"
-                                    onClick={() => setStatusFilter(filter)}
+                                    onClick={() => chooseStatus(filter)}
                                     aria-pressed={selected}
                                     className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d4a94f] ${selected ? "border-[#14302b] bg-[#14302b] text-white" : "border-[#dce4de] bg-white text-[#42574e] hover:bg-[#f4f7f5]"}`}
                                 >
                                     {filter === "ALL" ? "All" : leaseStatusLabel[filter]}
-                                    <span className={`text-xs ${selected ? "text-white/70" : "text-gray-400"}`}>{countByStatus[filter]}</span>
+                                    {count !== undefined && (
+                                        <span className={`text-xs ${selected ? "text-white/70" : "text-gray-400"}`}>{count}</span>
+                                    )}
                                 </button>
                             );
                         })}
@@ -107,16 +123,16 @@ export default function LeasesPage() {
                         <input
                             aria-label="Search leases"
                             value={query}
-                            onChange={(event) => setQuery(event.target.value)}
+                            onChange={(event) => changeQuery(event.target.value)}
                             placeholder="Search tenant, property, space..."
                             className="w-full rounded-lg border border-[#dce4de] bg-white py-2.5 pl-9 pr-3 text-sm outline-none focus:border-[#14302b] focus:ring-2 focus:ring-[#14302b]/10"
                         />
                     </div>
                 </div>
 
-                {loading ? (
+                {pageQuery.loading ? (
                     <div className="p-10 text-center text-sm text-gray-500">Loading leases...</div>
-                ) : rows.length === 0 && !loadError ? (
+                ) : totalLeases === 0 && !loadError ? (
                     <EmptyState
                         icon={FileText}
                         title="No leases yet"
@@ -130,72 +146,99 @@ export default function LeasesPage() {
                             </Link>
                         }
                     />
-                ) : filteredRows.length === 0 ? (
-                    <div className="p-10 text-center text-sm text-gray-500">No leases match these filters.</div>
+                ) : rows.length === 0 && page > 0 ? (
+                    // E.g. after switching organization while on a later page.
+                    <EmptyState
+                        title="This page is empty"
+                        action={
+                            <button
+                                type="button"
+                                onClick={() => setPage(0)}
+                                className="inline-flex items-center gap-2 rounded-lg bg-[#14302b] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#20453d]"
+                            >
+                                Go to the first page
+                            </button>
+                        }
+                    />
+                ) : rows.length === 0 ? (
+                    !loadError && <div className="p-10 text-center text-sm text-gray-500">No leases match these filters.</div>
                 ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full min-w-[880px] text-left text-sm">
-                            <thead className="bg-[#f8faf8] text-xs uppercase tracking-wide text-[#71847a]">
-                                <tr>
-                                    <th className="px-5 py-3 font-semibold">Tenant</th>
-                                    <th className="px-5 py-3 font-semibold">Property</th>
-                                    <SortableHeader
-                                        label="Term"
-                                        direction={directionOf("term")}
-                                        onToggle={() => toggle("term")}
-                                        className="px-5 py-3 font-semibold"
-                                    />
-                                    <SortableHeader
-                                        label="Rent / month"
-                                        direction={directionOf("rent")}
-                                        onToggle={() => toggle("rent")}
-                                        className="px-5 py-3 text-right font-semibold"
-                                    />
-                                    <th className="px-5 py-3 font-semibold">Status</th>
-                                    <th className="px-5 py-3 text-right font-semibold"> </th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-[#edf1ee]">
-                                {sortedRows.map((row) => (
-                                    <tr key={row.lease.id} className="transition hover:bg-[#fafcfb]">
-                                        <td className="px-5 py-4">
-                                            <Link
-                                                to={`/app/leases/${row.lease.id}`}
-                                                className="font-medium text-[#14302b] hover:underline"
-                                            >
-                                                {row.tenantName}
-                                            </Link>
-                                            <p className="mt-1 text-xs text-gray-400">Lease #{row.lease.id}</p>
-                                        </td>
-                                        <td className="px-5 py-4">
-                                            <p className="text-[#42574e]">{row.propertyName}</p>
-                                            <p className="mt-1 text-xs text-gray-500">{row.spaceName}</p>
-                                        </td>
-                                        <td className="whitespace-nowrap px-5 py-4 text-[#42574e]">
-                                            {formatDate(row.lease.startDate)}
-                                            <span className="mx-1.5 text-gray-400" aria-hidden="true">→</span>
-                                            <span className="sr-only">to</span>
-                                            {formatDate(row.lease.endDate)}
-                                        </td>
-                                        <td className="whitespace-nowrap px-5 py-4 text-right font-medium tabular-nums text-[#14302b]">
-                                            {formatMoney(row.lease.monthlyRentCents)}
-                                        </td>
-                                        <td className="px-5 py-4">
-                                            <LeaseStatusBadge status={row.status} />
-                                        </td>
-                                        <td className="px-5 py-4 text-right">
-                                            <Link
-                                                to={`/app/leases/${row.lease.id}`}
-                                                className="whitespace-nowrap font-medium text-[#426b5c] hover:text-[#14302b]"
-                                            >
-                                                View details <span aria-hidden="true">→</span>
-                                            </Link>
-                                        </td>
+                    <>
+                        <div className="overflow-x-auto">
+                            <table className="w-full min-w-[880px] text-left text-sm">
+                                <thead className="bg-[#f8faf8] text-xs uppercase tracking-wide text-[#71847a]">
+                                    <tr>
+                                        <th className="px-5 py-3 font-semibold">Tenant</th>
+                                        <th className="px-5 py-3 font-semibold">Property</th>
+                                        <SortableHeader
+                                            label="Term"
+                                            direction={directionOf("START_DATE")}
+                                            onToggle={() => toggleSort("START_DATE")}
+                                            className="px-5 py-3 font-semibold"
+                                        />
+                                        <SortableHeader
+                                            label="Rent / month"
+                                            direction={directionOf("RENT")}
+                                            onToggle={() => toggleSort("RENT")}
+                                            className="px-5 py-3 text-right font-semibold"
+                                        />
+                                        <th className="px-5 py-3 font-semibold">Status</th>
+                                        <th className="px-5 py-3 text-right font-semibold"> </th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody className="divide-y divide-[#edf1ee]">
+                                    {rows.map((row) => (
+                                        <tr key={row.lease.id} className="transition hover:bg-[#fafcfb]">
+                                            <td className="px-5 py-4">
+                                                <Link
+                                                    to={`/app/leases/${row.lease.id}`}
+                                                    className="font-medium text-[#14302b] hover:underline"
+                                                >
+                                                    {row.tenantName}
+                                                </Link>
+                                                <p className="mt-1 text-xs text-gray-400">Lease #{row.lease.id}</p>
+                                            </td>
+                                            <td className="px-5 py-4">
+                                                <p className="text-[#42574e]">{row.propertyName}</p>
+                                                <p className="mt-1 text-xs text-gray-500">{row.spaceName}</p>
+                                            </td>
+                                            <td className="whitespace-nowrap px-5 py-4 text-[#42574e]">
+                                                {formatDate(row.lease.startDate)}
+                                                <span className="mx-1.5 text-gray-400" aria-hidden="true">→</span>
+                                                <span className="sr-only">to</span>
+                                                {formatDate(row.lease.endDate)}
+                                            </td>
+                                            <td className="whitespace-nowrap px-5 py-4 text-right font-medium tabular-nums text-[#14302b]">
+                                                {formatMoney(row.lease.monthlyRentCents)}
+                                            </td>
+                                            <td className="px-5 py-4">
+                                                <LeaseStatusBadge status={row.status} />
+                                            </td>
+                                            <td className="px-5 py-4 text-right">
+                                                <Link
+                                                    to={`/app/leases/${row.lease.id}`}
+                                                    className="whitespace-nowrap font-medium text-[#426b5c] hover:text-[#14302b]"
+                                                >
+                                                    View details <span aria-hidden="true">→</span>
+                                                </Link>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                        {pageData && (
+                            <Pagination
+                                page={pageData.page}
+                                size={pageData.size}
+                                itemCount={rows.length}
+                                totalItems={pageData.totalItems}
+                                totalPages={pageData.totalPages}
+                                onPageChange={setPage}
+                                noun={{ one: "lease", other: "leases" }}
+                            />
+                        )}
+                    </>
                 )}
             </section>
         </main>

@@ -1,13 +1,19 @@
 package com.isabilalli.rentora.expense.api;
 
 import com.isabilalli.rentora.expense.api.dto.CreateExpenseRequest;
+import com.isabilalli.rentora.expense.api.dto.ExpenseListItem;
 import com.isabilalli.rentora.expense.api.dto.ExpenseResponse;
+import com.isabilalli.rentora.expense.api.dto.ExpenseSortField;
+import com.isabilalli.rentora.expense.api.dto.ExpenseState;
+import com.isabilalli.rentora.expense.api.dto.ExpenseStateTotal;
 import com.isabilalli.rentora.expense.api.dto.UpdateExpenseRequest;
 import com.isabilalli.rentora.expense.application.ExpenseService;
+import com.isabilalli.rentora.shared.api.PageResponse;
 import jakarta.validation.Valid;
 
 import java.util.List;
 
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -44,6 +50,27 @@ public class ExpenseController {
     @GetMapping
     public ResponseEntity<List<ExpenseResponse>> getAllExpenses(@PathVariable Long organizationId) {
         return ResponseEntity.ok(expenseService.getAllExpenses(organizationId));
+    }
+
+    // One page of the Expenses page, e.g. ?state=UNPAID&propertyId=4&page=0&size=25&sort=AMOUNT&direction=DESC.
+    // Every filter is optional; without sort, newest expense first.
+    @GetMapping("/page")
+    public ResponseEntity<PageResponse<ExpenseListItem>> getExpensePage(
+            @PathVariable Long organizationId,
+            @RequestParam(required = false) ExpenseState state,
+            @RequestParam(required = false) Long propertyId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "25") int size,
+            @RequestParam(required = false) ExpenseSortField sort,
+            @RequestParam(defaultValue = "DESC") Sort.Direction direction
+    ) {
+        return ResponseEntity.ok(expenseService.getExpensePage(organizationId, state, propertyId, page, size, sort, direction));
+    }
+
+    // Count and sum per state and property, for the Expenses page's filter counts and total.
+    @GetMapping("/summary")
+    public ResponseEntity<List<ExpenseStateTotal>> getExpenseSummary(@PathVariable Long organizationId) {
+        return ResponseEntity.ok(expenseService.getExpenseSummary(organizationId));
     }
 
     @GetMapping("/properties/{propertyId}")

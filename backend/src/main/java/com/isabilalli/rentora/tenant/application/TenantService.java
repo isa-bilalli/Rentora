@@ -4,12 +4,15 @@ import com.isabilalli.rentora.lease.api.LeaseStatusAccess;
 import com.isabilalli.rentora.shared.api.BadRequestException;
 import com.isabilalli.rentora.shared.api.ConflictException;
 import com.isabilalli.rentora.shared.api.NotFoundException;
+import com.isabilalli.rentora.shared.api.PageResponse;
+import com.isabilalli.rentora.shared.infrastructure.LikePattern;
 import com.isabilalli.rentora.auth.application.CurrentUserService;
 import com.isabilalli.rentora.auth.infrastructure.security.AuthenticatedUser;
 import com.isabilalli.rentora.organization.application.OrganizationAccessService;
 import com.isabilalli.rentora.organization.domain.OrganizationRole;
 import com.isabilalli.rentora.tenant.api.dto.CreateTenantRequest;
 import com.isabilalli.rentora.tenant.api.dto.TenantResponse;
+import com.isabilalli.rentora.tenant.api.dto.TenantSortField;
 import com.isabilalli.rentora.tenant.api.dto.UpdateTenantRequest;
 import com.isabilalli.rentora.tenant.domain.Tenant;
 import com.isabilalli.rentora.tenant.domain.TenantType;
@@ -17,8 +20,12 @@ import com.isabilalli.rentora.tenant.infrastructure.TenantRepository;
 import com.isabilalli.rentora.tenant.api.TenantAccess;
 
 
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
@@ -82,6 +89,43 @@ public class TenantService implements TenantAccess{
     public List<TenantResponse> findAllByOrganizationId(Long organizationId){
         organizationAuthorization(organizationId);
         return tenantRepository.findAllByOrganizationId(organizationId).stream().map(TenantResponse::from).toList();
+    }
+
+    public static final int MAX_PAGE_SIZE = 100;
+
+    // One page of the Tenants page. search matches the name, email, phone, type and number, ignoring case.
+    // Newest added first unless sorted; ties keep that order so rows don't move between pages.
+    public PageResponse<TenantResponse> getTenantPage(Long organizationId, String search, int page, int size, TenantSortField sort, Sort.Direction direction) {
+        organizationAuthorization(organizationId);
+        if (page < 0) {
+            throw new BadRequestException("Page must be 0 or more");
+        }
+        if (size < 1 || size > MAX_PAGE_SIZE) {
+            throw new BadRequestException("Page size must be between 1 and " + MAX_PAGE_SIZE);
+        }
+
+        Sort newestFirst = Sort.by(Tenant::getCreatedAt, Tenant::getId).descending();
+        Sort order = newestFirst;
+        if (sort == TenantSortField.ADDED) {
+            Sort added = Sort.by(Tenant::getCreatedAt);
+            order = (direction.isAscending() ? added.ascending() : added.descending()).and(newestFirst);
+        }
+        return PageResponse.from(
+                tenantRepository.findPage(organizationId, LikePattern.contains(search), PageRequest.of(page, size, order)),
+                TenantResponse::from);
+    }
+
+    // How many individuals and companies the organization has; a type without tenants is 0.
+    public Map<TenantType, Long> getTenantSummary(Long organizationId) {
+        organizationAuthorization(organizationId);
+        Map<TenantType, Long> counts = new EnumMap<>(TenantType.class);
+        for (TenantType type : TenantType.values()) {
+            counts.put(type, 0L);
+        }
+        for (TenantRepository.TypeCount row : tenantRepository.countsByType(organizationId)) {
+            counts.put(row.getType(), row.getTenants());
+        }
+        return counts;
     }
 
     public TenantResponse findTenant(Long organizationId, Long tenantId){

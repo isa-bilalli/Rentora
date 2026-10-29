@@ -25,7 +25,7 @@ export async function loadLeaseRows(organizationId: number): Promise<LeaseRow[]>
     const tenantById = new Map(tenants.map((tenant) => [tenant.id, tenant]));
     const today = todayLocalDateString();
 
-    // In the API's order; the Leases page sorts them itself.
+    // In the API's order; the Payments page only looks them up by lease ID.
     return leases.map((lease) => {
         const tenant = tenantById.get(lease.tenantId);
         const space = spaceById.get(lease.spaceId);

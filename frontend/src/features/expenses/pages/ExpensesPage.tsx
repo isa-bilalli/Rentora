@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import { Plus, Receipt } from "lucide-react";
-import { createExpense, getExpenses, updateExpense } from "../api/expenseApi";
-import type { CreateExpenseRequest, ExpenseResponse } from "../types";
+import { createExpense, getExpensePage, getExpenseSummary, updateExpense } from "../api/expenseApi";
+import type { CreateExpenseRequest, ExpenseListItem, ExpenseSortField, ExpenseStateTotal } from "../types";
 import ExpenseForm from "../components/ExpenseForm";
 import ExpenseRowActions from "../components/ExpenseRowActions";
 import { useExpenseActions } from "../useExpenseActions";
@@ -14,31 +14,17 @@ import {
     getExpenseState,
     type ExpenseState,
 } from "../status";
-import { listPropertiesWithSpaces, loadPropertyDirectory, type PropertyDirectory } from "../../properties/propertyDirectory";
+import { listPropertiesWithSpaces, loadPropertyDirectory } from "../../properties/propertyDirectory";
 import { useOrgQuery } from "../../../hooks/useOrgQuery";
-import { useTableSort } from "../../../hooks/useTableSort";
 import { formatDate, formatMoney } from "../../../lib/format";
-import type { SortColumns, SortState } from "../../../lib/sort";
+import { nextSort, type SortDirection, type SortState } from "../../../lib/sort";
 import PageHeader from "../../../components/ui/PageHeader";
 import EmptyState from "../../../components/ui/EmptyState";
 import FilterGroup from "../../../components/ui/FilterGroup";
+import Pagination from "../../../components/ui/Pagination";
 import SortableHeader from "../../../components/ui/SortableHeader";
 import StatusBadge from "../../../components/ui/StatusBadge";
 import StatusNotice from "../../../components/ui/StatusNotice";
-
-interface ExpenseRow {
-    expense: ExpenseResponse;
-    state: ExpenseState;
-    propertyName: string;
-    // null for an expense about the whole property rather than one space.
-    spaceName: string | null;
-}
-
-interface ExpensesData {
-    rows: ExpenseRow[];
-    // Kept so new or edited expenses can be shown with names, and for the property lists.
-    directory: PropertyDirectory;
-}
 
 // Which form is open above the list, if any.
 type FormState = { mode: "create" } | { mode: "edit"; expenseId: number } | null;
@@ -47,71 +33,94 @@ type StateFilter = ExpenseState | "ALL";
 // A property ID, or every property.
 type PropertyFilter = number | "ALL";
 
-const NO_ROWS: ExpenseRow[] = [];
+const PAGE_SIZE = 25;
+const NO_ROWS: ExpenseListItem[] = [];
+const NO_TOTALS: ExpenseStateTotal[] = [];
 
-function matchesState(row: ExpenseRow, state: StateFilter): boolean {
-    return state === "ALL" || row.state === state;
-}
+// Newest expense first, the server's order when no sort is sent.
+const initialSort: SortState<ExpenseSortField> = { key: "DATE", direction: "desc" };
 
-function matchesProperty(row: ExpenseRow, propertyId: PropertyFilter): boolean {
-    return propertyId === "ALL" || row.expense.propertyId === propertyId;
-}
-
-function toRow(expense: ExpenseResponse, { propertyById, spaceById }: PropertyDirectory): ExpenseRow {
-    return {
-        expense,
-        state: getExpenseState(expense),
-        propertyName: propertyById.get(expense.propertyId)?.name ?? `Property #${expense.propertyId}`,
-        spaceName: expense.spaceId === null ? null : (spaceById.get(expense.spaceId)?.name ?? `Space #${expense.spaceId}`),
-    };
-}
-
-// Newest first; same-day expenses in the order they were recorded, latest first.
-function newestFirst(a: ExpenseRow, b: ExpenseRow): number {
-    return b.expense.expenseDate.localeCompare(a.expense.expenseDate) || b.expense.id - a.expense.id;
-}
-
-type SortKey = "date" | "amount";
-
-const sortColumns: SortColumns<ExpenseRow, SortKey> = {
-    date: { value: (row) => row.expense.expenseDate, firstDirection: "desc" },
-    amount: { value: (row) => row.expense.amountCents, firstDirection: "desc" },
+// Latest or largest first on the first click.
+const sortColumns: Record<ExpenseSortField, { firstDirection: SortDirection }> = {
+    DATE: { firstDirection: "desc" },
+    AMOUNT: { firstDirection: "desc" },
 };
 
-const initialSort: SortState<SortKey> = { key: "date", direction: "desc" };
-
-async function loadExpenses(organizationId: number): Promise<ExpensesData> {
-    const [expenses, directory] = await Promise.all([
-        getExpenses(organizationId),
-        loadPropertyDirectory(organizationId),
-    ]);
-
-    return {
-        rows: expenses.map((expense) => toRow(expense, directory)),
-        directory,
-    };
+function matchesState(filter: StateFilter, state: ExpenseState): boolean {
+    return filter === "ALL" || filter === state;
 }
 
+function matchesProperty(filter: PropertyFilter, propertyId: number): boolean {
+    return filter === "ALL" || filter === propertyId;
+}
+
+// The server filters, sorts and pages the expenses; this page shows one page at a time, and works out the filter
+// counts and the total from the server's count and sum for each state and property. The forms still need every
+// property and its spaces, so it loads those too.
 export default function ExpensesPage() {
-    const { organizationId, data, loading, error, setData } = useOrgQuery(loadExpenses);
-    const rows = data?.rows ?? NO_ROWS;
-    const properties = useMemo(() => (data ? listPropertiesWithSpaces(data.directory) : []), [data]);
-    const loadError = organizationId === undefined
-        ? "Select an organization to view its expenses."
-        : error;
     const [stateFilter, setStateFilter] = useState<StateFilter>("ALL");
     const [propertyFilter, setPropertyFilter] = useState<PropertyFilter>("ALL");
+    const [page, setPage] = useState(0);
+    const [sort, setSort] = useState(initialSort);
+    // Bumped to load the page and the totals again (after adding or editing), or only the totals (after paying or voiding).
+    const [reloadCount, setReloadCount] = useState(0);
+    const [summaryReloadCount, setSummaryReloadCount] = useState(0);
     const [form, setForm] = useState<FormState>(null);
     const [saving, setSaving] = useState(false);
     const formRef = useRef<HTMLDivElement>(null);
     const [notice, setNotice] = useState<string | null>(null);
 
-    // Paying or voiding can move an expense out of the current filter, so the page says what happened.
+    const summaryQuery = useOrgQuery(getExpenseSummary, [reloadCount, summaryReloadCount]);
+    const pageQuery = useOrgQuery(
+        (organizationId) => getExpensePage(organizationId, {
+            state: stateFilter === "ALL" ? undefined : stateFilter,
+            propertyId: propertyFilter === "ALL" ? undefined : propertyFilter,
+            page,
+            size: PAGE_SIZE,
+            sort,
+        }),
+        [stateFilter, propertyFilter, page, sort.key, sort.direction, reloadCount],
+    );
+    const directoryQuery = useOrgQuery(loadPropertyDirectory);
+
+    const organizationId = pageQuery.organizationId;
+    const totals = summaryQuery.data ?? NO_TOTALS;
+    const pageData = pageQuery.data;
+    const rows = pageData?.items ?? NO_ROWS;
+    const properties = useMemo(
+        () => (directoryQuery.data ? listPropertiesWithSpaces(directoryQuery.data) : []),
+        [directoryQuery.data],
+    );
+    const loadError = organizationId === undefined
+        ? "Select an organization to view its expenses."
+        : summaryQuery.error ?? pageQuery.error ?? directoryQuery.error;
+    const totalExpenses = summaryQuery.data?.reduce((total, row) => total + row.expenses, 0);
+
+    // Paying or voiding can move an expense out of the current filter, so the page says what happened. The row
+    // keeps its place (so rows don't jump under the pointer) unless it no longer matches the state filter.
     const expenseActions = useExpenseActions((updated, action) => {
-        setData((current) => ({
-            ...current,
-            rows: current.rows.map((row) => (row.expense.id === updated.id ? toRow(updated, current.directory) : row)),
-        }));
+        setSummaryReloadCount((count) => count + 1);
+        const state = getExpenseState(updated);
+        if (matchesState(stateFilter, state)) {
+            pageQuery.setData((current) => ({
+                ...current,
+                items: current.items.map((item) => (item.expense.id === updated.id ? { ...item, expense: updated, state } : item)),
+            }));
+        } else if (rows.length === 1) {
+            // Nothing left on this page: show the one before it, or load this one again for the rows that move up.
+            if (page > 0) {
+                setPage(page - 1);
+            } else {
+                setReloadCount((count) => count + 1);
+            }
+        } else {
+            pageQuery.setData((current) => ({
+                ...current,
+                items: current.items.filter((item) => item.expense.id !== updated.id),
+                totalItems: current.totalItems - 1,
+                totalPages: Math.ceil((current.totalItems - 1) / current.size),
+            }));
+        }
         // A voided expense can't be edited any more, so close its edit form if it was open.
         if (action === "void") {
             setForm((current) => (current?.mode === "edit" && current.expenseId === updated.id ? null : current));
@@ -133,7 +142,7 @@ export default function ExpensesPage() {
         }
     }, [form]);
 
-    // Errors are thrown on to the form, which shows them.
+    // Errors are thrown on to the form, which shows them. Afterwards the page and the totals load again.
     async function handleSubmitExpense(request: CreateExpenseRequest): Promise<void> {
         if (organizationId === undefined || !form) {
             throw new Error("An active organization is required.");
@@ -143,18 +152,14 @@ export default function ExpensesPage() {
         try {
             if (form.mode === "create") {
                 const created = await createExpense(organizationId, request);
-                setData((current) => ({
-                    ...current,
-                    rows: [...current.rows, toRow(created, current.directory)],
-                }));
                 // Show everything again if the current filters would hide what was just added.
-                const createdState = getExpenseState(created);
-                if ((stateFilter !== "ALL" && stateFilter !== createdState) || (propertyFilter !== "ALL" && propertyFilter !== created.propertyId)) {
+                if (!matchesState(stateFilter, getExpenseState(created)) || !matchesProperty(propertyFilter, created.propertyId)) {
                     setStateFilter("ALL");
                     setPropertyFilter("ALL");
                 }
+                setPage(0);
             } else {
-                const updated = await updateExpense(organizationId, form.expenseId, {
+                await updateExpense(organizationId, form.expenseId, {
                     category: request.category,
                     // Sent even when empty: the API only changes the fields it receives, so "" is how a value is cleared.
                     vendorName: request.vendorName ?? "",
@@ -162,12 +167,9 @@ export default function ExpensesPage() {
                     amountCents: request.amountCents,
                     expenseDate: request.expenseDate,
                 });
-                setData((current) => ({
-                    ...current,
-                    rows: current.rows.map((row) => (row.expense.id === updated.id ? toRow(updated, current.directory) : row)),
-                }));
             }
             setForm(null);
+            setReloadCount((count) => count + 1);
         } finally {
             setSaving(false);
         }
@@ -175,33 +177,50 @@ export default function ExpensesPage() {
 
     // Each filter's counts respect the other filter, so a count always matches what choosing it shows.
     const stateCounts = useMemo(() => {
-        const inProperty = rows.filter((row) => matchesProperty(row, propertyFilter));
+        const inProperty = totals.filter((row) => matchesProperty(propertyFilter, row.propertyId));
         return Object.fromEntries(
-            (["ALL", ...EXPENSE_STATES] as StateFilter[]).map((state) => [state, inProperty.filter((row) => matchesState(row, state)).length]),
+            (["ALL", ...EXPENSE_STATES] as StateFilter[]).map((state) => [
+                state,
+                inProperty.filter((row) => matchesState(state, row.state)).reduce((total, row) => total + row.expenses, 0),
+            ]),
         ) as Record<StateFilter, number>;
-    }, [rows, propertyFilter]);
+    }, [totals, propertyFilter]);
 
     const propertyCounts = useMemo(() => {
-        const inState = rows.filter((row) => matchesState(row, stateFilter));
-        const counts = new Map<PropertyFilter, number>([["ALL", inState.length]]);
+        const inState = totals.filter((row) => matchesState(stateFilter, row.state));
+        const counts = new Map<PropertyFilter, number>([["ALL", inState.reduce((total, row) => total + row.expenses, 0)]]);
         for (const row of inState) {
-            counts.set(row.expense.propertyId, (counts.get(row.expense.propertyId) ?? 0) + 1);
+            counts.set(row.propertyId, (counts.get(row.propertyId) ?? 0) + row.expenses);
         }
         return counts;
-    }, [rows, stateFilter]);
-
-    const visibleRows = rows.filter((row) => matchesState(row, stateFilter) && matchesProperty(row, propertyFilter));
-    const { sortedRows, directionOf, toggle } = useTableSort(visibleRows, {
-        columns: sortColumns,
-        initial: initialSort,
-        pageOrder: newestFirst,
-    });
+    }, [totals, stateFilter]);
 
     // Voided expenses no longer count, so they never add to the total.
-    const countedCents = visibleRows
+    const shownTotals = totals.filter((row) => matchesState(stateFilter, row.state) && matchesProperty(propertyFilter, row.propertyId));
+    const countedCents = shownTotals
         .filter((row) => row.state !== "VOIDED")
-        .reduce((sum, row) => sum + row.expense.amountCents, 0);
-    const voidedShown = visibleRows.some((row) => row.state === "VOIDED");
+        .reduce((sum, row) => sum + row.amountCents, 0);
+    const voidedShown = shownTotals.some((row) => row.state === "VOIDED");
+
+    // Any change to what's shown starts again at the first page.
+    function chooseState(state: StateFilter) {
+        setStateFilter(state);
+        setPage(0);
+        setNotice(null);
+    }
+
+    function chooseProperty(propertyId: PropertyFilter) {
+        setPropertyFilter(propertyId);
+        setPage(0);
+        setNotice(null);
+    }
+
+    function toggleSort(field: ExpenseSortField) {
+        setSort((current) => nextSort(current, field, sortColumns, initialSort) ?? initialSort);
+        setPage(0);
+    }
+
+    const directionOf = (field: ExpenseSortField) => (sort.key === field ? sort.direction : null);
 
     return (
         <main className="mx-auto w-full max-w-7xl space-y-6 p-5 md:p-8">
@@ -262,10 +281,7 @@ export default function ExpensesPage() {
                         <select
                             id="expense-property-filter"
                             value={propertyFilter}
-                            onChange={(event) => {
-                                setPropertyFilter(event.target.value === "ALL" ? "ALL" : Number(event.target.value));
-                                setNotice(null);
-                            }}
+                            onChange={(event) => chooseProperty(event.target.value === "ALL" ? "ALL" : Number(event.target.value))}
                             className="w-full rounded-lg border border-[#dce4de] bg-white px-3 py-2 text-sm text-[#243b35] outline-none focus:border-[#14302b] focus:ring-2 focus:ring-[#14302b]/10 sm:max-w-xs"
                         >
                             <option value="ALL">All properties ({propertyCounts.get("ALL") ?? 0})</option>
@@ -282,46 +298,59 @@ export default function ExpensesPage() {
                         optionLabel={(state) => (state === "ALL" ? "All" : expenseStateLabel[state])}
                         counts={stateCounts}
                         selected={stateFilter}
-                        onSelect={(state) => {
-                            setStateFilter(state);
-                            setNotice(null);
-                        }}
+                        onSelect={chooseState}
                     />
                 </div>
 
-                {loading ? (
+                {pageQuery.loading ? (
                     <div className="p-10 text-center text-sm text-gray-500">Loading expenses...</div>
-                ) : rows.length === 0 && !loadError ? (
+                ) : totalExpenses === 0 && !loadError ? (
                     <EmptyState
                         icon={Receipt}
                         title="No expenses yet"
                         description="Costs such as repairs, utilities and insurance will appear here once they're recorded."
                     />
-                ) : visibleRows.length === 0 ? (
-                    <div className="p-10 text-center text-sm text-gray-500">No expenses match these filters.</div>
+                ) : rows.length === 0 && page > 0 ? (
+                    // E.g. after switching organization while on a later page.
+                    <EmptyState
+                        title="This page is empty"
+                        action={
+                            <button
+                                type="button"
+                                onClick={() => setPage(0)}
+                                className="inline-flex items-center gap-2 rounded-lg bg-[#14302b] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#20453d]"
+                            >
+                                Go to the first page
+                            </button>
+                        }
+                    />
+                ) : rows.length === 0 ? (
+                    !loadError && <div className="p-10 text-center text-sm text-gray-500">No expenses match these filters.</div>
                 ) : (
                     <>
-                        <p className="border-b border-[#edf1ee] px-5 py-3 text-sm text-gray-500" aria-live="polite">
-                            {visibleRows.length} {visibleRows.length === 1 ? "expense" : "expenses"} ·{" "}
-                            <span className="font-semibold tabular-nums text-[#14302b]">{formatMoney(countedCents)}</span>
-                            {voidedShown && " (voided expenses not counted)"}
-                        </p>
+                        {pageData && (
+                            <p className="border-b border-[#edf1ee] px-5 py-3 text-sm text-gray-500" aria-live="polite">
+                                {pageData.totalItems} {pageData.totalItems === 1 ? "expense" : "expenses"} ·{" "}
+                                <span className="font-semibold tabular-nums text-[#14302b]">{formatMoney(countedCents)}</span>
+                                {voidedShown && " (voided expenses not counted)"}
+                            </p>
+                        )}
                         <div className="overflow-x-auto">
                             <table className="w-full min-w-[1100px] text-left text-sm">
                                 <thead className="bg-[#f8faf8] text-xs uppercase tracking-wide text-[#71847a]">
                                     <tr>
                                         <SortableHeader
                                             label="Date"
-                                            direction={directionOf("date")}
-                                            onToggle={() => toggle("date")}
+                                            direction={directionOf("DATE")}
+                                            onToggle={() => toggleSort("DATE")}
                                             className="px-5 py-3 font-semibold"
                                         />
                                         <th className="px-5 py-3 font-semibold">Expense</th>
                                         <th className="px-5 py-3 font-semibold">Location</th>
                                         <SortableHeader
                                             label="Amount"
-                                            direction={directionOf("amount")}
-                                            onToggle={() => toggle("amount")}
+                                            direction={directionOf("AMOUNT")}
+                                            onToggle={() => toggleSort("AMOUNT")}
                                             className="px-5 py-3 text-right font-semibold"
                                         />
                                         <th className="px-5 py-3 font-semibold">State</th>
@@ -329,7 +358,7 @@ export default function ExpensesPage() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-[#edf1ee]">
-                                    {sortedRows.map(({ expense, state, propertyName, spaceName }) => (
+                                    {rows.map(({ expense, state, propertyName, spaceName }) => (
                                         <tr key={expense.id} className="transition hover:bg-[#fafcfb]">
                                             <td className="whitespace-nowrap px-5 py-4 text-[#42574e]">
                                                 {formatDate(expense.expenseDate)}
@@ -384,6 +413,17 @@ export default function ExpensesPage() {
                                 </tbody>
                             </table>
                         </div>
+                        {pageData && (
+                            <Pagination
+                                page={pageData.page}
+                                size={pageData.size}
+                                itemCount={rows.length}
+                                totalItems={pageData.totalItems}
+                                totalPages={pageData.totalPages}
+                                onPageChange={setPage}
+                                noun={{ one: "expense", other: "expenses" }}
+                            />
+                        )}
                     </>
                 )}
             </section>

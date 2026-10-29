@@ -8,3 +8,10 @@ cors:
 cookie:
   # The refresh-token cookie is HTTPS-only unless COOKIE_SECURE=false.
   secure: ${COOKIE_SECURE:true}
+
+server:
+  # Requests arrive through the frontend's nginx, which adds X-Forwarded-For. Tomcat takes the visitor's
+  # address from it, but only when the request comes from a private-network proxy like nginx, so it can't be
+  # faked from outside. Without this every visitor would share nginx's address, and the login limit per
+  # address would lock everyone out together.
+  forward-headers-strategy: native

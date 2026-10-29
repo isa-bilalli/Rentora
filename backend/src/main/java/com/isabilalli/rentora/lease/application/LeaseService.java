@@ -2,10 +2,18 @@ package com.isabilalli.rentora.lease.application;
 
 import com.isabilalli.rentora.shared.api.NotFoundException;
 import java.time.LocalDate;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
@@ -13,7 +21,10 @@ import com.isabilalli.rentora.auth.application.CurrentUserService;
 import com.isabilalli.rentora.auth.infrastructure.security.AuthenticatedUser;
 import com.isabilalli.rentora.lease.api.LeaseAccess;
 import com.isabilalli.rentora.lease.api.dto.CreateLeaseRequest;
+import com.isabilalli.rentora.lease.api.dto.LeaseDisplayStatus;
+import com.isabilalli.rentora.lease.api.dto.LeaseListItem;
 import com.isabilalli.rentora.lease.api.dto.LeaseResponse;
+import com.isabilalli.rentora.lease.api.dto.LeaseSortField;
 import com.isabilalli.rentora.lease.api.dto.RenewLeaseRequest;
 import com.isabilalli.rentora.lease.api.dto.UpdateLeaseRequest;
 import com.isabilalli.rentora.lease.api.dto.CurrentSpaceRentSummary;
@@ -21,12 +32,14 @@ import com.isabilalli.rentora.lease.api.event.LeaseCancelledEvent;
 import com.isabilalli.rentora.lease.api.event.LeaseCreatedEvent;
 import com.isabilalli.rentora.lease.api.event.LeaseEndedEvent;
 import com.isabilalli.rentora.lease.api.event.LeaseUpdatedEvent;
+import com.isabilalli.rentora.lease.infrastructure.LeaseListRow;
 import com.isabilalli.rentora.lease.infrastructure.LeaseRepository;
 import com.isabilalli.rentora.organization.application.OrganizationAccessService;
 import com.isabilalli.rentora.organization.domain.OrganizationRole;
 import com.isabilalli.rentora.property.api.SpaceAccess;
 import com.isabilalli.rentora.property.domain.SpaceStatus;
 import com.isabilalli.rentora.shared.api.BadRequestException;
+import com.isabilalli.rentora.shared.api.PageResponse;
 import com.isabilalli.rentora.tenant.api.TenantAccess;
 
 import org.springframework.transaction.annotation.Transactional;
@@ -104,6 +117,87 @@ public class LeaseService implements LeaseAccess {
     public List<LeaseResponse> findAllByTenantId(Long organizationId, Long tenantId){
         organizationAuthorization(organizationId);
         return leaseRepository.findAllByOrganizationIdAndTenantIdOrderByStartDateAscIdAsc(organizationId, tenantId).stream().map(LeaseResponse::from).toList();
+    }
+
+    public static final int MAX_PAGE_SIZE = 100;
+
+    // One page of the Leases page. status and search narrow it; search matches the tenant's name, the property
+    // and the space, ignoring case. Without a sort, newest start first; with one, ties keep that order so rows
+    // don't move between pages.
+    public PageResponse<LeaseListItem> getLeasePage(Long organizationId, LeaseDisplayStatus status, String search, int page, int size, LeaseSortField sort, Sort.Direction direction) {
+        organizationAuthorization(organizationId);
+        if (page < 0) {
+            throw new BadRequestException("Page must be 0 or more");
+        }
+        if (size < 1 || size > MAX_PAGE_SIZE) {
+            throw new BadRequestException("Page size must be between 1 and " + MAX_PAGE_SIZE);
+        }
+
+        LocalDate today = LocalDate.now();
+        // UPCOMING and ACTIVE are both ACTIVE in the database; the start date tells them apart.
+        LeaseStatus leaseStatus = status == null ? null : switch (status) {
+            case UPCOMING, ACTIVE -> LeaseStatus.ACTIVE;
+            case ENDED -> LeaseStatus.ENDED;
+            case CANCELLED -> LeaseStatus.CANCELLED;
+        };
+
+        Sort newestFirst = Sort.by(Lease::getStartDate, Lease::getId).descending();
+        Sort order = sort == null ? newestFirst : columnOrder(sort, direction).and(newestFirst);
+        Page<LeaseListRow> rows = leaseRepository.findListPage(
+                organizationId, leaseStatus, today, status == LeaseDisplayStatus.UPCOMING, status == LeaseDisplayStatus.ACTIVE,
+                likePattern(search), PageRequest.of(page, size, order));
+        return PageResponse.from(rows, row -> new LeaseListItem(
+                LeaseResponse.from(row.lease()),
+                LeaseDisplayStatus.of(row.lease(), today),
+                tenantName(row),
+                row.propertyId(),
+                row.propertyName(),
+                row.spaceName()));
+    }
+
+    // How many leases each status of the Leases page has; a status without leases is 0.
+    public Map<LeaseDisplayStatus, Long> getLeaseSummary(Long organizationId) {
+        organizationAuthorization(organizationId);
+        Map<LeaseDisplayStatus, Long> counts = new EnumMap<>(LeaseDisplayStatus.class);
+        for (LeaseDisplayStatus status : LeaseDisplayStatus.values()) {
+            counts.put(status, 0L);
+        }
+        for (LeaseRepository.DisplayStatusCount row : leaseRepository.countsByDisplayStatus(organizationId, LocalDate.now())) {
+            counts.put(LeaseDisplayStatus.valueOf(row.getBucket()), row.getLeases());
+        }
+        return counts;
+    }
+
+    private static Sort columnOrder(LeaseSortField sort, Sort.Direction direction) {
+        Sort column = switch (sort) {
+            case START_DATE -> Sort.by(Lease::getStartDate);
+            case RENT -> Sort.by(Lease::getMonthlyRentCents);
+        };
+        return direction.isAscending() ? column.ascending() : column.descending();
+    }
+
+    // A lowercase LIKE pattern, with any % or _ (and the escape character !) in the search taken literally.
+    private static String likePattern(String search) {
+        if (search == null || search.isBlank()) {
+            return null;
+        }
+        String escaped = search.trim().toLowerCase(Locale.ROOT).replace("!", "!!").replace("%", "!%").replace("_", "!_");
+        return "%" + escaped + "%";
+    }
+
+    // As the frontend's getTenantDisplayName: the person's name, else the company's, else the tenant's number.
+    private static String tenantName(LeaseListRow row) {
+        String person = Stream.of(row.tenantFirstName(), row.tenantLastName())
+                .filter(part -> part != null && !part.isBlank())
+                .map(String::trim)
+                .collect(Collectors.joining(" "));
+        if (!person.isEmpty()) {
+            return person;
+        }
+        if (row.tenantCompanyName() != null && !row.tenantCompanyName().isBlank()) {
+            return row.tenantCompanyName().trim();
+        }
+        return "Tenant #" + row.lease().getTenantId();
     }
 
     public LeaseResponse getLease(Long organizationId, Long leaseId){

@@ -1,3 +1,5 @@
+import type { ExpenseState } from "./status";
+
 export type ExpenseCategory =
     | "MAINTENANCE"
     | "UTILITIES"
@@ -10,6 +12,26 @@ export type ExpenseCategory =
 // Whether an expense still counts. Whether it has been paid is the separate `paid` flag.
 // Only RECORDED expenses can be paid, updated or voided.
 export type ExpenseStatus = "RECORDED" | "VOIDED";
+
+// One row of the Expenses page, with its state and the names shown beside it. spaceName is null for an
+// expense about the whole property.
+export interface ExpenseListItem {
+    expense: ExpenseResponse;
+    state: ExpenseState;
+    propertyName: string;
+    spaceName: string | null;
+}
+
+// How many expenses one property has in one state, and what they add up to.
+export interface ExpenseStateTotal {
+    state: ExpenseState;
+    propertyId: number;
+    expenses: number;
+    amountCents: number;
+}
+
+// The Expenses page's sortable columns, as the server names them.
+export type ExpenseSortField = "DATE" | "AMOUNT";
 
 export interface ExpenseResponse {
     id: number;

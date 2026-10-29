@@ -12,6 +12,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpHeaders;
+import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -67,11 +68,11 @@ class LoginControllerTest {
 
     private String loginCookie(boolean secureCookies) {
         LoginRequest request = new LoginRequest("owner@example.com", "password");
-        when(loginService.login(request))
+        when(loginService.login(request, "127.0.0.1"))
                 .thenReturn(new LoginService.LoginResult(1L, "owner@example.com", "access-token", "refresh-token"));
         MockHttpServletResponse response = new MockHttpServletResponse();
 
-        controller(secureCookies).login(request, response);
+        controller(secureCookies).login(request, new MockHttpServletRequest(), response);
 
         return response.getHeader(HttpHeaders.SET_COOKIE);
     }
