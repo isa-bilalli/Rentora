@@ -4,8 +4,10 @@ import { Plus } from "lucide-react";
 
 import { useConfirm } from "../../../../components/confirm/useConfirm";
 import { useOrgQuery } from "../../../../hooks/useOrgQuery";
+import { useTableSort } from "../../../../hooks/useTableSort";
 import { todayLocalDateString } from "../../../../lib/dates";
 import { formatDate, formatMoney } from "../../../../lib/format";
+import type { SortColumns, SortState } from "../../../../lib/sort";
 import { cancelLease, createLease, endLease, getLeases, renewLease } from "../../../leases/api/leasesApi";
 import CreateLeaseForm from "../../../leases/components/CreateLeaseForm";
 import { leaseActionConfirmation } from "../../../leases/leaseActionConfirmation";
@@ -27,8 +29,18 @@ interface PropertyLeasesTabProps {
 }
 
 function newestFirst(a: LeaseResponse, b: LeaseResponse): number {
-    return b.startDate.localeCompare(a.startDate);
+    return b.startDate.localeCompare(a.startDate) || b.id - a.id;
 }
+
+type SortKey = "period" | "rent" | "deposit";
+
+const sortColumns: SortColumns<LeaseResponse, SortKey> = {
+    period: { value: (lease) => lease.startDate, firstDirection: "desc" },
+    rent: { value: (lease) => lease.monthlyRentCents, firstDirection: "desc" },
+    deposit: { value: (lease) => lease.securityDepositCents, firstDirection: "desc" },
+};
+
+const initialSort: SortState<SortKey> = { key: "period", direction: "desc" };
 
 // One property's leases: create, renew, end and cancel. The tab loads the leases, and the tenants
 // the create form offers, when it opens.
@@ -60,7 +72,12 @@ export default function PropertyLeasesTab({ propertyId, spaces, onSpacesChanged 
     const [leaseActionError, setLeaseActionError] =
         useState<string | null>(null);
 
-    const leases = [...(leasesQuery.data ?? [])].sort(newestFirst);
+    const leases = leasesQuery.data ?? [];
+    const { sortedRows: sortedLeases, directionOf, toggle } = useTableSort(leases, {
+        columns: sortColumns,
+        initial: initialSort,
+        pageOrder: newestFirst,
+    });
     const spacesById = new Map(spaces.map((space) => [space.id, space]));
     const tenantsById = new Map((tenantsQuery.data ?? []).map((tenant) => [tenant.id, tenant]));
     // A lease that hasn't started yet shows as Upcoming, as on the other lease pages.
@@ -271,15 +288,15 @@ export default function PropertyLeasesTab({ propertyId, spaces, onSpacesChanged 
                             <tr>
                                 <TableHeader>Space</TableHeader>
                                 <TableHeader>Tenant</TableHeader>
-                                <TableHeader>Lease period</TableHeader>
-                                <TableHeader>Monthly rent</TableHeader>
-                                <TableHeader>Deposit</TableHeader>
+                                <TableHeader sort={{ direction: directionOf("period"), onToggle: () => toggle("period") }}>Lease period</TableHeader>
+                                <TableHeader sort={{ direction: directionOf("rent"), onToggle: () => toggle("rent") }}>Monthly rent</TableHeader>
+                                <TableHeader sort={{ direction: directionOf("deposit"), onToggle: () => toggle("deposit") }}>Deposit</TableHeader>
                                 <TableHeader>Status</TableHeader>
                                 <TableHeader>Actions</TableHeader>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-[#edf0ee]">
-                            {leases.map((lease) => (
+                            {sortedLeases.map((lease) => (
                                 <tr key={lease.id} className="hover:bg-[#f8faf8]">
                                     <td className="px-4 py-4">
                                         <p className="text-sm font-medium text-[#14302b]">

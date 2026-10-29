@@ -98,9 +98,9 @@ class PaymentServiceTest {
 
     @Test
     void pageAndSizeMustBeInRange() {
-        assertThrows(BadRequestException.class, () -> paymentService.getPaymentPage(ORGANIZATION_ID, PaymentDisplayStatus.PAID, -1, 25));
-        assertThrows(BadRequestException.class, () -> paymentService.getPaymentPage(ORGANIZATION_ID, PaymentDisplayStatus.PAID, 0, 0));
-        assertThrows(BadRequestException.class, () -> paymentService.getPaymentPage(ORGANIZATION_ID, PaymentDisplayStatus.PAID, 0, PaymentService.MAX_PAGE_SIZE + 1));
+        assertThrows(BadRequestException.class, () -> paymentService.getPaymentPage(ORGANIZATION_ID, PaymentDisplayStatus.PAID, -1, 25, null, null));
+        assertThrows(BadRequestException.class, () -> paymentService.getPaymentPage(ORGANIZATION_ID, PaymentDisplayStatus.PAID, 0, 0, null, null));
+        assertThrows(BadRequestException.class, () -> paymentService.getPaymentPage(ORGANIZATION_ID, PaymentDisplayStatus.PAID, 0, PaymentService.MAX_PAGE_SIZE + 1, null, null));
 
         verifyNoInteractions(paymentRepository);
     }

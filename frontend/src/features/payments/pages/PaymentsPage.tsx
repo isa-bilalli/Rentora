@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import { CreditCard } from "lucide-react";
 import { getPaymentPage, getPaymentSummary } from "../api/paymentApi";
-import type { PaymentResponse } from "../types";
+import type { PaymentResponse, PaymentSortField } from "../types";
 import {
     formatPaymentMethod,
     getPaymentDisplayStatus,
@@ -17,12 +17,29 @@ import { loadLeaseRows } from "../../leases/leaseRows";
 import { useOrgQuery } from "../../../hooks/useOrgQuery";
 import { formatDate, formatDateTime, formatMoney } from "../../../lib/format";
 import { daysBetween, todayLocalDateString } from "../../../lib/dates";
+import { nextSort, type SortDirection, type SortState } from "../../../lib/sort";
 import PageHeader from "../../../components/ui/PageHeader";
 import EmptyState from "../../../components/ui/EmptyState";
 import Pagination from "../../../components/ui/Pagination";
+import SortableHeader from "../../../components/ui/SortableHeader";
 import StatusNotice from "../../../components/ui/StatusNotice";
 
 const PAGE_SIZE = 25;
+
+// Each tab starts in the order the server gives it by default, so its heading shows that order from the start.
+const tabSort: Record<PaymentDisplayStatus, SortState<PaymentSortField>> = {
+    OVERDUE: { key: "DUE_DATE", direction: "asc" },
+    PENDING: { key: "DUE_DATE", direction: "asc" },
+    PAID: { key: "PAID_AT", direction: "desc" },
+    VOIDED: { key: "DUE_DATE", direction: "desc" },
+};
+
+// Latest or largest first on the first click.
+const sortColumns: Record<PaymentSortField, { firstDirection: SortDirection }> = {
+    DUE_DATE: { firstDirection: "desc" },
+    AMOUNT: { firstDirection: "desc" },
+    PAID_AT: { firstDirection: "desc" },
+};
 
 interface PaymentRow {
     payment: PaymentResponse;
@@ -50,16 +67,17 @@ const emptyTab: Record<PaymentDisplayStatus, { title: string; description: strin
 export default function PaymentsPage() {
     const [selected, setSelected] = useState<PaymentDisplayStatus>("OVERDUE");
     const [page, setPage] = useState(0);
+    const [sort, setSort] = useState(tabSort.OVERDUE);
     // Bumped to fetch the current page again, e.g. after its last row was recorded or voided.
     const [reloadCount, setReloadCount] = useState(0);
     // The day "overdue by" counts from, fixed while the page is open.
     const [today] = useState(todayLocalDateString);
 
-    // The server splits the tabs and sorts each one: most urgent first.
+    // The server splits the tabs and sorts each one, across all its pages.
     const summaryQuery = useOrgQuery(getPaymentSummary);
     const pageQuery = useOrgQuery(
-        (organizationId) => getPaymentPage(organizationId, selected, page, PAGE_SIZE),
-        [selected, page, reloadCount],
+        (organizationId) => getPaymentPage(organizationId, selected, page, PAGE_SIZE, sort),
+        [selected, page, reloadCount, sort.key, sort.direction],
     );
     // Payments only carry a lease ID; the lease rows supply the tenant, property and space names.
     const leaseQuery = useOrgQuery(loadLeaseRows);
@@ -141,6 +159,14 @@ export default function PaymentsPage() {
         paymentActions.cancelRecording();
     }
 
+    // A new order starts again at the first page, since the rows on every page change.
+    function toggleSort(field: PaymentSortField) {
+        setSort((current) => nextSort(current, field, sortColumns, tabSort[selected]) ?? tabSort[selected]);
+        goToPage(0);
+    }
+
+    const directionOf = (field: PaymentSortField) => (sort.key === field ? sort.direction : null);
+
     // Only pending payments (including overdue ones) can be recorded or voided.
     const showActions = selected === "OVERDUE" || selected === "PENDING";
 
@@ -168,6 +194,7 @@ export default function PaymentsPage() {
                             type="button"
                             onClick={() => {
                                 setSelected(status);
+                                setSort(tabSort[status]);
                                 setPage(0);
                                 paymentActions.cancelRecording();
                                 setNotice(null);
@@ -246,12 +273,29 @@ export default function PaymentsPage() {
                             <table className="w-full min-w-[900px] text-left text-sm">
                                 <thead className="bg-[#f8faf8] text-xs uppercase tracking-wide text-[#71847a]">
                                     <tr>
-                                        <th className="px-5 py-3 font-semibold">Due date</th>
+                                        <SortableHeader
+                                            label="Due date"
+                                            direction={directionOf("DUE_DATE")}
+                                            onToggle={() => toggleSort("DUE_DATE")}
+                                            className="px-5 py-3 font-semibold"
+                                        />
                                         <th className="px-5 py-3 font-semibold">Tenant</th>
                                         <th className="px-5 py-3 font-semibold">Property</th>
-                                        <th className="px-5 py-3 text-right font-semibold">Amount</th>
+                                        <SortableHeader
+                                            label="Amount"
+                                            direction={directionOf("AMOUNT")}
+                                            onToggle={() => toggleSort("AMOUNT")}
+                                            className="px-5 py-3 text-right font-semibold"
+                                        />
                                         {selected === "OVERDUE" && <th className="px-5 py-3 font-semibold">Overdue by</th>}
-                                        {selected === "PAID" && <th className="px-5 py-3 font-semibold">Paid at</th>}
+                                        {selected === "PAID" && (
+                                            <SortableHeader
+                                                label="Paid at"
+                                                direction={directionOf("PAID_AT")}
+                                                onToggle={() => toggleSort("PAID_AT")}
+                                                className="px-5 py-3 font-semibold"
+                                            />
+                                        )}
                                         {selected === "PAID" && <th className="px-5 py-3 font-semibold">Method</th>}
                                         {showActions && <th className="px-5 py-3 font-semibold">Actions</th>}
                                     </tr>

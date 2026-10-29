@@ -1,16 +1,35 @@
 import { useOrgQuery } from "../../../../hooks/useOrgQuery";
+import { useTableSort } from "../../../../hooks/useTableSort";
 import { todayLocalDateString } from "../../../../lib/dates";
 import { formatDate, formatDateTime, formatMoney } from "../../../../lib/format";
+import type { SortColumns, SortState } from "../../../../lib/sort";
 import { getLeases } from "../../../leases/api/leasesApi";
 import { getPayments } from "../../../payments/api/paymentApi";
 import PaymentRowActions from "../../../payments/components/PaymentRowActions";
 import PaymentStatusBadge from "../../../payments/components/PaymentStatusBadge";
 import RecordPaymentForm from "../../../payments/components/RecordPaymentForm";
 import { formatPaymentMethod, getPaymentDisplayStatus } from "../../../payments/status";
+import type { PaymentResponse } from "../../../payments/types";
 import { usePaymentActions } from "../../../payments/usePaymentActions";
 import type { SpaceResponse } from "../../types";
 import SummaryCard from "../SummaryCard";
 import TableHeader from "./TableHeader";
+
+// Latest due date first.
+function latestDueFirst(a: PaymentResponse, b: PaymentResponse): number {
+    return b.dueDate.localeCompare(a.dueDate) || b.id - a.id;
+}
+
+type SortKey = "due" | "amount" | "paid";
+
+// Payments not yet paid have no paid date, so they go last when sorting by it.
+const sortColumns: SortColumns<PaymentResponse, SortKey> = {
+    due: { value: (payment) => payment.dueDate, firstDirection: "desc" },
+    amount: { value: (payment) => payment.amountCents, firstDirection: "desc" },
+    paid: { value: (payment) => payment.paidAt, firstDirection: "desc" },
+};
+
+const initialSort: SortState<SortKey> = { key: "due", direction: "desc" };
 
 interface PropertyFinancialsTabProps {
     propertyId: number;
@@ -42,7 +61,12 @@ export default function PropertyFinancialsTab({ propertyId, spaces }: PropertyFi
     const spacesById = new Map(spaces.map((space) => [space.id, space]));
     const leasesById = new Map((leasesQuery.data ?? []).map((lease) => [lease.id, lease]));
 
-    const payments = [...(data ?? [])].sort((a, b) => b.dueDate.localeCompare(a.dueDate));
+    const payments = data ?? [];
+    const { sortedRows: sortedPayments, directionOf, toggle } = useTableSort(payments, {
+        columns: sortColumns,
+        initial: initialSort,
+        pageOrder: latestDueFirst,
+    });
 
     const recordingPayment =
         payments.find((payment) => payment.id === paymentActions.recordingPaymentId) ?? null;
@@ -168,19 +192,19 @@ export default function PropertyFinancialsTab({ propertyId, spaces }: PropertyFi
                                 <table className="w-full min-w-300 text-left">
                                     <thead className="bg-[#f8faf8]">
                                         <tr>
-                                            <TableHeader>Due date</TableHeader>
+                                            <TableHeader sort={{ direction: directionOf("due"), onToggle: () => toggle("due") }}>Due date</TableHeader>
                                             <TableHeader>Space</TableHeader>
                                             <TableHeader>Lease</TableHeader>
-                                            <TableHeader>Amount</TableHeader>
+                                            <TableHeader sort={{ direction: directionOf("amount"), onToggle: () => toggle("amount") }}>Amount</TableHeader>
                                             <TableHeader>Status</TableHeader>
-                                            <TableHeader>Paid at</TableHeader>
+                                            <TableHeader sort={{ direction: directionOf("paid"), onToggle: () => toggle("paid") }}>Paid at</TableHeader>
                                             <TableHeader>Method</TableHeader>
                                             <TableHeader>Actions</TableHeader>
                                         </tr>
                                     </thead>
 
                                     <tbody className="divide-y divide-[#edf0ee]">
-                                        {payments.map((payment) => {
+                                        {sortedPayments.map((payment) => {
                                             const lease = leasesById.get(payment.leaseId);
                                             const space = lease
                                                 ? spacesById.get(lease.spaceId)

@@ -16,10 +16,13 @@ import {
 } from "../status";
 import { listPropertiesWithSpaces, loadPropertyDirectory, type PropertyDirectory } from "../../properties/propertyDirectory";
 import { useOrgQuery } from "../../../hooks/useOrgQuery";
+import { useTableSort } from "../../../hooks/useTableSort";
 import { formatDate, formatMoney } from "../../../lib/format";
+import type { SortColumns, SortState } from "../../../lib/sort";
 import PageHeader from "../../../components/ui/PageHeader";
 import EmptyState from "../../../components/ui/EmptyState";
 import FilterGroup from "../../../components/ui/FilterGroup";
+import SortableHeader from "../../../components/ui/SortableHeader";
 import StatusBadge from "../../../components/ui/StatusBadge";
 import StatusNotice from "../../../components/ui/StatusNotice";
 
@@ -64,9 +67,18 @@ function toRow(expense: ExpenseResponse, { propertyById, spaceById }: PropertyDi
 }
 
 // Newest first; same-day expenses in the order they were recorded, latest first.
-function compareRows(a: ExpenseRow, b: ExpenseRow): number {
+function newestFirst(a: ExpenseRow, b: ExpenseRow): number {
     return b.expense.expenseDate.localeCompare(a.expense.expenseDate) || b.expense.id - a.expense.id;
 }
+
+type SortKey = "date" | "amount";
+
+const sortColumns: SortColumns<ExpenseRow, SortKey> = {
+    date: { value: (row) => row.expense.expenseDate, firstDirection: "desc" },
+    amount: { value: (row) => row.expense.amountCents, firstDirection: "desc" },
+};
+
+const initialSort: SortState<SortKey> = { key: "date", direction: "desc" };
 
 async function loadExpenses(organizationId: number): Promise<ExpensesData> {
     const [expenses, directory] = await Promise.all([
@@ -75,7 +87,7 @@ async function loadExpenses(organizationId: number): Promise<ExpensesData> {
     ]);
 
     return {
-        rows: expenses.map((expense) => toRow(expense, directory)).sort(compareRows),
+        rows: expenses.map((expense) => toRow(expense, directory)),
         directory,
     };
 }
@@ -133,7 +145,7 @@ export default function ExpensesPage() {
                 const created = await createExpense(organizationId, request);
                 setData((current) => ({
                     ...current,
-                    rows: [...current.rows, toRow(created, current.directory)].sort(compareRows),
+                    rows: [...current.rows, toRow(created, current.directory)],
                 }));
                 // Show everything again if the current filters would hide what was just added.
                 const createdState = getExpenseState(created);
@@ -152,9 +164,7 @@ export default function ExpensesPage() {
                 });
                 setData((current) => ({
                     ...current,
-                    rows: current.rows
-                        .map((row) => (row.expense.id === updated.id ? toRow(updated, current.directory) : row))
-                        .sort(compareRows),
+                    rows: current.rows.map((row) => (row.expense.id === updated.id ? toRow(updated, current.directory) : row)),
                 }));
             }
             setForm(null);
@@ -181,6 +191,11 @@ export default function ExpensesPage() {
     }, [rows, stateFilter]);
 
     const visibleRows = rows.filter((row) => matchesState(row, stateFilter) && matchesProperty(row, propertyFilter));
+    const { sortedRows, directionOf, toggle } = useTableSort(visibleRows, {
+        columns: sortColumns,
+        initial: initialSort,
+        pageOrder: newestFirst,
+    });
 
     // Voided expenses no longer count, so they never add to the total.
     const countedCents = visibleRows
@@ -295,16 +310,26 @@ export default function ExpensesPage() {
                             <table className="w-full min-w-[1100px] text-left text-sm">
                                 <thead className="bg-[#f8faf8] text-xs uppercase tracking-wide text-[#71847a]">
                                     <tr>
-                                        <th className="px-5 py-3 font-semibold">Date</th>
+                                        <SortableHeader
+                                            label="Date"
+                                            direction={directionOf("date")}
+                                            onToggle={() => toggle("date")}
+                                            className="px-5 py-3 font-semibold"
+                                        />
                                         <th className="px-5 py-3 font-semibold">Expense</th>
                                         <th className="px-5 py-3 font-semibold">Location</th>
-                                        <th className="px-5 py-3 text-right font-semibold">Amount</th>
+                                        <SortableHeader
+                                            label="Amount"
+                                            direction={directionOf("amount")}
+                                            onToggle={() => toggle("amount")}
+                                            className="px-5 py-3 text-right font-semibold"
+                                        />
                                         <th className="px-5 py-3 font-semibold">State</th>
                                         <th className="px-5 py-3 font-semibold">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-[#edf1ee]">
-                                    {visibleRows.map(({ expense, state, propertyName, spaceName }) => (
+                                    {sortedRows.map(({ expense, state, propertyName, spaceName }) => (
                                         <tr key={expense.id} className="transition hover:bg-[#fafcfb]">
                                             <td className="whitespace-nowrap px-5 py-4 text-[#42574e]">
                                                 {formatDate(expense.expenseDate)}

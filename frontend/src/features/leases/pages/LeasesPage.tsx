@@ -9,13 +9,30 @@ import {
 } from "../status";
 import LeaseStatusBadge from "../components/LeaseStatusBadge";
 import { useOrgQuery } from "../../../hooks/useOrgQuery";
+import { useTableSort } from "../../../hooks/useTableSort";
 import { formatDate, formatMoney } from "../../../lib/format";
+import type { SortColumns, SortState } from "../../../lib/sort";
 import PageHeader from "../../../components/ui/PageHeader";
 import EmptyState from "../../../components/ui/EmptyState";
+import SortableHeader from "../../../components/ui/SortableHeader";
 
 type StatusFilter = LeaseDisplayStatus | "ALL";
 
 const NO_ROWS: LeaseRow[] = [];
+
+type SortKey = "term" | "rent";
+
+const sortColumns: SortColumns<LeaseRow, SortKey> = {
+    term: { value: (row) => row.lease.startDate, firstDirection: "desc" },
+    rent: { value: (row) => row.lease.monthlyRentCents, firstDirection: "desc" },
+};
+
+// Newest first: upcoming leases, then the most recently started.
+const initialSort: SortState<SortKey> = { key: "term", direction: "desc" };
+
+function newestFirst(a: LeaseRow, b: LeaseRow): number {
+    return b.lease.startDate.localeCompare(a.lease.startDate) || b.lease.id - a.lease.id;
+}
 
 export default function LeasesPage() {
     const { organizationId, data, loading, error } = useOrgQuery(loadLeaseRows);
@@ -43,6 +60,12 @@ export default function LeasesPage() {
                 .includes(normalizedQuery);
         });
     }, [rows, statusFilter, query]);
+
+    const { sortedRows, directionOf, toggle } = useTableSort(filteredRows, {
+        columns: sortColumns,
+        initial: initialSort,
+        pageOrder: newestFirst,
+    });
 
     const filters: StatusFilter[] = ["ALL", ...LEASE_DISPLAY_STATUSES];
 
@@ -116,14 +139,24 @@ export default function LeasesPage() {
                                 <tr>
                                     <th className="px-5 py-3 font-semibold">Tenant</th>
                                     <th className="px-5 py-3 font-semibold">Property</th>
-                                    <th className="px-5 py-3 font-semibold">Term</th>
-                                    <th className="px-5 py-3 text-right font-semibold">Rent / month</th>
+                                    <SortableHeader
+                                        label="Term"
+                                        direction={directionOf("term")}
+                                        onToggle={() => toggle("term")}
+                                        className="px-5 py-3 font-semibold"
+                                    />
+                                    <SortableHeader
+                                        label="Rent / month"
+                                        direction={directionOf("rent")}
+                                        onToggle={() => toggle("rent")}
+                                        className="px-5 py-3 text-right font-semibold"
+                                    />
                                     <th className="px-5 py-3 font-semibold">Status</th>
                                     <th className="px-5 py-3 text-right font-semibold"> </th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[#edf1ee]">
-                                {filteredRows.map((row) => (
+                                {sortedRows.map((row) => (
                                     <tr key={row.lease.id} className="transition hover:bg-[#fafcfb]">
                                         <td className="px-5 py-4">
                                             <Link

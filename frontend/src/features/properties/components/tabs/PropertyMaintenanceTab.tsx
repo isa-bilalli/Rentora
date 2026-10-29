@@ -2,7 +2,9 @@ import { useState } from "react";
 import { Plus } from "lucide-react";
 
 import { useOrgQuery } from "../../../../hooks/useOrgQuery";
+import { useTableSort } from "../../../../hooks/useTableSort";
 import { formatDate } from "../../../../lib/format";
+import type { SortColumns, SortState } from "../../../../lib/sort";
 import { getMaintenanceByProperty } from "../../../maintenance/api/maintenanceApi";
 import CreateMaintenanceForm from "../../../maintenance/components/CreateMaintenanceForm";
 import { MaintenancePriorityBadge, MaintenanceStatusBadge } from "../../../maintenance/components/MaintenanceBadges";
@@ -11,6 +13,21 @@ import { useMaintenanceActions, type MaintenanceAction } from "../../../maintena
 import type { MaintenanceResponse } from "../../../maintenance/types";
 import type { SpaceResponse } from "../../types";
 import TableHeader from "./TableHeader";
+
+// Most recently reported first.
+function latestReportedFirst(a: MaintenanceResponse, b: MaintenanceResponse): number {
+    return b.reportedAt.localeCompare(a.reportedAt) || b.id - a.id;
+}
+
+type SortKey = "reported" | "resolved";
+
+// Requests not yet resolved have no resolved date, so they go last when sorting by it.
+const sortColumns: SortColumns<MaintenanceResponse, SortKey> = {
+    reported: { value: (request) => request.reportedAt, firstDirection: "desc" },
+    resolved: { value: (request) => request.resolvedAt, firstDirection: "desc" },
+};
+
+const initialSort: SortState<SortKey> = { key: "reported", direction: "desc" };
 
 interface PropertyMaintenanceTabProps {
     propertyId: number;
@@ -58,7 +75,12 @@ export default function PropertyMaintenanceTab({ propertyId, spaces, onSpacesCha
     const busy = actions.creating || actions.busyRequestId !== null;
     const actionError = actions.actionError ?? refreshError;
     const spacesById = new Map(spaces.map((space) => [space.id, space]));
-    const requests = [...(data ?? [])].sort((a, b) => b.reportedAt.localeCompare(a.reportedAt));
+    const requests = data ?? [];
+    const { sortedRows: sortedRequests, directionOf, toggle } = useTableSort(requests, {
+        columns: sortColumns,
+        initial: initialSort,
+        pageOrder: latestReportedFirst,
+    });
 
     return (
         <div className="space-y-5">
@@ -152,13 +174,13 @@ export default function PropertyMaintenanceTab({ propertyId, spaces, onSpacesCha
                                 <TableHeader>Request</TableHeader>
                                 <TableHeader>Priority</TableHeader>
                                 <TableHeader>Status</TableHeader>
-                                <TableHeader>Reported</TableHeader>
-                                <TableHeader>Resolved</TableHeader>
+                                <TableHeader sort={{ direction: directionOf("reported"), onToggle: () => toggle("reported") }}>Reported</TableHeader>
+                                <TableHeader sort={{ direction: directionOf("resolved"), onToggle: () => toggle("resolved") }}>Resolved</TableHeader>
                                 <TableHeader>Actions</TableHeader>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-[#edf0ee]">
-                            {requests.map((request) => {
+                            {sortedRequests.map((request) => {
                                 const space = request.spaceId === null ? undefined : spacesById.get(request.spaceId);
 
                                 return (

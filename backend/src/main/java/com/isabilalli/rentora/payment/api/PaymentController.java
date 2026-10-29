@@ -2,6 +2,7 @@ package com.isabilalli.rentora.payment.api;
 
 import com.isabilalli.rentora.payment.api.dto.PaymentDisplayStatus;
 import com.isabilalli.rentora.payment.api.dto.PaymentResponse;
+import com.isabilalli.rentora.payment.api.dto.PaymentSortField;
 import com.isabilalli.rentora.payment.api.dto.PaymentStatusTotal;
 import com.isabilalli.rentora.payment.api.dto.RecordPaymentRequest;
 import com.isabilalli.rentora.payment.application.PaymentService;
@@ -14,6 +15,7 @@ import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -47,15 +49,18 @@ public class PaymentController {
         return ResponseEntity.ok(paymentService.getAllPaymentsByOrganizationId(organizationId));
     }
 
-    // One page of a Payments tab, e.g. ?status=OVERDUE&page=0&size=25.
+    // One page of a Payments tab, e.g. ?status=OVERDUE&page=0&size=25. Add &sort=AMOUNT&direction=DESC to order
+    // it by a column; without sort, each tab keeps its own order.
     @GetMapping("/page")
     public ResponseEntity<PageResponse<PaymentResponse>> getPaymentPage(
             @PathVariable Long organizationId,
             @RequestParam PaymentDisplayStatus status,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "25") int size
+            @RequestParam(defaultValue = "25") int size,
+            @RequestParam(required = false) PaymentSortField sort,
+            @RequestParam(defaultValue = "DESC") Sort.Direction direction
     ) {
-        return ResponseEntity.ok(paymentService.getPaymentPage(organizationId, status, page, size));
+        return ResponseEntity.ok(paymentService.getPaymentPage(organizationId, status, page, size, sort, direction));
     }
 
     // Count and total per Payments tab.

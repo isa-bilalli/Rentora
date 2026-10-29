@@ -10,6 +10,7 @@ import com.isabilalli.rentora.organization.domain.Organization;
 import com.isabilalli.rentora.organization.infrastructure.OrganizationRepository;
 import com.isabilalli.rentora.payment.api.dto.PaymentDisplayStatus;
 import com.isabilalli.rentora.payment.api.dto.PaymentResponse;
+import com.isabilalli.rentora.payment.api.dto.PaymentSortField;
 import com.isabilalli.rentora.payment.api.dto.PaymentStatusTotal;
 import com.isabilalli.rentora.payment.domain.Payment;
 import com.isabilalli.rentora.payment.domain.PaymentMethod;
@@ -31,6 +32,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.math.BigDecimal;
@@ -101,8 +103,8 @@ class PaymentPagingTest {
         Payment tenDaysLate = pending(TODAY.minusDays(10), 200);
         pending(TODAY, 999);
 
-        PageResponse<PaymentResponse> first = paymentService.getPaymentPage(organizationId, PaymentDisplayStatus.OVERDUE, 0, 2);
-        PageResponse<PaymentResponse> second = paymentService.getPaymentPage(organizationId, PaymentDisplayStatus.OVERDUE, 1, 2);
+        PageResponse<PaymentResponse> first = page(PaymentDisplayStatus.OVERDUE, 0, 2);
+        PageResponse<PaymentResponse> second = page(PaymentDisplayStatus.OVERDUE, 1, 2);
 
         assertEquals(List.of(fortyDaysLate.getId(), tenDaysLate.getId()), ids(first));
         assertEquals(3, first.totalItems());
@@ -117,7 +119,7 @@ class PaymentPagingTest {
         Payment dueToday = pending(TODAY, 100);
         pending(TODAY.minusDays(1), 100);
 
-        PageResponse<PaymentResponse> page = paymentService.getPaymentPage(organizationId, PaymentDisplayStatus.PENDING, 0, 25);
+        PageResponse<PaymentResponse> page = page(PaymentDisplayStatus.PENDING, 0, 25);
 
         assertEquals(List.of(dueToday.getId(), nextMonth.getId()), ids(page));
     }
@@ -127,9 +129,47 @@ class PaymentPagingTest {
         Payment paidLastWeek = paid(TODAY.minusMonths(2), OffsetDateTime.now().minusDays(7));
         Payment paidYesterday = paid(TODAY.minusMonths(1), OffsetDateTime.now().minusDays(1));
 
-        PageResponse<PaymentResponse> page = paymentService.getPaymentPage(organizationId, PaymentDisplayStatus.PAID, 0, 25);
+        PageResponse<PaymentResponse> page = page(PaymentDisplayStatus.PAID, 0, 25);
 
         assertEquals(List.of(paidYesterday.getId(), paidLastWeek.getId()), ids(page));
+    }
+
+    // Two 200s tie, so the tab's own order (oldest due first) decides between them, the same on every page.
+    @Test
+    void sortsATabByAmountAcrossPagesWithTiesInTheTabsOrder() {
+        Payment fiveDaysLate = pending(TODAY.minusDays(5), 300);
+        Payment fortyDaysLate = pending(TODAY.minusDays(40), 100);
+        Payment tenDaysLate = pending(TODAY.minusDays(10), 200);
+        Payment twentyDaysLate = pending(TODAY.minusDays(20), 200);
+
+        PageResponse<PaymentResponse> first = sortedPage(PaymentDisplayStatus.OVERDUE, PaymentSortField.AMOUNT, Sort.Direction.DESC, 0, 2);
+        PageResponse<PaymentResponse> second = sortedPage(PaymentDisplayStatus.OVERDUE, PaymentSortField.AMOUNT, Sort.Direction.DESC, 1, 2);
+        PageResponse<PaymentResponse> ascending = sortedPage(PaymentDisplayStatus.OVERDUE, PaymentSortField.AMOUNT, Sort.Direction.ASC, 0, 25);
+
+        assertEquals(List.of(fiveDaysLate.getId(), twentyDaysLate.getId()), ids(first));
+        assertEquals(List.of(tenDaysLate.getId(), fortyDaysLate.getId()), ids(second));
+        assertEquals(List.of(fortyDaysLate.getId(), twentyDaysLate.getId(), tenDaysLate.getId(), fiveDaysLate.getId()), ids(ascending));
+    }
+
+    @Test
+    void sortsATabByDueDateLatestFirst() {
+        Payment fortyDaysLate = pending(TODAY.minusDays(40), 100);
+        Payment fiveDaysLate = pending(TODAY.minusDays(5), 100);
+        Payment tenDaysLate = pending(TODAY.minusDays(10), 100);
+
+        PageResponse<PaymentResponse> page = sortedPage(PaymentDisplayStatus.OVERDUE, PaymentSortField.DUE_DATE, Sort.Direction.DESC, 0, 25);
+
+        assertEquals(List.of(fiveDaysLate.getId(), tenDaysLate.getId(), fortyDaysLate.getId()), ids(page));
+    }
+
+    @Test
+    void sortsThePaidTabByWhenPaidEarliestFirst() {
+        Payment paidYesterday = paid(TODAY.minusMonths(1), OffsetDateTime.now().minusDays(1));
+        Payment paidLastWeek = paid(TODAY.minusMonths(2), OffsetDateTime.now().minusDays(7));
+
+        PageResponse<PaymentResponse> page = sortedPage(PaymentDisplayStatus.PAID, PaymentSortField.PAID_AT, Sort.Direction.ASC, 0, 25);
+
+        assertEquals(List.of(paidLastWeek.getId(), paidYesterday.getId()), ids(page));
     }
 
     @Test
@@ -157,6 +197,14 @@ class PaymentPagingTest {
         for (PaymentDisplayStatus status : PaymentDisplayStatus.values()) {
             assertEquals(new PaymentStatusTotal(0, 0), summary.get(status));
         }
+    }
+
+    private PageResponse<PaymentResponse> page(PaymentDisplayStatus status, int page, int size) {
+        return paymentService.getPaymentPage(organizationId, status, page, size, null, null);
+    }
+
+    private PageResponse<PaymentResponse> sortedPage(PaymentDisplayStatus status, PaymentSortField sort, Sort.Direction direction, int page, int size) {
+        return paymentService.getPaymentPage(organizationId, status, page, size, sort, direction);
     }
 
     private Payment pending(LocalDate dueDate, long amountCents) {

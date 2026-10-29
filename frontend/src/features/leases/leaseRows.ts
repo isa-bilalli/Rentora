@@ -25,19 +25,17 @@ export async function loadLeaseRows(organizationId: number): Promise<LeaseRow[]>
     const tenantById = new Map(tenants.map((tenant) => [tenant.id, tenant]));
     const today = todayLocalDateString();
 
-    return leases
-        .map((lease) => {
-            const tenant = tenantById.get(lease.tenantId);
-            const space = spaceById.get(lease.spaceId);
-            const property = space ? propertyById.get(space.propertyId) : undefined;
-            return {
-                lease,
-                status: getLeaseDisplayStatus(lease, today),
-                tenantName: tenant ? getTenantDisplayName(tenant) : `Tenant #${lease.tenantId}`,
-                propertyName: property?.name ?? "Unknown property",
-                spaceName: space?.name ?? `Space #${lease.spaceId}`,
-            };
-        })
-        // Newest first: upcoming leases, then the most recently started.
-        .sort((a, b) => b.lease.startDate.localeCompare(a.lease.startDate));
+    // In the API's order; the Leases page sorts them itself.
+    return leases.map((lease) => {
+        const tenant = tenantById.get(lease.tenantId);
+        const space = spaceById.get(lease.spaceId);
+        const property = space ? propertyById.get(space.propertyId) : undefined;
+        return {
+            lease,
+            status: getLeaseDisplayStatus(lease, today),
+            tenantName: tenant ? getTenantDisplayName(tenant) : `Tenant #${lease.tenantId}`,
+            propertyName: property?.name ?? "Unknown property",
+            spaceName: space?.name ?? `Space #${lease.spaceId}`,
+        };
+    });
 }

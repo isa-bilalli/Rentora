@@ -33,6 +33,7 @@ import com.isabilalli.rentora.organization.domain.OrganizationRole;
 import com.isabilalli.rentora.payment.api.PaymentAccess;
 import com.isabilalli.rentora.payment.api.dto.PaymentDisplayStatus;
 import com.isabilalli.rentora.payment.api.dto.PaymentResponse;
+import com.isabilalli.rentora.payment.api.dto.PaymentSortField;
 import com.isabilalli.rentora.payment.api.dto.PaymentStatusTotal;
 import com.isabilalli.rentora.payment.api.dto.RecordPaymentRequest;
 import com.isabilalli.rentora.payment.domain.Payment;
@@ -83,8 +84,9 @@ public class PaymentService implements PaymentAccess {
 
     public static final int MAX_PAGE_SIZE = 100;
 
-    // One page of a Payments tab, most urgent first: soonest due while unpaid, latest first once paid or voided.
-    public PageResponse<PaymentResponse> getPaymentPage(Long organizationId, PaymentDisplayStatus status, int page, int size) {
+    // One page of a Payments tab. Without a sort, most urgent first: soonest due while unpaid, latest first once
+    // paid or voided. With one, by that column, and ties in the tab's own order so rows don't move between pages.
+    public PageResponse<PaymentResponse> getPaymentPage(Long organizationId, PaymentDisplayStatus status, int page, int size, PaymentSortField sort, Sort.Direction direction) {
         organizationAuthorization(organizationId);
         if (page < 0) {
             throw new BadRequestException("Page must be 0 or more");
@@ -94,18 +96,30 @@ public class PaymentService implements PaymentAccess {
         }
 
         LocalDate today = LocalDate.now();
-        Sort soonestDueFirst = Sort.by(Payment::getDueDate, Payment::getId);
+        Sort tabOrder = switch (status) {
+            case OVERDUE, PENDING -> Sort.by(Payment::getDueDate, Payment::getId);
+            case PAID -> Sort.by(Payment::getPaidAt, Payment::getId).descending();
+            case VOIDED -> Sort.by(Payment::getDueDate, Payment::getId).descending();
+        };
+        PageRequest pageRequest = PageRequest.of(page, size, sort == null ? tabOrder : columnOrder(sort, direction).and(tabOrder));
         Page<Payment> result = switch (status) {
             case OVERDUE -> paymentRepository.findByOrganizationIdAndStatusAndDueDateBefore(
-                    organizationId, PaymentStatus.PENDING, today, PageRequest.of(page, size, soonestDueFirst));
+                    organizationId, PaymentStatus.PENDING, today, pageRequest);
             case PENDING -> paymentRepository.findByOrganizationIdAndStatusAndDueDateGreaterThanEqual(
-                    organizationId, PaymentStatus.PENDING, today, PageRequest.of(page, size, soonestDueFirst));
-            case PAID -> paymentRepository.findByOrganizationIdAndStatus(
-                    organizationId, PaymentStatus.PAID, PageRequest.of(page, size, Sort.by(Payment::getPaidAt, Payment::getId).descending()));
-            case VOIDED -> paymentRepository.findByOrganizationIdAndStatus(
-                    organizationId, PaymentStatus.VOIDED, PageRequest.of(page, size, Sort.by(Payment::getDueDate, Payment::getId).descending()));
+                    organizationId, PaymentStatus.PENDING, today, pageRequest);
+            case PAID -> paymentRepository.findByOrganizationIdAndStatus(organizationId, PaymentStatus.PAID, pageRequest);
+            case VOIDED -> paymentRepository.findByOrganizationIdAndStatus(organizationId, PaymentStatus.VOIDED, pageRequest);
         };
         return PageResponse.from(result, PaymentResponse::from);
+    }
+
+    private static Sort columnOrder(PaymentSortField sort, Sort.Direction direction) {
+        Sort column = switch (sort) {
+            case DUE_DATE -> Sort.by(Payment::getDueDate);
+            case AMOUNT -> Sort.by(Payment::getAmountCents);
+            case PAID_AT -> Sort.by(Payment::getPaidAt);
+        };
+        return direction.isAscending() ? column.ascending() : column.descending();
     }
 
     // Count and total for every Payments tab, over all of the organization's payments. Empty tabs are zeros.

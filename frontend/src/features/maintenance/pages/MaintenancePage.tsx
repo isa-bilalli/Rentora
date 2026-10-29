@@ -16,10 +16,13 @@ import CreateMaintenanceForm, { type MaintenancePropertyOption } from "../compon
 import { useMaintenanceActions } from "../useMaintenanceActions";
 import { loadPropertyDirectory, type PropertyDirectory } from "../../properties/propertyDirectory";
 import { useOrgQuery } from "../../../hooks/useOrgQuery";
+import { useTableSort } from "../../../hooks/useTableSort";
 import { formatDate } from "../../../lib/format";
+import type { SortColumns } from "../../../lib/sort";
 import PageHeader from "../../../components/ui/PageHeader";
 import EmptyState from "../../../components/ui/EmptyState";
 import FilterGroup from "../../../components/ui/FilterGroup";
+import SortableHeader from "../../../components/ui/SortableHeader";
 
 interface MaintenanceRow {
     request: MaintenanceResponse;
@@ -42,13 +45,22 @@ const NO_ROWS: MaintenanceRow[] = [];
 const priorityRank: Record<MaintenancePriority, number> = { URGENT: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
 
 // What needs attention first: open and in-progress before closed, then by priority, then newest.
-function compareRows(a: MaintenanceRow, b: MaintenanceRow): number {
+// The table's order until a column is clicked, and how ties are broken after.
+function needsAttentionFirst(a: MaintenanceRow, b: MaintenanceRow): number {
     const activeDifference = Number(isMaintenanceActive(b.request.status)) - Number(isMaintenanceActive(a.request.status));
     if (activeDifference !== 0) return activeDifference;
     const priorityDifference = priorityRank[a.request.priority] - priorityRank[b.request.priority];
     if (priorityDifference !== 0) return priorityDifference;
-    return b.request.reportedAt.localeCompare(a.request.reportedAt);
+    return b.request.reportedAt.localeCompare(a.request.reportedAt) || b.request.id - a.request.id;
 }
+
+type SortKey = "reported" | "resolved";
+
+// Requests not yet resolved have no resolved date, so they go last when sorting by it.
+const sortColumns: SortColumns<MaintenanceRow, SortKey> = {
+    reported: { value: (row) => row.request.reportedAt, firstDirection: "desc" },
+    resolved: { value: (row) => row.request.resolvedAt, firstDirection: "desc" },
+};
 
 function matchesStatus(row: MaintenanceRow, status: StatusFilter): boolean {
     return status === "ALL" || row.request.status === status;
@@ -73,7 +85,7 @@ async function loadMaintenanceData(organizationId: number): Promise<MaintenanceD
     ]);
 
     return {
-        rows: requests.map((request) => toRow(request, directory)).sort(compareRows),
+        rows: requests.map((request) => toRow(request, directory)),
         directory,
     };
 }
@@ -88,21 +100,19 @@ export default function MaintenancePage() {
     const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>("ALL");
     const [showCreateForm, setShowCreateForm] = useState(false);
 
-    // Status changes the sort order, so rows are re-sorted after every create or action.
+    // Rows are sorted when the table is drawn, so a new request or a status change lands in the right place.
     const maintenanceActions = useMaintenanceActions({
         onCreated: (created) => {
             setData((current) => ({
                 ...current,
-                rows: [...current.rows, toRow(created, current.directory)].sort(compareRows),
+                rows: [...current.rows, toRow(created, current.directory)],
             }));
             setShowCreateForm(false);
         },
         onUpdated: (updated) =>
             setData((current) => ({
                 ...current,
-                rows: current.rows
-                    .map((row) => (row.request.id === updated.id ? { ...row, request: updated } : row))
-                    .sort(compareRows),
+                rows: current.rows.map((row) => (row.request.id === updated.id ? { ...row, request: updated } : row)),
             })),
     });
     const actionsDisabled = maintenanceActions.busyRequestId !== null || maintenanceActions.creating;
@@ -136,6 +146,11 @@ export default function MaintenancePage() {
     }, [rows, statusFilter]);
 
     const visibleRows = rows.filter((row) => matchesStatus(row, statusFilter) && matchesPriority(row, priorityFilter));
+    const { sortedRows, directionOf, toggle } = useTableSort(visibleRows, {
+        columns: sortColumns,
+        initial: null,
+        pageOrder: needsAttentionFirst,
+    });
 
     return (
         <main className="mx-auto w-full max-w-7xl space-y-6 p-5 md:p-8">
@@ -227,13 +242,23 @@ export default function MaintenancePage() {
                                     <th className="px-5 py-3 font-semibold">Location</th>
                                     <th className="px-5 py-3 font-semibold">Priority</th>
                                     <th className="px-5 py-3 font-semibold">Status</th>
-                                    <th className="px-5 py-3 font-semibold">Reported</th>
-                                    <th className="px-5 py-3 font-semibold">Resolved</th>
+                                    <SortableHeader
+                                        label="Reported"
+                                        direction={directionOf("reported")}
+                                        onToggle={() => toggle("reported")}
+                                        className="px-5 py-3 font-semibold"
+                                    />
+                                    <SortableHeader
+                                        label="Resolved"
+                                        direction={directionOf("resolved")}
+                                        onToggle={() => toggle("resolved")}
+                                        className="px-5 py-3 font-semibold"
+                                    />
                                     <th className="px-5 py-3 font-semibold">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[#edf1ee]">
-                                {visibleRows.map(({ request, propertyName, spaceName }) => (
+                                {sortedRows.map(({ request, propertyName, spaceName }) => (
                                     <tr key={request.id} className="transition hover:bg-[#fafcfb]">
                                         <td className="max-w-sm px-5 py-4">
                                             <p className="font-medium text-[#14302b]">{request.title}</p>

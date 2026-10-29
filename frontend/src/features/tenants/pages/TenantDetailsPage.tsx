@@ -27,14 +27,48 @@ import { getPayments } from "../../payments/api/paymentApi";
 import PaymentStatusBadge from "../../payments/components/PaymentStatusBadge";
 import { formatPaymentMethod, getPaymentDisplayStatus } from "../../payments/status";
 import type { PaymentResponse } from "../../payments/types";
+import SortableHeader from "../../../components/ui/SortableHeader";
+import { useTableSort } from "../../../hooks/useTableSort";
 import { todayLocalDateString } from "../../../lib/dates";
 import { formatDateTime, formatLongDate, formatMoney } from "../../../lib/format";
+import type { SortColumns, SortState } from "../../../lib/sort";
 
 import {
     getTenantDisplayName,
     type TenantResponse,
     type UpdateTenantRequest,
 } from "../types";
+
+// Newest start first.
+function newestLeaseFirst(a: LeaseResponse, b: LeaseResponse): number {
+    return b.startDate.localeCompare(a.startDate) || b.id - a.id;
+}
+
+type LeaseSortKey = "term" | "rent" | "deposit";
+
+const leaseSortColumns: SortColumns<LeaseResponse, LeaseSortKey> = {
+    term: { value: (lease) => lease.startDate, firstDirection: "desc" },
+    rent: { value: (lease) => lease.monthlyRentCents, firstDirection: "desc" },
+    deposit: { value: (lease) => lease.securityDepositCents, firstDirection: "desc" },
+};
+
+const initialLeaseSort: SortState<LeaseSortKey> = { key: "term", direction: "desc" };
+
+// Latest due date first, then the most recently paid.
+function latestDueFirst(a: PaymentResponse, b: PaymentResponse): number {
+    return b.dueDate.localeCompare(a.dueDate) || (b.paidAt ?? "").localeCompare(a.paidAt ?? "") || b.id - a.id;
+}
+
+type PaymentSortKey = "due" | "amount" | "paid";
+
+// Payments not yet paid have no paid date, so they go last when sorting by it.
+const paymentSortColumns: SortColumns<PaymentResponse, PaymentSortKey> = {
+    due: { value: (payment) => payment.dueDate, firstDirection: "desc" },
+    amount: { value: (payment) => payment.amountCents, firstDirection: "desc" },
+    paid: { value: (payment) => payment.paidAt, firstDirection: "desc" },
+};
+
+const initialPaymentSort: SortState<PaymentSortKey> = { key: "due", direction: "desc" };
 
 export default function TenantDetailsPage() {
     const { activeOrganization } = useOrganization();
@@ -135,11 +169,7 @@ export default function TenantDetailsPage() {
                 const tenantLeases = await getLeases(organizationId, { tenantId });
 
                 if (!cancelled) {
-                    setLeases(
-                        [...tenantLeases].sort((a, b) =>
-                            b.startDate.localeCompare(a.startDate),
-                        ),
-                    );
+                    setLeases(tenantLeases);
                 }
             } catch (error) {
                 if (!cancelled) {
@@ -167,20 +197,7 @@ export default function TenantDetailsPage() {
                 const tenantPayments = await getPayments(organizationId, { tenantId });
 
                 if (!cancelled) {
-                    setPayments(
-                        [...tenantPayments].sort((a, b) => {
-                            const dateOrder =
-                                b.dueDate.localeCompare(a.dueDate);
-
-                            if (dateOrder !== 0) {
-                                return dateOrder;
-                            }
-
-                            return (b.paidAt ?? "").localeCompare(
-                                a.paidAt ?? "",
-                            );
-                        }),
-                    );
+                    setPayments(tenantPayments);
                 }
             } catch (error) {
                 if (!cancelled) {
@@ -223,6 +240,18 @@ export default function TenantDetailsPage() {
             setSaving(false);
         }
     }
+
+    // Hooks, so above the early returns below.
+    const leaseSort = useTableSort(leases, {
+        columns: leaseSortColumns,
+        initial: initialLeaseSort,
+        pageOrder: newestLeaseFirst,
+    });
+    const paymentSort = useTableSort(payments, {
+        columns: paymentSortColumns,
+        initial: initialPaymentSort,
+        pageOrder: latestDueFirst,
+    });
 
     if (loading) {
         return (
@@ -479,16 +508,31 @@ export default function TenantDetailsPage() {
                             <thead className="bg-[#f8faf8] text-xs uppercase tracking-wide text-gray-500">
                                 <tr>
                                     <th className="px-5 py-3 font-medium">Lease</th>
-                                    <th className="px-5 py-3 font-medium">Term</th>
-                                    <th className="px-5 py-3 font-medium">Monthly rent</th>
-                                    <th className="px-5 py-3 font-medium">Deposit</th>
+                                    <SortableHeader
+                                        label="Term"
+                                        direction={leaseSort.directionOf("term")}
+                                        onToggle={() => leaseSort.toggle("term")}
+                                        className="px-5 py-3 font-medium"
+                                    />
+                                    <SortableHeader
+                                        label="Monthly rent"
+                                        direction={leaseSort.directionOf("rent")}
+                                        onToggle={() => leaseSort.toggle("rent")}
+                                        className="px-5 py-3 font-medium"
+                                    />
+                                    <SortableHeader
+                                        label="Deposit"
+                                        direction={leaseSort.directionOf("deposit")}
+                                        onToggle={() => leaseSort.toggle("deposit")}
+                                        className="px-5 py-3 font-medium"
+                                    />
                                     <th className="px-5 py-3 font-medium">Status</th>
                                     <th className="px-5 py-3 text-right font-medium">Details</th>
                                 </tr>
                             </thead>
 
                             <tbody className="divide-y divide-[#edf1ee]">
-                                {leases.map((lease) => {
+                                {leaseSort.sortedRows.map((lease) => {
                                     const displayStatus =
                                         getLeaseDisplayStatus(lease, today);
 
@@ -639,17 +683,32 @@ export default function TenantDetailsPage() {
                                     <thead className="bg-[#f8faf8] text-xs uppercase tracking-wide text-gray-500">
                                         <tr>
                                             <th className="px-5 py-3 font-medium">Payment</th>
-                                            <th className="px-5 py-3 font-medium">Due date</th>
-                                            <th className="px-5 py-3 font-medium">Amount</th>
+                                            <SortableHeader
+                                                label="Due date"
+                                                direction={paymentSort.directionOf("due")}
+                                                onToggle={() => paymentSort.toggle("due")}
+                                                className="px-5 py-3 font-medium"
+                                            />
+                                            <SortableHeader
+                                                label="Amount"
+                                                direction={paymentSort.directionOf("amount")}
+                                                onToggle={() => paymentSort.toggle("amount")}
+                                                className="px-5 py-3 font-medium"
+                                            />
                                             <th className="px-5 py-3 font-medium">Status</th>
-                                            <th className="px-5 py-3 font-medium">Paid at</th>
+                                            <SortableHeader
+                                                label="Paid at"
+                                                direction={paymentSort.directionOf("paid")}
+                                                onToggle={() => paymentSort.toggle("paid")}
+                                                className="px-5 py-3 font-medium"
+                                            />
                                             <th className="px-5 py-3 font-medium">Method</th>
                                             <th className="px-5 py-3 text-right font-medium">Lease</th>
                                         </tr>
                                     </thead>
 
                                     <tbody className="divide-y divide-[#edf1ee]">
-                                        {payments.map((payment) => {
+                                        {paymentSort.sortedRows.map((payment) => {
                                             const displayStatus =
                                                 getPaymentDisplayStatus(payment, today);
 
