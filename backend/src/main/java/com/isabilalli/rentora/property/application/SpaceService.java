@@ -3,6 +3,7 @@ package com.isabilalli.rentora.property.application;
 import com.isabilalli.rentora.shared.api.NotFoundException;
 import org.springframework.security.access.AccessDeniedException;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -33,19 +34,22 @@ public class SpaceService implements SpaceAccess{
     private final CurrentUserService currentUserService;
     private final OrganizationAccessService organizationAccessService;
     private final LeaseStatusAccess leaseStatusAccess;
+    private final Clock clock;
 
     public SpaceService(
             SpaceRepository spaceRepository,
             PropertyRepository propertyRepository,
             CurrentUserService currentUserService,
             OrganizationAccessService organizationAccessService,
-            LeaseStatusAccess leaseStatusAccess
+            LeaseStatusAccess leaseStatusAccess,
+            Clock clock
     ) {
         this.spaceRepository = spaceRepository;
         this.propertyRepository = propertyRepository;
         this.currentUserService = currentUserService;
         this.organizationAccessService = organizationAccessService;
         this.leaseStatusAccess = leaseStatusAccess;
+        this.clock = clock;
     }
 
     private Property getAuthorizedProperty(Long organizationId, Long propertyId){
@@ -127,7 +131,7 @@ public class SpaceService implements SpaceAccess{
         getAuthorizedProperty(organizationId, propertyId);
         Space space = lockSpace(SpaceId, propertyId);
         
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(clock);
         boolean hasCurrentLease = leaseStatusAccess.hasCurrentActiveLease(organizationId, SpaceId, today);
         boolean hasUpcomingLease = leaseStatusAccess.hasUpcomingActiveLease(organizationId, SpaceId, today);
 

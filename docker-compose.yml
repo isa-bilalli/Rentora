@@ -34,6 +34,8 @@ services:
       CORS_ALLOWED_ORIGINS: http://localhost:3000
       # Compose serves plain HTTP. Behind HTTPS, remove this so the prod profile's secure cookies apply.
       COOKIE_SECURE: "false"
+      # The container's clock is UTC; the backend keeps this zone's days instead.
+      APP_TIME_ZONE: ${APP_TIME_ZONE:-Europe/Belgrade}
     depends_on:
       postgres:
         condition: service_healthy

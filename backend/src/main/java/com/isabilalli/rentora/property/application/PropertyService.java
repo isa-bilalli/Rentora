@@ -5,6 +5,7 @@ import com.isabilalli.rentora.property.domain.Property;
 import com.isabilalli.rentora.property.domain.Space;
 
 import java.util.List;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.Map;
 import java.util.Set;
@@ -36,13 +37,15 @@ public class PropertyService implements PropertyAccess{
     private final OrganizationAccessService organizationAccessService;
     private final SpaceRepository spaceRepository;
     private final LeaseAccess leaseAccess;
+    private final Clock clock;
 
-    public PropertyService(PropertyRepository propertyRepository, CurrentUserService currentUserService, OrganizationAccessService organizationAccessService, SpaceRepository spaceRepository, LeaseAccess leaseAccess){
+    public PropertyService(PropertyRepository propertyRepository, CurrentUserService currentUserService, OrganizationAccessService organizationAccessService, SpaceRepository spaceRepository, LeaseAccess leaseAccess, Clock clock){
         this.propertyRepository=propertyRepository;
         this.currentUserService=currentUserService;
         this.organizationAccessService=organizationAccessService;
         this.spaceRepository=spaceRepository;
         this.leaseAccess=leaseAccess;
+        this.clock=clock;
     }
 
     public PropertyResponse createProperty(Long organizationId, CreatePropertyRequest request){
@@ -112,7 +115,7 @@ public class PropertyService implements PropertyAccess{
         }
         List<Long> propertyIds = properties.stream().map(Property::getId).toList();
         Map<Long, List<Space>> spacesByProperty = spaceRepository.findAllByPropertyIdIn(propertyIds).stream().collect(Collectors.groupingBy(Space::getPropertyId));
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(clock);
         Map<Long, Long> rentBySpaceId = leaseAccess.getCurrentMonthlyRentBySpace(organizationId, today).stream().collect(Collectors.toMap(CurrentSpaceRentSummary::spaceId, CurrentSpaceRentSummary::monthlyRentCents));
         return properties.stream().map(property -> {
             List<Space> spaces = spacesByProperty.getOrDefault(property.getId(), List.of());

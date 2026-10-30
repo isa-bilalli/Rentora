@@ -15,6 +15,11 @@ jwt:
   secret: ${JWT_SECRET}
   expiration: ${JWT_EXPIRATION}
 
+app:
+  # Decides what day it is everywhere: when leases start and end, what is overdue, and when the nightly
+  # lease job runs (00:05 in this zone).
+  time-zone: ${APP_TIME_ZONE:Europe/Belgrade}
+
 # Local defaults. The prod profile (application-prod.yml) changes them.
 cors:
   # Comma-separated, e.g. https://app.example.com,https://admin.example.com

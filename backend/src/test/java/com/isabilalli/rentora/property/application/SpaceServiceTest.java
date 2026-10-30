@@ -22,6 +22,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.AccessDeniedException;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.Optional;
 
@@ -68,7 +69,8 @@ class SpaceServiceTest {
                 propertyRepository,
                 currentUserService,
                 organizationAccessService,
-                leaseStatusAccess
+                leaseStatusAccess,
+                Clock.systemDefaultZone()
         );
 
         space = new Space(

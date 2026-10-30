@@ -1,6 +1,7 @@
 package com.isabilalli.rentora.lease.application;
 
 import com.isabilalli.rentora.shared.api.NotFoundException;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.EnumMap;
 import java.util.List;
@@ -54,14 +55,16 @@ public class LeaseService implements LeaseAccess {
     private final CurrentUserService currentUserService;
     private final OrganizationAccessService organizationAccessService;
     private final ApplicationEventPublisher eventPublisher;
+    private final Clock clock;
 
-    public LeaseService(LeaseRepository leaseRepository, TenantAccess tenantAccess, SpaceAccess spaceAccess, CurrentUserService currentUserService, OrganizationAccessService organizationAccessService, ApplicationEventPublisher eventPublisher){
+    public LeaseService(LeaseRepository leaseRepository, TenantAccess tenantAccess, SpaceAccess spaceAccess, CurrentUserService currentUserService, OrganizationAccessService organizationAccessService, ApplicationEventPublisher eventPublisher, Clock clock){
         this.leaseRepository=leaseRepository;
         this.tenantAccess=tenantAccess;
         this.spaceAccess=spaceAccess;
         this.currentUserService=currentUserService;
         this.organizationAccessService=organizationAccessService;
         this.eventPublisher=eventPublisher;
+        this.clock=clock;
     }
 
     private void organizationAuthorization(Long organizationId){
@@ -93,7 +96,7 @@ public class LeaseService implements LeaseAccess {
         Lease lease = new Lease(organizationId, request.tenantId(), request.spaceId(), request.startDate(), request.endDate(), request.monthlyRentCents(), request.securityDepositCents());
         Lease savedLease = leaseRepository.save(lease);
         eventPublisher.publishEvent(new LeaseCreatedEvent(savedLease.getOrganizationId(), savedLease.getId(), savedLease.getStartDate(), savedLease.getEndDate(), savedLease.getMonthlyRentCents()));
-        if (request.startDate().isAfter(LocalDate.now())) {
+        if (request.startDate().isAfter(LocalDate.now(clock))) {
             spaceAccess.prepareForFutureLease(request.spaceId());
         } else {
             spaceAccess.markOccupied(request.spaceId());
@@ -123,7 +126,7 @@ public class LeaseService implements LeaseAccess {
     // don't move between pages.
     public PageResponse<LeaseListItem> getLeasePage(Long organizationId, LeaseDisplayStatus status, String search, int page, int size, LeaseSortField sort, Sort.Direction direction) {
         organizationAuthorization(organizationId);
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(clock);
         // UPCOMING and ACTIVE are both ACTIVE in the database; the start date tells them apart.
         LeaseStatus leaseStatus = status == null ? null : switch (status) {
             case UPCOMING, ACTIVE -> LeaseStatus.ACTIVE;
@@ -152,7 +155,7 @@ public class LeaseService implements LeaseAccess {
         for (LeaseDisplayStatus status : LeaseDisplayStatus.values()) {
             counts.put(status, 0L);
         }
-        for (LeaseRepository.DisplayStatusCount row : leaseRepository.countsByDisplayStatus(organizationId, LocalDate.now())) {
+        for (LeaseRepository.DisplayStatusCount row : leaseRepository.countsByDisplayStatus(organizationId, LocalDate.now(clock))) {
             counts.put(LeaseDisplayStatus.valueOf(row.getBucket()), row.getLeases());
         }
         return counts;
@@ -202,7 +205,7 @@ public class LeaseService implements LeaseAccess {
         organizationAccessService.requireRole(currentUserService.getCurrentUser(), organizationId, OrganizationRole.MANAGER);
         Lease lease = leaseValidation(leaseId, organizationId);
 
-        lease.end(LocalDate.now());
+        lease.end(LocalDate.now(clock));
         Lease savedLease = leaseRepository.save(lease);
         eventPublisher.publishEvent(new LeaseEndedEvent(savedLease.getId(), savedLease.getEndDate()));
 
@@ -230,7 +233,7 @@ public class LeaseService implements LeaseAccess {
         SpaceStatus status;
         if (otherActiveLease.isEmpty()) {
             status = SpaceStatus.VACANT;
-        } else if (otherActiveLease.get().getStartDate().isAfter(LocalDate.now())) {
+        } else if (otherActiveLease.get().getStartDate().isAfter(LocalDate.now(clock))) {
             status = SpaceStatus.RESERVED;
         } else {
             status = SpaceStatus.OCCUPIED;
@@ -245,7 +248,7 @@ public class LeaseService implements LeaseAccess {
             return;
         }
 
-        lease.end(LocalDate.now());
+        lease.end(LocalDate.now(clock));
         leaseRepository.save(lease);
         eventPublisher.publishEvent(new LeaseEndedEvent(lease.getId(), lease.getEndDate()));
         syncSpaceStatus(lease.getSpaceId(), lease.getId());

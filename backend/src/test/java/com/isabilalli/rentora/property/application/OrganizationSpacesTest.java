@@ -19,6 +19,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.AccessDeniedException;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -60,7 +61,8 @@ class OrganizationSpacesTest {
                 propertyRepository,
                 currentUserService,
                 organizationAccessService,
-                leaseStatusAccess
+                leaseStatusAccess,
+                Clock.systemDefaultZone()
         );
 
         when(currentUserService.getCurrentUser()).thenReturn(authenticatedUser);

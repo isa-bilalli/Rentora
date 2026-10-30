@@ -36,6 +36,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -79,7 +80,7 @@ class PaymentPagingTest {
     @BeforeEach
     void setUp() {
         // Access checks are covered elsewhere; here they let every call through.
-        paymentService = new PaymentService(paymentRepository, mock(CurrentUserService.class), mock(OrganizationAccessService.class), mock(LeaseAccess.class));
+        paymentService = new PaymentService(paymentRepository, mock(CurrentUserService.class), mock(OrganizationAccessService.class), mock(LeaseAccess.class), Clock.systemDefaultZone());
 
         organizationId = organizationRepository.save(new Organization("Payment paging test")).getId();
         Long propertyId = propertyRepository.save(

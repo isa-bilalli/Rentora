@@ -25,6 +25,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.AccessDeniedException;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -69,7 +70,8 @@ class PaymentServiceTest {
                 paymentRepository,
                 currentUserService,
                 organizationAccessService,
-                leaseAccess
+                leaseAccess,
+                Clock.systemDefaultZone()
         );
     }
 

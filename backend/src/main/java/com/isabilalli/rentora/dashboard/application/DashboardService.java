@@ -12,6 +12,7 @@ import com.isabilalli.rentora.property.api.PropertyAccess;
 import com.isabilalli.rentora.property.api.SpaceAccess;
 import com.isabilalli.rentora.property.domain.SpaceStatus;
 
+import java.time.Clock;
 import java.time.LocalDate;
 
 import org.springframework.stereotype.Service;
@@ -27,6 +28,7 @@ public class DashboardService {
     private final ExpenseAccess expenseAccess;
     private final LeaseAccess leaseAccess;
     private final MaintenanceAccess maintenanceAccess;
+    private final Clock clock;
 
     public DashboardService(
             CurrentUserService currentUserService,
@@ -36,7 +38,8 @@ public class DashboardService {
             PaymentAccess paymentAccess,
             ExpenseAccess expenseAccess,
             LeaseAccess leaseAccess,
-            MaintenanceAccess maintenanceAccess
+            MaintenanceAccess maintenanceAccess,
+            Clock clock
     ) {
         this.currentUserService = currentUserService;
         this.organizationAccessService = organizationAccessService;
@@ -46,6 +49,7 @@ public class DashboardService {
         this.expenseAccess = expenseAccess;
         this.leaseAccess = leaseAccess;
         this.maintenanceAccess = maintenanceAccess;
+        this.clock = clock;
     }
 
     private void organizationAuthorization(Long organizationId) {
@@ -122,7 +126,7 @@ public class DashboardService {
     private DashboardResponse.Financial calculateFinancial(
             Long organizationId
     ) {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(clock);
         LocalDate startDate = today.withDayOfMonth(1);
         LocalDate endDate =
                 today.withDayOfMonth(today.lengthOfMonth());
@@ -203,7 +207,7 @@ public class DashboardService {
     private DashboardResponse.Operations calculateOperations(
             Long organizationId
     ) {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(clock);
         LocalDate thirtyDaysFromNow = today.plusDays(30);
 
         long activeLeases = zeroIfNull(

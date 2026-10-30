@@ -20,6 +20,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.AccessDeniedException;
 
+import java.time.Clock;
 import java.time.LocalDate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -53,7 +54,7 @@ class ReportingServiceTest {
     @BeforeEach
     void setUp() {
         reportingService = new ReportingService(
-                currentUserService, organizationAccessService, new ReportRangeResolver(),
+                currentUserService, organizationAccessService, new ReportRangeResolver(Clock.systemDefaultZone()),
                 paymentAccess, expenseAccess, propertyAccess, spaceAccess, leaseAccess, maintenanceAccess
         );
         when(currentUserService.getCurrentUser()).thenReturn(user);

@@ -4,16 +4,23 @@ import com.isabilalli.rentora.reporting.domain.ReportRange;
 import com.isabilalli.rentora.reporting.domain.ReportingPeriod;
 import org.springframework.stereotype.Component;
 
+import java.time.Clock;
 import java.time.LocalDate;
 
 @Component
 public class ReportRangeResolver {
 
+    private final Clock clock;
+
+    public ReportRangeResolver(Clock clock) {
+        this.clock = clock;
+    }
+
     public ReportRange resolve(ReportingPeriod period, LocalDate referenceDate, LocalDate customStartDate, LocalDate customEndDate) {
         if (period == ReportingPeriod.CUSTOM) {
             return new ReportRange(customStartDate, customEndDate);
         }
-        LocalDate date = referenceDate != null ? referenceDate : LocalDate.now();
+        LocalDate date = referenceDate != null ? referenceDate : LocalDate.now(clock);
 
         return switch (period) {
             case MONTH -> new ReportRange(

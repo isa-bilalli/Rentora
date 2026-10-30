@@ -3,6 +3,7 @@ package com.isabilalli.rentora.payment.application;
 import com.isabilalli.rentora.shared.api.NotFoundException;
 import com.isabilalli.rentora.shared.api.PageResponse;
 import com.isabilalli.rentora.shared.infrastructure.Paging;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -49,12 +50,14 @@ public class PaymentService implements PaymentAccess {
     private final CurrentUserService currentUserService;
     private final OrganizationAccessService organizationAccessService;
     private final LeaseAccess leaseAccess;
+    private final Clock clock;
 
-    public PaymentService(PaymentRepository paymentRepository, CurrentUserService currentUserService, OrganizationAccessService organizationAccessService, LeaseAccess leaseAccess){
+    public PaymentService(PaymentRepository paymentRepository, CurrentUserService currentUserService, OrganizationAccessService organizationAccessService, LeaseAccess leaseAccess, Clock clock){
         this.paymentRepository=paymentRepository;
         this.currentUserService=currentUserService;
         this.organizationAccessService=organizationAccessService;
         this.leaseAccess=leaseAccess;
+        this.clock=clock;
     }
 
     public PaymentResponse getPayment(Long organizationId, Long paymentId){
@@ -82,14 +85,14 @@ public class PaymentService implements PaymentAccess {
 
     public List<PaymentResponse> getOverduePayments(Long organizationId){
         organizationAuthorization(organizationId);
-        return paymentRepository.findAllByOrganizationIdAndStatusAndDueDateBefore(organizationId, PaymentStatus.PENDING, LocalDate.now()).stream().map(PaymentResponse::from).toList();
+        return paymentRepository.findAllByOrganizationIdAndStatusAndDueDateBefore(organizationId, PaymentStatus.PENDING, LocalDate.now(clock)).stream().map(PaymentResponse::from).toList();
     }
 
     // One page of a Payments tab. Without a sort, most urgent first: soonest due while unpaid, latest first once
     // paid or voided. With one, by that column, and ties in the tab's own order so rows don't move between pages.
     public PageResponse<PaymentListItem> getPaymentPage(Long organizationId, PaymentDisplayStatus status, int page, int size, PaymentSortField sort, Sort.Direction direction) {
         organizationAuthorization(organizationId);
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(clock);
         Sort tabOrder = switch (status) {
             case OVERDUE, PENDING -> Sort.by(Payment::getDueDate, Payment::getId);
             case PAID -> Sort.by(Payment::getPaidAt, Payment::getId).descending();
@@ -127,7 +130,7 @@ public class PaymentService implements PaymentAccess {
         for (PaymentDisplayStatus status : PaymentDisplayStatus.values()) {
             totals.put(status, new PaymentStatusTotal(0, 0));
         }
-        for (PaymentRepository.DisplayStatusTotal row : paymentRepository.totalsByDisplayStatus(organizationId, LocalDate.now())) {
+        for (PaymentRepository.DisplayStatusTotal row : paymentRepository.totalsByDisplayStatus(organizationId, LocalDate.now(clock))) {
             totals.put(PaymentDisplayStatus.valueOf(row.getBucket()), new PaymentStatusTotal(row.getPayments(), row.getCents()));
         }
         return totals;
@@ -216,7 +219,7 @@ public class PaymentService implements PaymentAccess {
     @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
     public void handleLeaseUpdated(LeaseUpdatedEvent event) {
         Set<LocalDate> schedule = rentDueDates(event.startDate(), event.endDate());
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(clock);
         List<Payment> existingPayments = paymentRepository.findAllByLeaseId(event.leaseId());
 
         // Pending rent the new dates no longer cover was never owed. Paid and voided rows stay as history.

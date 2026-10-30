@@ -34,6 +34,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -81,7 +82,7 @@ class LeasePagingTest {
     void setUp() {
         // Access checks are covered by AccessRulesApiTest; here they let every call through.
         leaseService = new LeaseService(leaseRepository, mock(TenantAccess.class), mock(SpaceAccess.class),
-                mock(CurrentUserService.class), mock(OrganizationAccessService.class), mock(ApplicationEventPublisher.class));
+                mock(CurrentUserService.class), mock(OrganizationAccessService.class), mock(ApplicationEventPublisher.class), Clock.systemDefaultZone());
 
         organizationId = organizationRepository.save(new Organization("Lease paging test")).getId();
         Long harbourView = property(organizationId, "Harbour View");

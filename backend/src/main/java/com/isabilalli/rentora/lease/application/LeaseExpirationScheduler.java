@@ -10,6 +10,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -20,19 +21,21 @@ public class LeaseExpirationScheduler {
 
     private final LeaseRepository leaseRepository;
     private final LeaseService leaseService;
+    // In the app's time zone (ClockConfiguration), so today is that zone's date, the same day the job runs on.
+    private final Clock clock;
 
-    public LeaseExpirationScheduler(
-            LeaseRepository leaseRepository,
-            LeaseService leaseService
-    ) {
+    public LeaseExpirationScheduler(LeaseRepository leaseRepository, LeaseService leaseService, Clock clock) {
         this.leaseRepository = leaseRepository;
         this.leaseService = leaseService;
+        this.clock = clock;
     }
 
-    @Scheduled(cron = "0 5 0 * * *", zone = "Europe/Belgrade")
+    // Five past midnight in the app's time zone (TimeZoneProperties).
+    @Scheduled(cron = "0 5 0 * * *", zone = "${app.time-zone}")
     public void runDailyLeaseJobs() {
-        expireLeases();
-        activateStartedLeases();
+        LocalDate today = LocalDate.now(clock);
+        expireLeases(today);
+        activateStartedLeases(today);
     }
 
     // Catches up on nightly runs missed while the server was down.
@@ -41,8 +44,8 @@ public class LeaseExpirationScheduler {
         runDailyLeaseJobs();
     }
 
-    private void expireLeases() {
-        List<Lease> expiredLeases = leaseRepository.findAllByStatusAndEndDateBefore(LeaseStatus.ACTIVE, LocalDate.now());
+    private void expireLeases(LocalDate today) {
+        List<Lease> expiredLeases = leaseRepository.findAllByStatusAndEndDateBefore(LeaseStatus.ACTIVE, today);
         for (Lease lease : expiredLeases) {
             // One bad lease must not stop the rest of the batch (or, at startup, the application).
             try {
@@ -54,8 +57,7 @@ public class LeaseExpirationScheduler {
     }
 
     // Spaces reserved for a future lease become occupied once that lease starts.
-    private void activateStartedLeases() {
-        LocalDate today = LocalDate.now();
+    private void activateStartedLeases(LocalDate today) {
         List<Lease> currentLeases = leaseRepository.findAllByStatusAndStartDateLessThanEqualAndEndDateGreaterThanEqual(LeaseStatus.ACTIVE, today, today);
         for (Lease lease : currentLeases) {
             try {
