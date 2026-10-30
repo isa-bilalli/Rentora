@@ -5,8 +5,6 @@ import {
     ArrowLeft,
     Building2,
     Plus,
-    Trash2,
-    LayoutGrid,
 } from "lucide-react";
 
 import { useOrganization } from "../../organizations/useOrganization";
@@ -17,26 +15,30 @@ import {
 } from "../api/propertyApi";
 
 import type {
-    CreatePropertyRequest,
     CreateSpaceRequest,
     PropertyResponse,
-    SpaceType,
 } from "../types";
-import { spaceTypeLabels } from "../spaceLabels";
+import {
+    checkPropertyFields,
+    checkSpaceFields,
+    spaceNameLimit,
+    type PropertyFields as PropertyFieldValues,
+    type SpaceFields,
+    type SpaceMessages,
+} from "../validation";
+import PropertyFields from "../components/form/PropertyFields";
+import InitialSpacesSection, { type InitialSpaceDraft } from "../components/InitialSpacesSection";
+import PartialCreationNotice from "../components/PartialCreationNotice";
 
-interface InitialSpaceDraft {
-    id: number;
-    name: string;
-    type: SpaceType;
-    floor: string;
-    area: string;
+// How this page words a problem with one of the spaces added along with the property.
+function initialSpaceMessages(position: number): SpaceMessages {
+    return {
+        nameMissing: `Please enter a name for initial space ${position}.`,
+        nameTooLong: `The name of initial space ${position} cannot exceed ${spaceNameLimit} characters.`,
+        floor: `The floor for initial space ${position} must be a whole number.`,
+        area: `The area for initial space ${position} must be greater than zero.`,
+    };
 }
-
-const inputClass =
-    "w-full rounded-lg border border-[#dce4de] bg-white px-3 py-2.5 text-sm text-[#243b35] outline-none transition placeholder:text-gray-400 focus:border-[#14302b] focus:ring-2 focus:ring-[#14302b]/10 disabled:cursor-not-allowed disabled:bg-gray-100";
-
-const labelClass =
-    "mb-1.5 block text-sm font-medium text-[#243b35]";
 
 export default function CreatePropertyPage() {
     const navigate = useNavigate();
@@ -46,14 +48,13 @@ export default function CreatePropertyPage() {
         status: organizationStatus,
     } = useOrganization();
 
-    const [name, setName] = useState("");
-    const [addressLine, setAddressLine] = useState("");
-    const [city, setCity] = useState("");
-    const [postalCode, setPostalCode] = useState("");
-    const [country, setCountry] = useState("");
-
-    const [showInitialSpaces, setShowInitialSpaces] =
-        useState(false);
+    const [fields, setFields] = useState<PropertyFieldValues>({
+        name: "",
+        addressLine: "",
+        city: "",
+        postalCode: "",
+        country: "",
+    });
 
     const [initialSpaces, setInitialSpaces] =
         useState<InitialSpaceDraft[]>([]);
@@ -68,6 +69,9 @@ export default function CreatePropertyPage() {
 
     const [partialCreationError, setPartialCreationError] =
         useState<string | null>(null);
+
+    // Nothing can change while saving, or once the property exists.
+    const locked = submitting || Boolean(createdProperty);
 
     function addInitialSpace() {
         setInitialSpaces((currentSpaces) => [
@@ -86,7 +90,7 @@ export default function CreatePropertyPage() {
 
     function updateInitialSpace(
         id: number,
-        field: keyof Omit<InitialSpaceDraft, "id">,
+        field: keyof SpaceFields,
         value: string,
     ) {
         setInitialSpaces((currentSpaces) =>
@@ -104,63 +108,19 @@ export default function CreatePropertyPage() {
         );
     }
 
+    // The spaces as the API takes them, or null once the first problem is shown.
     function validateInitialSpaces(): CreateSpaceRequest[] | null {
         const requests: CreateSpaceRequest[] = [];
 
         for (let index = 0; index < initialSpaces.length; index++) {
-            const space = initialSpaces[index];
-            const position = index + 1;
+            const checked = checkSpaceFields(initialSpaces[index], initialSpaceMessages(index + 1));
 
-            if (!space.name.trim()) {
-                setError(
-                    `Please enter a name for initial space ${position}.`,
-                );
+            if (!checked.ok) {
+                setError(checked.error);
                 return null;
             }
 
-            if (space.name.trim().length > 100) {
-                setError(
-                    `The name of initial space ${position} cannot exceed 100 characters.`,
-                );
-                return null;
-            }
-
-            const floor =
-                space.floor.trim() === ""
-                    ? null
-                    : Number(space.floor);
-
-            if (
-                floor !== null &&
-                !Number.isInteger(floor)
-            ) {
-                setError(
-                    `The floor for initial space ${position} must be a whole number.`,
-                );
-                return null;
-            }
-
-            const area =
-                space.area.trim() === ""
-                    ? null
-                    : Number(space.area);
-
-            if (
-                area !== null &&
-                (!Number.isFinite(area) || area <= 0)
-            ) {
-                setError(
-                    `The area for initial space ${position} must be greater than zero.`,
-                );
-                return null;
-            }
-
-            requests.push({
-                name: space.name.trim(),
-                type: space.type,
-                floor,
-                area,
-            });
+            requests.push(checked.value);
         }
 
         return requests;
@@ -185,46 +145,13 @@ export default function CreatePropertyPage() {
             return;
         }
 
-        const trimmedName = name.trim();
-        const trimmedAddress = addressLine.trim();
-        const trimmedCity = city.trim();
-        const trimmedPostalCode = postalCode.trim();
-        const trimmedCountry = country.trim();
+        const checked = checkPropertyFields(
+            fields,
+            "Please complete all required property fields.",
+        );
 
-        if (
-            !trimmedName ||
-            !trimmedAddress ||
-            !trimmedCity ||
-            !trimmedCountry
-        ) {
-            setError(
-                "Please complete all required property fields.",
-            );
-            return;
-        }
-
-        if (trimmedName.length > 150) {
-            setError("Property name cannot exceed 150 characters.");
-            return;
-        }
-
-        if (trimmedAddress.length > 255) {
-            setError("Address cannot exceed 255 characters.");
-            return;
-        }
-
-        if (trimmedCity.length > 100) {
-            setError("City cannot exceed 100 characters.");
-            return;
-        }
-
-        if (trimmedPostalCode.length > 20) {
-            setError("Postal code cannot exceed 20 characters.");
-            return;
-        }
-
-        if (trimmedCountry.length > 100) {
-            setError("Country cannot exceed 100 characters.");
+        if (!checked.ok) {
+            setError(checked.error);
             return;
         }
 
@@ -234,20 +161,12 @@ export default function CreatePropertyPage() {
             return;
         }
 
-        const request: CreatePropertyRequest = {
-            name: trimmedName,
-            addressLine: trimmedAddress,
-            city: trimmedCity,
-            postalCode: trimmedPostalCode,
-            country: trimmedCountry,
-        };
-
         setSubmitting(true);
 
         try {
             const property = await createProperty(
                 activeOrganization.id,
-                request,
+                checked.value,
             );
 
             // Keep the created property ID if initial-space creation
@@ -348,30 +267,10 @@ export default function CreatePropertyPage() {
                 </header>
 
                 {partialCreationError && createdProperty && (
-                    <div
-                        role="alert"
-                        className="rounded-xl border border-amber-200 bg-amber-50 p-5"
-                    >
-                        <h2 className="font-semibold text-amber-900">
-                            Property created with incomplete setup
-                        </h2>
-
-                        <p className="mt-2 text-sm text-amber-900">
-                            {partialCreationError}
-                        </p>
-
-                        <p className="mt-2 text-sm text-amber-900">
-                            You can add any missing spaces from the
-                            property's Spaces tab.
-                        </p>
-
-                        <Link
-                            to={`/app/properties/${createdProperty.id}`}
-                            className="mt-4 inline-flex items-center gap-2 rounded-lg bg-[#14302b] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#20453d]"
-                        >
-                            Open property
-                        </Link>
-                    </div>
+                    <PartialCreationNotice
+                        propertyId={createdProperty.id}
+                        message={partialCreationError}
+                    />
                 )}
 
                 <form
@@ -389,370 +288,28 @@ export default function CreatePropertyPage() {
                             </p>
                         </div>
 
-                        <div className="grid gap-5 sm:grid-cols-2">
-                            <div className="sm:col-span-2">
-                                <label
-                                    htmlFor="property-name"
-                                    className={labelClass}
-                                >
-                                    Property name
-                                    <span className="ml-1 text-red-600">
-                                        *
-                                    </span>
-                                </label>
-
-                                <input
-                                    id="property-name"
-                                    required
-                                    maxLength={150}
-                                    value={name}
-                                    onChange={(event) =>
-                                        setName(event.target.value)
-                                    }
-                                    placeholder="e.g. Riverside Apartments"
-                                    disabled={submitting || Boolean(createdProperty)}
-                                    className={inputClass}
-                                />
-                            </div>
-
-                            <div className="sm:col-span-2">
-                                <label
-                                    htmlFor="property-address"
-                                    className={labelClass}
-                                >
-                                    Street address
-                                    <span className="ml-1 text-red-600">
-                                        *
-                                    </span>
-                                </label>
-
-                                <input
-                                    id="property-address"
-                                    required
-                                    maxLength={255}
-                                    value={addressLine}
-                                    onChange={(event) =>
-                                        setAddressLine(event.target.value)
-                                    }
-                                    placeholder="e.g. 25 Main Street"
-                                    disabled={submitting || Boolean(createdProperty)}
-                                    className={inputClass}
-                                />
-                            </div>
-
-                            <div>
-                                <label
-                                    htmlFor="property-city"
-                                    className={labelClass}
-                                >
-                                    City
-                                    <span className="ml-1 text-red-600">
-                                        *
-                                    </span>
-                                </label>
-
-                                <input
-                                    id="property-city"
-                                    required
-                                    maxLength={100}
-                                    value={city}
-                                    onChange={(event) =>
-                                        setCity(event.target.value)
-                                    }
-                                    placeholder="e.g. Prishtina"
-                                    disabled={submitting || Boolean(createdProperty)}
-                                    className={inputClass}
-                                />
-                            </div>
-
-                            <div>
-                                <label
-                                    htmlFor="property-postal-code"
-                                    className={labelClass}
-                                >
-                                    Postal code
-                                    <span className="font-normal text-gray-400">
-                                        {" "}(optional)
-                                    </span>
-                                </label>
-
-                                <input
-                                    id="property-postal-code"
-                                    maxLength={20}
-                                    value={postalCode}
-                                    onChange={(event) =>
-                                        setPostalCode(event.target.value)
-                                    }
-                                    placeholder="e.g. 10000"
-                                    disabled={submitting || Boolean(createdProperty)}
-                                    className={inputClass}
-                                />
-                            </div>
-
-                            <div className="sm:col-span-2">
-                                <label
-                                    htmlFor="property-country"
-                                    className={labelClass}
-                                >
-                                    Country
-                                    <span className="ml-1 text-red-600">
-                                        *
-                                    </span>
-                                </label>
-
-                                <input
-                                    id="property-country"
-                                    required
-                                    maxLength={100}
-                                    value={country}
-                                    onChange={(event) =>
-                                        setCountry(event.target.value)
-                                    }
-                                    placeholder="e.g. Kosovo"
-                                    disabled={submitting || Boolean(createdProperty)}
-                                    className={inputClass}
-                                />
-                            </div>
-                        </div>
+                        <PropertyFields
+                            idPrefix="property"
+                            mode="create"
+                            values={fields}
+                            onChange={(field, value) =>
+                                setFields((current) => ({ ...current, [field]: value }))
+                            }
+                            disabled={locked}
+                        />
 
                         <p className="mt-5 text-xs text-gray-500">
                             Fields marked with <span className="text-red-600">*</span> are required.
                         </p>
                     </section>
 
-                    <section className="overflow-hidden rounded-xl border border-[#e1e8e3] bg-white shadow-sm">
-                        <button
-                            type="button"
-                            onClick={() =>
-                                setShowInitialSpaces((current) => !current)
-                            }
-                            disabled={submitting || Boolean(createdProperty)}
-                            aria-expanded={showInitialSpaces}
-                            className="flex w-full items-center justify-between gap-4 p-5 text-left transition hover:bg-[#f8faf8] disabled:cursor-not-allowed disabled:hover:bg-white sm:p-6"
-                        >
-                            <div className="flex items-start gap-3">
-                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#e8efe9] text-[#14302b]">
-                                    <LayoutGrid className="h-5 w-5" />
-                                </div>
-
-                                <div>
-                                    <h2 className="font-semibold text-[#14302b]">
-                                        Initial rentable spaces
-                                    </h2>
-
-                                    <p className="mt-1 text-sm text-gray-500">
-                                        Optional. You can add spaces now or create them later.
-                                    </p>
-
-                                    {initialSpaces.length > 0 && (
-                                        <p className="mt-2 text-xs font-medium text-[#426b5e]">
-                                            {initialSpaces.length}{" "}
-                                            {initialSpaces.length === 1
-                                                ? "space configured"
-                                                : "spaces configured"}
-                                        </p>
-                                    )}
-                                </div>
-                            </div>
-
-                            <span className="shrink-0 text-sm font-medium text-[#14302b]">
-                                {showInitialSpaces ? "Hide" : "Configure"}
-                            </span>
-                        </button>
-
-                        {showInitialSpaces && (
-                            <div className="space-y-4 border-t border-[#e7ece8] p-5 sm:p-6">
-                                <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-                                    <div>
-                                        <h3 className="font-medium text-[#243b35]">
-                                            Rentable spaces
-                                        </h3>
-                                        <p className="mt-1 text-sm text-gray-500">
-                                            A single-family house can have one space representing the entire property.
-                                        </p>
-                                    </div>
-
-                                    <button
-                                        type="button"
-                                        onClick={addInitialSpace}
-                                        disabled={submitting || Boolean(createdProperty)}
-                                        className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#d5dfd8] bg-white px-4 py-2.5 text-sm font-medium text-[#14302b] hover:bg-[#f8faf8] disabled:opacity-60"
-                                    >
-                                        <Plus className="h-4 w-4" />
-                                        Add space
-                                    </button>
-                                </div>
-
-                                {initialSpaces.length === 0 ? (
-                                    <div className="rounded-lg border border-dashed border-[#d5dfd8] px-5 py-8 text-center">
-                                        <LayoutGrid className="mx-auto h-7 w-7 text-[#14302b]/50" />
-
-                                        <p className="mt-3 text-sm font-medium text-[#14302b]">
-                                            No initial spaces added
-                                        </p>
-
-                                        <p className="mt-1 text-sm text-gray-500">
-                                            You can create this property first and configure spaces afterward.
-                                        </p>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-4">
-                                        {initialSpaces.map((space, index) => (
-                                            <div
-                                                key={space.id}
-                                                className="rounded-xl border border-[#e1e8e3] bg-[#f8faf8] p-4 sm:p-5"
-                                            >
-                                                <div className="mb-4 flex items-center justify-between gap-3">
-                                                    <h4 className="text-sm font-semibold text-[#14302b]">
-                                                        Space {index + 1}
-                                                    </h4>
-
-                                                    <button
-                                                        type="button"
-                                                        onClick={() =>
-                                                            removeInitialSpace(space.id)
-                                                        }
-                                                        disabled={submitting || Boolean(createdProperty)}
-                                                        aria-label={`Remove space ${index + 1}`}
-                                                        className="inline-flex items-center gap-2 rounded-lg p-2 text-gray-500 hover:bg-white hover:text-red-700 disabled:opacity-50"
-                                                    >
-                                                        <Trash2 className="h-4 w-4" />
-                                                        <span className="text-xs font-medium">
-                                                            Remove
-                                                        </span>
-                                                    </button>
-                                                </div>
-
-                                                <div className="grid gap-4 sm:grid-cols-2">
-                                                    <div>
-                                                        <label
-                                                            htmlFor={`initial-space-name-${space.id}`}
-                                                            className={labelClass}
-                                                        >
-                                                            Space name
-                                                        </label>
-
-                                                        <input
-                                                            id={`initial-space-name-${space.id}`}
-                                                            required
-                                                            maxLength={100}
-                                                            value={space.name}
-                                                            onChange={(event) =>
-                                                                updateInitialSpace(
-                                                                    space.id,
-                                                                    "name",
-                                                                    event.target.value,
-                                                                )
-                                                            }
-                                                            placeholder="e.g. Apartment 1"
-                                                            disabled={submitting || Boolean(createdProperty)}
-                                                            className={inputClass}
-                                                        />
-                                                    </div>
-
-                                                    <div>
-                                                        <label
-                                                            htmlFor={`initial-space-type-${space.id}`}
-                                                            className={labelClass}
-                                                        >
-                                                            Space type
-                                                        </label>
-
-                                                        <select
-                                                            id={`initial-space-type-${space.id}`}
-                                                            value={space.type}
-                                                            onChange={(event) =>
-                                                                updateInitialSpace(
-                                                                    space.id,
-                                                                    "type",
-                                                                    event.target.value,
-                                                                )
-                                                            }
-                                                            disabled={submitting || Boolean(createdProperty)}
-                                                            className={inputClass}
-                                                        >
-                                                            {(Object.keys(spaceTypeLabels) as SpaceType[]).map((spaceType) => (
-                                                                <option
-                                                                    key={spaceType}
-                                                                    value={spaceType}
-                                                                >
-                                                                    {spaceTypeLabels[spaceType]}
-                                                                </option>
-                                                            ))}
-                                                        </select>
-                                                    </div>
-
-                                                    <div>
-                                                        <label
-                                                            htmlFor={`initial-space-floor-${space.id}`}
-                                                            className={labelClass}
-                                                        >
-                                                            Floor{" "}
-                                                            <span className="font-normal text-gray-400">
-                                                                (optional)
-                                                            </span>
-                                                        </label>
-
-                                                        <input
-                                                            id={`initial-space-floor-${space.id}`}
-                                                            type="number"
-                                                            step="1"
-                                                            value={space.floor}
-                                                            onChange={(event) =>
-                                                                updateInitialSpace(
-                                                                    space.id,
-                                                                    "floor",
-                                                                    event.target.value,
-                                                                )
-                                                            }
-                                                            placeholder="e.g. 2"
-                                                            disabled={submitting || Boolean(createdProperty)}
-                                                            className={inputClass}
-                                                        />
-                                                    </div>
-
-                                                    <div>
-                                                        <label
-                                                            htmlFor={`initial-space-area-${space.id}`}
-                                                            className={labelClass}
-                                                        >
-                                                            Area (m²){" "}
-                                                            <span className="font-normal text-gray-400">
-                                                                (optional)
-                                                            </span>
-                                                        </label>
-
-                                                        <input
-                                                            id={`initial-space-area-${space.id}`}
-                                                            type="number"
-                                                            min="0.01"
-                                                            step="0.01"
-                                                            value={space.area}
-                                                            onChange={(event) =>
-                                                                updateInitialSpace(
-                                                                    space.id,
-                                                                    "area",
-                                                                    event.target.value,
-                                                                )
-                                                            }
-                                                            placeholder="e.g. 75.5"
-                                                            disabled={submitting || Boolean(createdProperty)}
-                                                            className={inputClass}
-                                                        />
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-
-                                <p className="text-xs text-gray-500">
-                                    New spaces start as Vacant. You can change
-                                    their statuses later.
-                                </p>
-                            </div>
-                        )}
-                    </section>
+                    <InitialSpacesSection
+                        spaces={initialSpaces}
+                        onAdd={addInitialSpace}
+                        onChange={updateInitialSpace}
+                        onRemove={removeInitialSpace}
+                        disabled={locked}
+                    />
 
                     {error && (
                         <div
@@ -773,10 +330,7 @@ export default function CreatePropertyPage() {
 
                         <button
                             type="submit"
-                            disabled={
-                                submitting ||
-                                Boolean(createdProperty)
-                            }
+                            disabled={locked}
                             className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#14302b] px-5 py-3 text-sm font-medium text-white transition hover:bg-[#20453d] disabled:cursor-not-allowed disabled:opacity-60"
                         >
                             {submitting ? (

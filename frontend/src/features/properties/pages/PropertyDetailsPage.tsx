@@ -16,7 +16,6 @@ import {
 } from "../api/propertyApi";
 
 import UpdatePropertyForm from "../components/form/EditPropertyForm";
-import SummaryCard from "../components/SummaryCard";
 import PropertyFinancialsTab from "../components/tabs/PropertyFinancialsTab";
 import PropertyLeasesTab from "../components/tabs/PropertyLeasesTab";
 import PropertyMaintenanceTab from "../components/tabs/PropertyMaintenanceTab";
@@ -24,6 +23,8 @@ import PropertySpacesTab from "../components/tabs/PropertySpacesTab";
 import { propertyTypeLabels } from "../propertyLabels";
 import { spaceTypeLabels } from "../spaceLabels";
 
+import DetailField from "../../../components/ui/DetailField";
+import StatCard from "../../../components/ui/StatCard";
 import { formatDate } from "../../../lib/format";
 
 import type {
@@ -318,22 +319,22 @@ export default function PropertyDetailsPage() {
                     aria-label="Property summary"
                     className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4"
                 >
-                    <SummaryCard
+                    <StatCard
                         label="Total spaces"
                         value={spaces.length.toString()}
                         description="Configured rentable spaces"
                     />
-                    <SummaryCard
+                    <StatCard
                         label="Occupied"
                         value={occupiedSpaces.toString()}
                         description="Currently occupied spaces"
                     />
-                    <SummaryCard
+                    <StatCard
                         label="Vacant"
                         value={vacantSpaces.toString()}
                         description="Available spaces"
                     />
-                    <SummaryCard
+                    <StatCard
                         label="Reserved"
                         value={reservedSpaces.toString()}
                         description={`${maintenanceSpaces} under maintenance`}
@@ -386,12 +387,12 @@ export default function PropertyDetailsPage() {
                                 </div>
 
                                 <dl className="grid gap-5 sm:grid-cols-2">
-                                    <DetailField label="Property name" value={property.name} />
-                                    <DetailField label="Address" value={property.addressLine} />
-                                    <DetailField label="City" value={property.city} />
-                                    <DetailField label="Postal code" value={property.postalCode || "—"} />
-                                    <DetailField label="Country" value={property.country} />
-                                    <DetailField label="Added to Rentora" value={formatDate(property.createdAt)} />
+                                    <DetailField variant="plain" label="Property name" value={property.name} />
+                                    <DetailField variant="plain" label="Address" value={property.addressLine} />
+                                    <DetailField variant="plain" label="City" value={property.city} />
+                                    <DetailField variant="plain" label="Postal code" value={property.postalCode || "—"} />
+                                    <DetailField variant="plain" label="Country" value={property.country} />
+                                    <DetailField variant="plain" label="Added to Rentora" value={formatDate(property.createdAt)} />
                                 </dl>
 
                                 <div className="border-t border-[#e7ece8] pt-5">
@@ -440,23 +441,6 @@ export default function PropertyDetailsPage() {
                     </div>
                 </section>
             </div>
-        </div>
-    );
-}
-
-function DetailField({
-    label,
-    value,
-}: {
-    label: string;
-    value: string;
-}) {
-    return (
-        <div>
-            <dt className="text-sm text-gray-500">{label}</dt>
-            <dd className="mt-1 text-sm font-medium text-[#243b35]">
-                {value}
-            </dd>
         </div>
     );
 }

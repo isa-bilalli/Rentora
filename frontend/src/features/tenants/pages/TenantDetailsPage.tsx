@@ -27,6 +27,8 @@ import { getPayments } from "../../payments/api/paymentApi";
 import PaymentStatusBadge from "../../payments/components/PaymentStatusBadge";
 import { formatPaymentMethod, getPaymentDisplayStatus } from "../../payments/status";
 import type { PaymentResponse } from "../../payments/types";
+import DetailField from "../../../components/ui/DetailField";
+import StatCard from "../../../components/ui/StatCard";
 import SortableHeader from "../../../components/ui/SortableHeader";
 import { useTableSort } from "../../../hooks/useTableSort";
 import { todayLocalDateString } from "../../../lib/dates";
@@ -386,54 +388,15 @@ export default function TenantDetailsPage() {
                     <dl className="grid gap-x-8 sm:grid-cols-2">
                         {tenant.type === "INDIVIDUAL" ? (
                             <>
-                                <div className="border-b border-[#edf1ee] px-5 py-4">
-                                    <dt className="text-xs font-medium uppercase tracking-wide text-gray-400">
-                                        First name
-                                    </dt>
-                                    <dd className="mt-1 text-sm font-medium text-[#243b35]">
-                                        {tenant.firstName || "—"}
-                                    </dd>
-                                </div>
-
-                                <div className="border-b border-[#edf1ee] px-5 py-4">
-                                    <dt className="text-xs font-medium uppercase tracking-wide text-gray-400">
-                                        Last name
-                                    </dt>
-                                    <dd className="mt-1 text-sm font-medium text-[#243b35]">
-                                        {tenant.lastName || "—"}
-                                    </dd>
-                                </div>
+                                <DetailField label="First name" value={tenant.firstName ?? ""} />
+                                <DetailField label="Last name" value={tenant.lastName ?? ""} />
                             </>
                         ) : (
-                            <div className="border-b border-[#edf1ee] px-5 py-4 sm:col-span-2">
-                                <dt className="text-xs font-medium uppercase tracking-wide text-gray-400">
-                                    Company name
-                                </dt>
-                                <dd className="mt-1 text-sm font-medium text-[#243b35]">
-                                    {tenant.companyName || "—"}
-                                </dd>
-                            </div>
+                            <DetailField label="Company name" value={tenant.companyName ?? ""} className="sm:col-span-2" />
                         )}
 
-                        <div className="border-b border-[#edf1ee] px-5 py-4">
-                            <dt className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-gray-400">
-                                <Mail className="h-3.5 w-3.5" />
-                                Email
-                            </dt>
-                            <dd className="mt-1 wrap-break-words text-sm font-medium text-[#243b35]">
-                                {tenant.email || "Not provided"}
-                            </dd>
-                        </div>
-
-                        <div className="border-b border-[#edf1ee] px-5 py-4">
-                            <dt className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-gray-400">
-                                <Phone className="h-3.5 w-3.5" />
-                                Phone
-                            </dt>
-                            <dd className="mt-1 text-sm font-medium text-[#243b35]">
-                                {tenant.phone || "Not provided"}
-                            </dd>
-                        </div>
+                        <DetailField label="Email" icon={Mail} value={tenant.email || "Not provided"} />
+                        <DetailField label="Phone" icon={Phone} value={tenant.phone || "Not provided"} />
                     </dl>
 
                     <div className="grid gap-x-8 sm:grid-cols-2">
@@ -622,47 +585,28 @@ export default function TenantDetailsPage() {
                 ) : (
                     <>
                         <div className="grid gap-3 border-b border-[#edf1ee] p-5 sm:grid-cols-3">
-                            <article className="rounded-lg border border-[#e0e7e2] bg-[#fbfcfb] p-4">
-                                <div className="flex items-center gap-2 text-sm text-gray-500">
-                                    <Wallet className="h-4 w-4" />
-                                    Collected
-                                </div>
-                                <p className="mt-2 text-xl font-semibold text-[#14302b]">
-                                    {formatMoney(collectedCents)}
-                                </p>
-                                <p className="mt-1 text-xs text-gray-500">
-                                    {paidPayments.length} paid{" "}
-                                    {paidPayments.length === 1 ? "payment" : "payments"}
-                                </p>
-                            </article>
-
-                            <article className="rounded-lg border border-[#e0e7e2] bg-[#fbfcfb] p-4">
-                                <div className="flex items-center gap-2 text-sm text-gray-500">
-                                    <CalendarDays className="h-4 w-4" />
-                                    Outstanding
-                                </div>
-                                <p className="mt-2 text-xl font-semibold text-[#14302b]">
-                                    {formatMoney(outstandingCents)}
-                                </p>
-                                <p className="mt-1 text-xs text-gray-500">
-                                    {pendingPayments.length} pending{" "}
-                                    {pendingPayments.length === 1 ? "payment" : "payments"}
-                                </p>
-                            </article>
-
-                            <article className="rounded-lg border border-red-100 bg-red-50/50 p-4">
-                                <div className="flex items-center gap-2 text-sm text-red-700">
-                                    <CalendarDays className="h-4 w-4" />
-                                    Overdue
-                                </div>
-                                <p className="mt-2 text-xl font-semibold text-red-800">
-                                    {formatMoney(overdueCents)}
-                                </p>
-                                <p className="mt-1 text-xs text-red-700">
-                                    {overduePayments.length} overdue{" "}
-                                    {overduePayments.length === 1 ? "payment" : "payments"}
-                                </p>
-                            </article>
+                            <StatCard
+                                size="compact"
+                                label="Collected"
+                                icon={Wallet}
+                                value={formatMoney(collectedCents)}
+                                description={`${paidPayments.length} paid ${paidPayments.length === 1 ? "payment" : "payments"}`}
+                            />
+                            <StatCard
+                                size="compact"
+                                label="Outstanding"
+                                icon={CalendarDays}
+                                value={formatMoney(outstandingCents)}
+                                description={`${pendingPayments.length} pending ${pendingPayments.length === 1 ? "payment" : "payments"}`}
+                            />
+                            <StatCard
+                                size="compact"
+                                tone="danger"
+                                label="Overdue"
+                                icon={CalendarDays}
+                                value={formatMoney(overdueCents)}
+                                description={`${overduePayments.length} overdue ${overduePayments.length === 1 ? "payment" : "payments"}`}
+                            />
                         </div>
 
                         {payments.length === 0 ? (

@@ -3,6 +3,8 @@ import { UserPlus, X } from "lucide-react";
 
 import { ApiError } from "../../../lib/api/client";
 import type { AddMemberRequest } from "../types";
+import FormField from "../../../components/ui/FormField";
+import { inputClass } from "../../../components/ui/formStyles";
 
 interface AddMemberFormProps {
     submitting: boolean;
@@ -22,11 +24,6 @@ const roleOptions: { value: AddMemberRequest["role"]; label: string; description
         description: "Everything a member can do, plus adding people and deleting, voiding, ending or cancelling.",
     },
 ];
-
-const inputClass =
-    "w-full rounded-lg border border-[#dce4de] bg-white px-3 py-2.5 text-sm text-[#243b35] outline-none transition placeholder:text-gray-400 focus:border-[#14302b] focus:ring-2 focus:ring-[#14302b]/10 disabled:cursor-not-allowed disabled:bg-gray-100";
-
-const labelClass = "mb-1.5 block text-sm font-medium text-[#243b35]";
 
 export default function AddMemberForm({ submitting, onSubmit, onCancel }: AddMemberFormProps) {
     const [email, setEmail] = useState("");
@@ -71,8 +68,7 @@ export default function AddMemberForm({ submitting, onSubmit, onCancel }: AddMem
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                    <label htmlFor="member-email" className={labelClass}>Email</label>
+                <FormField htmlFor="member-email" label="Email">
                     <input
                         id="member-email"
                         type="email"
@@ -90,10 +86,9 @@ export default function AddMemberForm({ submitting, onSubmit, onCancel }: AddMem
                         className={`${inputClass} ${emailError ? "border-red-400" : ""}`}
                     />
                     {emailError && <p id="member-email-error" className="mt-1.5 text-xs text-red-700">{emailError}</p>}
-                </div>
+                </FormField>
 
-                <div>
-                    <label htmlFor="member-role" className={labelClass}>Role</label>
+                <FormField htmlFor="member-role" label="Role">
                     <select
                         id="member-role"
                         value={role}
@@ -109,7 +104,7 @@ export default function AddMemberForm({ submitting, onSubmit, onCancel }: AddMem
                     <p id="member-role-description" className="mt-1.5 text-xs text-gray-500">
                         {roleOptions.find((option) => option.value === role)?.description}
                     </p>
-                </div>
+                </FormField>
             </div>
 
             {error && <p role="alert" className="mt-4 text-sm text-red-700">{error}</p>}

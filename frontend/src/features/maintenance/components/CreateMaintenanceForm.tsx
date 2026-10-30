@@ -7,6 +7,8 @@ import type {
     CreateMaintenanceRequest,
     MaintenancePriority,
 } from "../types";
+import FormField from "../../../components/ui/FormField";
+import { inputClass } from "../../../components/ui/formStyles";
 
 export interface MaintenancePropertyOption {
     id: number;
@@ -34,12 +36,6 @@ const priorities: {
     { value: "HIGH", label: "High" },
     { value: "URGENT", label: "Urgent" },
 ];
-
-const inputClass =
-    "w-full rounded-lg border border-[#dce4de] bg-white px-3 py-2.5 text-sm text-[#243b35] outline-none transition placeholder:text-gray-400 focus:border-[#14302b] focus:ring-2 focus:ring-[#14302b]/10 disabled:cursor-not-allowed disabled:bg-gray-100";
-
-const labelClass =
-    "mb-1.5 block text-sm font-medium text-[#243b35]";
 
 export default function CreateMaintenanceForm({
     propertyId,
@@ -137,14 +133,7 @@ export default function CreateMaintenanceForm({
             </div>
 
             {properties && (
-                <div className="mb-4">
-                    <label
-                        htmlFor="maintenance-property"
-                        className={labelClass}
-                    >
-                        Property
-                    </label>
-
+                <FormField htmlFor="maintenance-property" label="Property" className="mb-4">
                     <select
                         id="maintenance-property"
                         required
@@ -169,7 +158,7 @@ export default function CreateMaintenanceForm({
                             </option>
                         ))}
                     </select>
-                </div>
+                </FormField>
             )}
 
             {noSpaces ? (
@@ -182,14 +171,7 @@ export default function CreateMaintenanceForm({
                 </div>
             ) : (
                 <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="sm:col-span-2">
-                        <label
-                            htmlFor="maintenance-space"
-                            className={labelClass}
-                        >
-                            Property space
-                        </label>
-
+                    <FormField htmlFor="maintenance-space" label="Property space" className="sm:col-span-2">
                         <select
                             id="maintenance-space"
                             required
@@ -218,16 +200,9 @@ export default function CreateMaintenanceForm({
                                 </option>
                             ))}
                         </select>
-                    </div>
+                    </FormField>
 
-                    <div className="sm:col-span-2">
-                        <label
-                            htmlFor="maintenance-title"
-                            className={labelClass}
-                        >
-                            Issue title
-                        </label>
-
+                    <FormField htmlFor="maintenance-title" label="Issue title" className="sm:col-span-2">
                         <input
                             id="maintenance-title"
                             required
@@ -239,16 +214,9 @@ export default function CreateMaintenanceForm({
                             disabled={submitting}
                             className={inputClass}
                         />
-                    </div>
+                    </FormField>
 
-                    <div className="sm:col-span-2">
-                        <label
-                            htmlFor="maintenance-description"
-                            className={labelClass}
-                        >
-                            Description
-                        </label>
-
+                    <FormField htmlFor="maintenance-description" label="Description" className="sm:col-span-2">
                         <textarea
                             id="maintenance-description"
                             required
@@ -261,16 +229,9 @@ export default function CreateMaintenanceForm({
                             disabled={submitting}
                             className={`${inputClass} resize-y`}
                         />
-                    </div>
+                    </FormField>
 
-                    <div>
-                        <label
-                            htmlFor="maintenance-priority"
-                            className={labelClass}
-                        >
-                            Priority
-                        </label>
-
+                    <FormField htmlFor="maintenance-priority" label="Priority">
                         <select
                             id="maintenance-priority"
                             value={priority}
@@ -291,7 +252,7 @@ export default function CreateMaintenanceForm({
                                 </option>
                             ))}
                         </select>
-                    </div>
+                    </FormField>
                 </div>
             )}
 

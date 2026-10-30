@@ -6,6 +6,8 @@ import { addDays, addYears } from "../../../lib/dates";
 import { formatLongDate } from "../../../lib/format";
 import { moneyInputFromCents, parseMoneyToCents } from "../../../lib/money";
 import type { LeaseResponse, RenewLeaseRequest } from "../types";
+import FormField from "../../../components/ui/FormField";
+import { inputClass } from "../../../components/ui/formStyles";
 
 interface RenewLeaseFormProps {
     lease: LeaseResponse;
@@ -83,12 +85,6 @@ export default function RenewLeaseForm({
         }
     }
 
-    const inputClass =
-        "w-full rounded-lg border border-[#dce4de] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#14302b] focus:ring-2 focus:ring-[#14302b]/10 disabled:cursor-not-allowed disabled:bg-gray-100";
-
-    const labelClass =
-        "mb-1.5 block text-sm font-medium text-[#243b35]";
-
     return (
         <form
             onSubmit={handleSubmit}
@@ -132,13 +128,7 @@ export default function RenewLeaseForm({
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                    <label
-                        htmlFor="renew-start-date"
-                        className={labelClass}
-                    >
-                        Renewal start date
-                    </label>
+                <FormField htmlFor="renew-start-date" label="Renewal start date">
                     <input
                         id="renew-start-date"
                         type="date"
@@ -156,15 +146,9 @@ export default function RenewLeaseForm({
                         disabled={submitting}
                         className={inputClass}
                     />
-                </div>
+                </FormField>
 
-                <div>
-                    <label
-                        htmlFor="renew-end-date"
-                        className={labelClass}
-                    >
-                        Renewal end date
-                    </label>
+                <FormField htmlFor="renew-end-date" label="Renewal end date">
                     <input
                         id="renew-end-date"
                         type="date"
@@ -175,15 +159,9 @@ export default function RenewLeaseForm({
                         disabled={submitting}
                         className={inputClass}
                     />
-                </div>
+                </FormField>
 
-                <div>
-                    <label
-                        htmlFor="renew-monthly-rent"
-                        className={labelClass}
-                    >
-                        Monthly rent (€)
-                    </label>
+                <FormField htmlFor="renew-monthly-rent" label="Monthly rent (€)">
                     <input
                         id="renew-monthly-rent"
                         type="number"
@@ -197,15 +175,9 @@ export default function RenewLeaseForm({
                         disabled={submitting}
                         className={inputClass}
                     />
-                </div>
+                </FormField>
 
-                <div>
-                    <label
-                        htmlFor="renew-security-deposit"
-                        className={labelClass}
-                    >
-                        Security deposit (€)
-                    </label>
+                <FormField htmlFor="renew-security-deposit" label="Security deposit (€)">
                     <input
                         id="renew-security-deposit"
                         type="number"
@@ -219,7 +191,7 @@ export default function RenewLeaseForm({
                         disabled={submitting}
                         className={inputClass}
                     />
-                </div>
+                </FormField>
             </div>
 
             <div className="mt-4 flex items-start gap-2 rounded-lg border border-[#e1e8e3] bg-white px-3 py-3 text-xs text-gray-500">

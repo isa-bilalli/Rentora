@@ -5,6 +5,8 @@ import type {
     TenantResponse,
     TenantType,
 } from "../types";
+import FormField from "../../../components/ui/FormField";
+import { inputClass } from "../../../components/ui/formStyles";
 
 interface TenantFormProps {
     initialTenant?: TenantResponse;
@@ -30,10 +32,6 @@ export default function TenantForm({
     const [email, setEmail] = useState(initialTenant?.email ?? "");
     const [phone, setPhone] = useState(initialTenant?.phone ?? "");
     const [error, setError] = useState<string | null>(null);
-
-    const inputClass =
-        "w-full rounded-lg border border-[#dce4de] bg-white px-3 py-2.5 text-sm text-[#243b35] outline-none transition focus:border-[#14302b] focus:ring-2 focus:ring-[#14302b]/10 disabled:cursor-not-allowed disabled:bg-gray-100";
-    const labelClass = "mb-1.5 block text-sm font-medium text-[#243b35]";
 
     async function handleSubmit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
@@ -100,10 +98,7 @@ export default function TenantForm({
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                    <label htmlFor="tenant-type" className={labelClass}>
-                        Tenant type
-                    </label>
+                <FormField htmlFor="tenant-type" label="Tenant type">
                     <select
                         id="tenant-type"
                         value={type}
@@ -128,14 +123,11 @@ export default function TenantForm({
                             Tenant type cannot be changed after creation.
                         </p>
                     )}
-                </div>
+                </FormField>
 
                 {type === "INDIVIDUAL" ? (
                     <>
-                        <div>
-                            <label htmlFor="tenant-first-name" className={labelClass}>
-                                First name
-                            </label>
+                        <FormField htmlFor="tenant-first-name" label="First name">
                             <input
                                 id="tenant-first-name"
                                 required
@@ -146,11 +138,8 @@ export default function TenantForm({
                                 disabled={submitting}
                                 className={inputClass}
                             />
-                        </div>
-                        <div>
-                            <label htmlFor="tenant-last-name" className={labelClass}>
-                                Last name
-                            </label>
+                        </FormField>
+                        <FormField htmlFor="tenant-last-name" label="Last name">
                             <input
                                 id="tenant-last-name"
                                 required
@@ -161,13 +150,10 @@ export default function TenantForm({
                                 disabled={submitting}
                                 className={inputClass}
                             />
-                        </div>
+                        </FormField>
                     </>
                 ) : (
-                    <div>
-                        <label htmlFor="tenant-company-name" className={labelClass}>
-                            Company name
-                        </label>
+                    <FormField htmlFor="tenant-company-name" label="Company name">
                         <input
                             id="tenant-company-name"
                             required
@@ -178,13 +164,10 @@ export default function TenantForm({
                             disabled={submitting}
                             className={inputClass}
                         />
-                    </div>
+                    </FormField>
                 )}
 
-                <div>
-                    <label htmlFor="tenant-email" className={labelClass}>
-                        Email <span className="font-normal text-gray-400">(optional)</span>
-                    </label>
+                <FormField htmlFor="tenant-email" label="Email" hint="optional">
                     <input
                         id="tenant-email"
                         type="email"
@@ -195,11 +178,8 @@ export default function TenantForm({
                         disabled={submitting}
                         className={inputClass}
                     />
-                </div>
-                <div>
-                    <label htmlFor="tenant-phone" className={labelClass}>
-                        Phone <span className="font-normal text-gray-400">(optional)</span>
-                    </label>
+                </FormField>
+                <FormField htmlFor="tenant-phone" label="Phone" hint="optional">
                     <input
                         id="tenant-phone"
                         type="tel"
@@ -210,7 +190,7 @@ export default function TenantForm({
                         disabled={submitting}
                         className={inputClass}
                     />
-                </div>
+                </FormField>
             </div>
 
             {error && (

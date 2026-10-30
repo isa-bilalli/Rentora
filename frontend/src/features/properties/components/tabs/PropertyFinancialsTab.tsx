@@ -12,7 +12,7 @@ import { formatPaymentMethod, getPaymentDisplayStatus } from "../../../payments/
 import type { PaymentResponse } from "../../../payments/types";
 import { usePaymentActions } from "../../../payments/usePaymentActions";
 import type { SpaceResponse } from "../../types";
-import SummaryCard from "../SummaryCard";
+import StatCard from "../../../../components/ui/StatCard";
 import TableHeader from "./TableHeader";
 
 // Latest due date first.
@@ -137,19 +137,19 @@ export default function PropertyFinancialsTab({ propertyId, spaces }: PropertyFi
                         aria-label="Financial summary"
                         className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
                     >
-                        <SummaryCard
+                        <StatCard
                             label="Rent collected"
                             value={formatMoney(collectedCents)}
                             description="Payments recorded as paid"
                         />
 
-                        <SummaryCard
+                        <StatCard
                             label="Outstanding"
                             value={formatMoney(outstandingCents)}
                             description="All pending payments, including overdue"
                         />
 
-                        <SummaryCard
+                        <StatCard
                             label="Overdue"
                             value={formatMoney(overdueCents)}
                             description={`${overduePayments.length} overdue ${overduePayments.length === 1 ? "payment" : "payments"}`}

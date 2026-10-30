@@ -28,6 +28,8 @@ import { todayLocalDateString } from "../../../lib/dates";
 import { formatDateTime, formatLongDate, formatMoney } from "../../../lib/format";
 import { useRolePermissions } from "../../organizations/useRolePermissions";
 import { useConfirm } from "../../../components/confirm/useConfirm";
+import DetailField from "../../../components/ui/DetailField";
+import StatCard from "../../../components/ui/StatCard";
 import { leaseActionConfirmation } from "../leaseActionConfirmation";
 
 type LeaseAction = "end" | "cancel" | null;
@@ -37,25 +39,6 @@ async function getSpaceWithProperty(organizationId: number, spaceId: number) {
     const space = await getSpace(organizationId, spaceId);
     const property = await getProperty(organizationId, space.propertyId);
     return { space, property };
-}
-
-function DetailField({
-    label,
-    value,
-}: {
-    label: string;
-    value: string;
-}) {
-    return (
-        <div className="border-b border-[#edf1ee] px-5 py-4 last:border-b-0">
-            <dt className="text-xs font-medium uppercase tracking-wide text-gray-400">
-                {label}
-            </dt>
-            <dd className="mt-1 wrap-break-words text-sm font-medium text-[#243b35]">
-                {value || "—"}
-            </dd>
-        </div>
-    );
 }
 
 function getErrorMessage(error: unknown, fallback: string): string {
@@ -399,69 +382,32 @@ export default function LeaseDetailsPage() {
             )}
 
             <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                <article className="rounded-xl border border-[#e0e7e2] bg-white p-5">
-                    <div className="flex items-center justify-between gap-3">
-                        <p className="text-sm text-gray-500">Monthly rent</p>
-                        <Wallet className="h-5 w-5 text-[#769286]" />
-                    </div>
-
-                    <p className="mt-3 text-2xl font-semibold tracking-tight text-[#14302b]">
-                        {formatMoney(lease.monthlyRentCents)}
-                    </p>
-
-                    <p className="mt-1 text-xs text-gray-500">
-                        Agreed recurring rent
-                    </p>
-                </article>
-
-                <article className="rounded-xl border border-[#e0e7e2] bg-white p-5">
-                    <div className="flex items-center justify-between gap-3">
-                        <p className="text-sm text-gray-500">
-                            Security deposit
-                        </p>
-                        <CheckCircle2 className="h-5 w-5 text-[#769286]" />
-                    </div>
-
-                    <p className="mt-3 text-2xl font-semibold tracking-tight text-[#14302b]">
-                        {formatMoney(lease.securityDepositCents)}
-                    </p>
-
-                    <p className="mt-1 text-xs text-gray-500">
-                        Deposit specified in lease
-                    </p>
-                </article>
-
-                <article className="rounded-xl border border-[#e0e7e2] bg-white p-5">
-                    <div className="flex items-center justify-between gap-3">
-                        <p className="text-sm text-gray-500">Lease start</p>
-                        <CalendarDays className="h-5 w-5 text-[#769286]" />
-                    </div>
-
-                    <p className="mt-3 text-lg font-semibold text-[#14302b]">
-                        {formatLongDate(lease.startDate)}
-                    </p>
-
-                    <p className="mt-1 text-xs text-gray-500">
-                        {rentHasStarted
-                            ? "Term has started"
-                            : "Term has not started yet"}
-                    </p>
-                </article>
-
-                <article className="rounded-xl border border-[#e0e7e2] bg-white p-5">
-                    <div className="flex items-center justify-between gap-3">
-                        <p className="text-sm text-gray-500">Lease end</p>
-                        <Clock3 className="h-5 w-5 text-[#769286]" />
-                    </div>
-
-                    <p className="mt-3 text-lg font-semibold text-[#14302b]">
-                        {formatLongDate(lease.endDate)}
-                    </p>
-
-                    <p className="mt-1 text-xs text-gray-500">
-                        End date recorded on the lease
-                    </p>
-                </article>
+                <StatCard
+                    label="Monthly rent"
+                    icon={Wallet}
+                    value={formatMoney(lease.monthlyRentCents)}
+                    description="Agreed recurring rent"
+                />
+                <StatCard
+                    label="Security deposit"
+                    icon={CheckCircle2}
+                    value={formatMoney(lease.securityDepositCents)}
+                    description="Deposit specified in lease"
+                />
+                <StatCard
+                    label="Lease start"
+                    icon={CalendarDays}
+                    value={formatLongDate(lease.startDate)}
+                    description={rentHasStarted ? "Term has started" : "Term has not started yet"}
+                    smallValue
+                />
+                <StatCard
+                    label="Lease end"
+                    icon={Clock3}
+                    value={formatLongDate(lease.endDate)}
+                    description="End date recorded on the lease"
+                    smallValue
+                />
             </section>
 
             <section className="grid gap-6 lg:grid-cols-2">
@@ -485,7 +431,7 @@ export default function LeaseDetailsPage() {
                         </div>
                     </div>
 
-                    <dl>
+                    <dl className="[&>:last-child]:border-b-0">
                         <DetailField
                             label="Tenant name"
                             value={
@@ -544,7 +490,7 @@ export default function LeaseDetailsPage() {
                         </div>
                     </div>
 
-                    <dl>
+                    <dl className="[&>:last-child]:border-b-0">
                         <DetailField
                             label="Property"
                             value={property?.name ?? "Property not resolved"}
@@ -621,7 +567,7 @@ export default function LeaseDetailsPage() {
                     </p>
                 </div>
 
-                <dl className="grid gap-x-8 sm:grid-cols-2">
+                <dl className="grid gap-x-8 sm:grid-cols-2 [&>:last-child]:border-b-0">
                     <DetailField
                         label="Lease ID"
                         value={String(lease.id)}

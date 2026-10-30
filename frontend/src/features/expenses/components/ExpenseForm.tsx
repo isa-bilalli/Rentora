@@ -6,6 +6,8 @@ import { todayLocalDateString } from "../../../lib/dates";
 import { moneyInputFromCents, parseMoneyToCents } from "../../../lib/money";
 import { expenseCategoryLabel } from "../status";
 import type { CreateExpenseRequest, ExpenseCategory, ExpenseResponse } from "../types";
+import FormField from "../../../components/ui/FormField";
+import { inputClass } from "../../../components/ui/formStyles";
 
 interface ExpenseFormProps {
     properties: PropertyWithSpaces[];
@@ -19,11 +21,6 @@ interface ExpenseFormProps {
 const categories = Object.keys(expenseCategoryLabel) as ExpenseCategory[];
 
 // Same field styling as the maintenance and lease forms.
-const inputClass =
-    "w-full rounded-lg border border-[#dce4de] bg-white px-3 py-2.5 text-sm text-[#243b35] outline-none transition placeholder:text-gray-400 focus:border-[#14302b] focus:ring-2 focus:ring-[#14302b]/10 disabled:cursor-not-allowed disabled:bg-gray-100";
-
-const labelClass = "mb-1.5 block text-sm font-medium text-[#243b35]";
-
 export default function ExpenseForm({ properties, expense, submitting, onSubmit, onCancel }: ExpenseFormProps) {
     const editing = expense !== undefined;
 
@@ -112,8 +109,7 @@ export default function ExpenseForm({ properties, expense, submitting, onSubmit,
             <div className="grid gap-4 sm:grid-cols-2">
                 {!editing && (
                     <>
-                        <div>
-                            <label htmlFor="expense-property" className={labelClass}>Property</label>
+                        <FormField htmlFor="expense-property" label="Property">
                             <select
                                 id="expense-property"
                                 required
@@ -130,10 +126,9 @@ export default function ExpenseForm({ properties, expense, submitting, onSubmit,
                                     <option key={property.id} value={property.id}>{property.name}</option>
                                 ))}
                             </select>
-                        </div>
+                        </FormField>
 
-                        <div>
-                            <label htmlFor="expense-space" className={labelClass}>Space</label>
+                        <FormField htmlFor="expense-space" label="Space">
                             <select
                                 id="expense-space"
                                 value={spaceId}
@@ -146,12 +141,11 @@ export default function ExpenseForm({ properties, expense, submitting, onSubmit,
                                     <option key={space.id} value={space.id}>{space.name}</option>
                                 ))}
                             </select>
-                        </div>
+                        </FormField>
                     </>
                 )}
 
-                <div>
-                    <label htmlFor="expense-category" className={labelClass}>Category</label>
+                <FormField htmlFor="expense-category" label="Category">
                     <select
                         id="expense-category"
                         required
@@ -165,10 +159,9 @@ export default function ExpenseForm({ properties, expense, submitting, onSubmit,
                             <option key={option} value={option}>{expenseCategoryLabel[option]}</option>
                         ))}
                     </select>
-                </div>
+                </FormField>
 
-                <div>
-                    <label htmlFor="expense-date" className={labelClass}>Date</label>
+                <FormField htmlFor="expense-date" label="Date">
                     <input
                         id="expense-date"
                         type="date"
@@ -178,10 +171,9 @@ export default function ExpenseForm({ properties, expense, submitting, onSubmit,
                         disabled={submitting}
                         className={inputClass}
                     />
-                </div>
+                </FormField>
 
-                <div>
-                    <label htmlFor="expense-amount" className={labelClass}>Amount (€)</label>
+                <FormField htmlFor="expense-amount" label="Amount (€)">
                     <input
                         id="expense-amount"
                         type="number"
@@ -194,12 +186,9 @@ export default function ExpenseForm({ properties, expense, submitting, onSubmit,
                         disabled={submitting}
                         className={inputClass}
                     />
-                </div>
+                </FormField>
 
-                <div>
-                    <label htmlFor="expense-vendor" className={labelClass}>
-                        Vendor <span className="font-normal text-gray-400">(optional)</span>
-                    </label>
+                <FormField htmlFor="expense-vendor" label="Vendor" hint="optional">
                     <input
                         id="expense-vendor"
                         maxLength={150}
@@ -209,12 +198,9 @@ export default function ExpenseForm({ properties, expense, submitting, onSubmit,
                         disabled={submitting}
                         className={inputClass}
                     />
-                </div>
+                </FormField>
 
-                <div className="sm:col-span-2">
-                    <label htmlFor="expense-description" className={labelClass}>
-                        Description <span className="font-normal text-gray-400">(optional)</span>
-                    </label>
+                <FormField htmlFor="expense-description" label="Description" hint="optional" className="sm:col-span-2">
                     <textarea
                         id="expense-description"
                         rows={3}
@@ -225,7 +211,7 @@ export default function ExpenseForm({ properties, expense, submitting, onSubmit,
                         disabled={submitting}
                         className={`${inputClass} resize-y`}
                     />
-                </div>
+                </FormField>
             </div>
 
             {error && (

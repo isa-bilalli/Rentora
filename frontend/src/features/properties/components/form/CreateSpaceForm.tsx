@@ -8,6 +8,9 @@ import type {
     SpaceType,
 } from "../../types";
 import { spaceTypeLabels } from "../../spaceLabels";
+import { checkSpaceFields, spaceNameLimit, type SpaceMessages } from "../../validation";
+import FormField from "../../../../components/ui/FormField";
+import { inputClass } from "../../../../components/ui/formStyles";
 
 interface CreateSpaceFormProps {
     submitting: boolean;
@@ -15,6 +18,14 @@ interface CreateSpaceFormProps {
     onSubmit: (request: CreateSpaceRequest) => Promise<void>;
     onCancel: () => void;
 }
+
+// The name input stops at the limit, so the too-long message can't come up from typing or pasting.
+const spaceMessages: SpaceMessages = {
+    nameMissing: "Space name is required.",
+    nameTooLong: `Space name cannot exceed ${spaceNameLimit} characters.`,
+    floor: "Floor must be a whole number.",
+    area: "Area must be greater than zero.",
+};
 
 export default function CreateSpaceForm({
     submitting,
@@ -40,42 +51,15 @@ export default function CreateSpaceForm({
         event.preventDefault();
         setError(null);
 
-        const trimmedName = name.trim();
+        const checked = checkSpaceFields({ name, type, floor, area }, spaceMessages);
 
-        if (!trimmedName) {
-            setError("Space name is required.");
-            return;
-        }
-
-        const parsedFloor =
-            floor.trim() === "" ? null : Number(floor);
-
-        const parsedArea =
-            area.trim() === "" ? null : Number(area);
-
-        if (
-            parsedFloor !== null &&
-            !Number.isInteger(parsedFloor)
-        ) {
-            setError("Floor must be a whole number.");
-            return;
-        }
-
-        if (
-            parsedArea !== null &&
-            (!Number.isFinite(parsedArea) || parsedArea <= 0)
-        ) {
-            setError("Area must be greater than zero.");
+        if (!checked.ok) {
+            setError(checked.error);
             return;
         }
 
         try {
-            await onSubmit({
-                name: trimmedName,
-                type,
-                floor: parsedFloor,
-                area: parsedArea,
-            });
+            await onSubmit(checked.value);
         } catch (submitError) {
             setError(
                 submitError instanceof Error
@@ -84,9 +68,6 @@ export default function CreateSpaceForm({
             );
         }
     }
-
-    const inputClass =
-        "w-full rounded-lg border border-[#dce4de] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#14302b] focus:ring-2 focus:ring-[#14302b]/10";
 
     return (
         <form
@@ -117,31 +98,19 @@ export default function CreateSpaceForm({
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                    <label
-                        htmlFor="space-name"
-                        className="mb-1.5 block text-sm font-medium text-[#243b35]"
-                    >
-                        Space name
-                    </label>
+                <FormField htmlFor="space-name" label="Space name">
                     <input
                         id="space-name"
                         required
-                        maxLength={100}
+                        maxLength={spaceNameLimit}
                         value={name}
                         onChange={(event) => setName(event.target.value)}
                         placeholder="e.g. Apartment 1"
                         className={inputClass}
                     />
-                </div>
+                </FormField>
 
-                <div>
-                    <label
-                        htmlFor="space-type"
-                        className="mb-1.5 block text-sm font-medium text-[#243b35]"
-                    >
-                        Space type
-                    </label>
+                <FormField htmlFor="space-type" label="Space type">
                     <select
                         id="space-type"
                         value={type}
@@ -156,18 +125,9 @@ export default function CreateSpaceForm({
                             </option>
                         ))}
                     </select>
-                </div>
+                </FormField>
 
-                <div>
-                    <label
-                        htmlFor="space-floor"
-                        className="mb-1.5 block text-sm font-medium text-[#243b35]"
-                    >
-                        Floor{" "}
-                        <span className="font-normal text-gray-400">
-                            (optional)
-                        </span>
-                    </label>
+                <FormField htmlFor="space-floor" label="Floor" hint="optional">
                     <input
                         id="space-floor"
                         type="number"
@@ -177,18 +137,9 @@ export default function CreateSpaceForm({
                         placeholder="e.g. 2"
                         className={inputClass}
                     />
-                </div>
+                </FormField>
 
-                <div>
-                    <label
-                        htmlFor="space-area"
-                        className="mb-1.5 block text-sm font-medium text-[#243b35]"
-                    >
-                        Area (m²){" "}
-                        <span className="font-normal text-gray-400">
-                            (optional)
-                        </span>
-                    </label>
+                <FormField htmlFor="space-area" label="Area (m²)" hint="optional">
                     <input
                         id="space-area"
                         type="number"
@@ -199,7 +150,7 @@ export default function CreateSpaceForm({
                         placeholder="e.g. 75.5"
                         className={inputClass}
                     />
-                </div>
+                </FormField>
             </div>
 
             {error && (

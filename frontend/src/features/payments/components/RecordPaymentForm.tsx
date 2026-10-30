@@ -4,6 +4,8 @@ import { Pencil, X } from "lucide-react";
 import { formatDate, formatMoney } from "../../../lib/format";
 import { paymentMethodLabels } from "../status";
 import type { PaymentMethod, PaymentResponse, RecordPaymentRequest } from "../types";
+import FormField from "../../../components/ui/FormField";
+import { inputClass } from "../../../components/ui/formStyles";
 
 function getLocalDateTimeInputValue(): string {
     const now = new Date();
@@ -62,10 +64,6 @@ export default function RecordPaymentForm({
         }
     }
 
-    const inputClass =
-        "w-full rounded-lg border border-[#dce4de] bg-white px-3 py-2.5 text-sm text-[#243b35] outline-none focus:border-[#14302b] focus:ring-2 focus:ring-[#14302b]/10 disabled:cursor-not-allowed disabled:bg-gray-100";
-    const labelClass = "mb-1.5 block text-sm font-medium text-[#243b35]";
-
     return (
         <form
             onSubmit={handleSubmit}
@@ -92,10 +90,7 @@ export default function RecordPaymentForm({
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                    <label htmlFor="payment-paid-at" className={labelClass}>
-                        Date and time received
-                    </label>
+                <FormField htmlFor="payment-paid-at" label="Date and time received">
                     <input
                         id="payment-paid-at"
                         type="datetime-local"
@@ -105,12 +100,9 @@ export default function RecordPaymentForm({
                         disabled={submitting}
                         className={inputClass}
                     />
-                </div>
+                </FormField>
 
-                <div>
-                    <label htmlFor="payment-method" className={labelClass}>
-                        Payment method
-                    </label>
+                <FormField htmlFor="payment-method" label="Payment method">
                     <select
                         id="payment-method"
                         required
@@ -126,7 +118,7 @@ export default function RecordPaymentForm({
                             </option>
                         ))}
                     </select>
-                </div>
+                </FormField>
             </div>
 
             {error && (

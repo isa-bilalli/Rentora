@@ -9,6 +9,8 @@ import type { TenantResponse } from "../../tenants/types";
 import { getTenantDisplayName } from "../../tenants/types";
 import type { SpaceResponse } from "../../properties/types";
 import { spaceStatusLabels, spaceTypeLabels } from "../../properties/spaceLabels";
+import FormField from "../../../components/ui/FormField";
+import { inputClass } from "../../../components/ui/formStyles";
 
 interface CreateLeaseFormProps {
     tenants: TenantResponse[];
@@ -80,12 +82,6 @@ export default function CreateLeaseForm({
         }
     }
 
-    const inputClass =
-        "w-full rounded-lg border border-[#dce4de] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#14302b] focus:ring-2 focus:ring-[#14302b]/10 disabled:cursor-not-allowed disabled:bg-gray-100";
-
-    const labelClass =
-        "mb-1.5 block text-sm font-medium text-[#243b35]";
-
     return (
         <form
             onSubmit={handleSubmit}
@@ -127,13 +123,7 @@ export default function CreateLeaseForm({
             ) : (
                 <>
                     <div className="grid gap-4 sm:grid-cols-2">
-                        <div>
-                            <label
-                                htmlFor="lease-tenant"
-                                className={labelClass}
-                            >
-                                Tenant
-                            </label>
+                        <FormField htmlFor="lease-tenant" label="Tenant">
                             <select
                                 id="lease-tenant"
                                 required
@@ -160,15 +150,9 @@ export default function CreateLeaseForm({
                                     </option>
                                 ))}
                             </select>
-                        </div>
+                        </FormField>
 
-                        <div>
-                            <label
-                                htmlFor="lease-space"
-                                className={labelClass}
-                            >
-                                Property space
-                            </label>
+                        <FormField htmlFor="lease-space" label="Property space">
                             <select
                                 id="lease-space"
                                 required
@@ -196,15 +180,9 @@ export default function CreateLeaseForm({
                                     </option>
                                 ))}
                             </select>
-                        </div>
+                        </FormField>
 
-                        <div>
-                            <label
-                                htmlFor="lease-start-date"
-                                className={labelClass}
-                            >
-                                Start date
-                            </label>
+                        <FormField htmlFor="lease-start-date" label="Start date">
                             <input
                                 id="lease-start-date"
                                 type="date"
@@ -216,15 +194,9 @@ export default function CreateLeaseForm({
                                 disabled={submitting}
                                 className={inputClass}
                             />
-                        </div>
+                        </FormField>
 
-                        <div>
-                            <label
-                                htmlFor="lease-end-date"
-                                className={labelClass}
-                            >
-                                End date
-                            </label>
+                        <FormField htmlFor="lease-end-date" label="End date">
                             <input
                                 id="lease-end-date"
                                 type="date"
@@ -240,15 +212,9 @@ export default function CreateLeaseForm({
                             <p className="mt-1 text-xs text-gray-500">
                                 The end date must be later than the start date.
                             </p>
-                        </div>
+                        </FormField>
 
-                        <div>
-                            <label
-                                htmlFor="lease-monthly-rent"
-                                className={labelClass}
-                            >
-                                Monthly rent (€)
-                            </label>
+                        <FormField htmlFor="lease-monthly-rent" label="Monthly rent (€)">
                             <input
                                 id="lease-monthly-rent"
                                 type="number"
@@ -263,15 +229,9 @@ export default function CreateLeaseForm({
                                 disabled={submitting}
                                 className={inputClass}
                             />
-                        </div>
+                        </FormField>
 
-                        <div>
-                            <label
-                                htmlFor="lease-security-deposit"
-                                className={labelClass}
-                            >
-                                Security deposit (€)
-                            </label>
+                        <FormField htmlFor="lease-security-deposit" label="Security deposit (€)">
                             <input
                                 id="lease-security-deposit"
                                 type="number"
@@ -286,7 +246,7 @@ export default function CreateLeaseForm({
                                 disabled={submitting}
                                 className={inputClass}
                             />
-                        </div>
+                        </FormField>
                     </div>
                 </>
             )}
